@@ -2,3 +2,11 @@
 .claude/
 .env
 target/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/coverage/
+frontend/.tmp/
