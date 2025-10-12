@@ -1,0 +1,50 @@
+use crate::graphql::context::GraphQLContext;
+use crate::graphql::groups::types::Group;
+use async_graphql::*;
+use uuid::Uuid;
+
+#[derive(Clone)]
+pub struct Player {
+    pub id: Uuid,
+    pub group_id: Uuid,
+    pub name: String,
+    pub elo_rating: i32,
+}
+
+impl From<crate::models::Player> for Player {
+    fn from(model: crate::models::Player) -> Self {
+        Self {
+            id: model.id,
+            group_id: model.group_id,
+            name: model.name,
+            elo_rating: model.elo_rating,
+        }
+    }
+}
+
+#[Object]
+impl Player {
+    async fn id(&self) -> ID {
+        ID(self.id.to_string())
+    }
+
+    async fn name(&self) -> &str {
+        &self.name
+    }
+
+    async fn elo_rating(&self) -> i32 {
+        self.elo_rating
+    }
+
+    async fn group(&self, ctx: &Context<'_>) -> Result<Option<Group>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+
+        let group = gql_ctx
+            .group_loader
+            .load_one(self.group_id)
+            .await?
+            .map(Group::from);
+
+        Ok(group)
+    }
+}
