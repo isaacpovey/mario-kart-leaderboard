@@ -20,6 +20,7 @@ pub struct Mutation(
     auth::AuthMutation,
     players::PlayersMutation,
     tournaments::TournamentsMutation,
+    matches::MatchesMutation,
 );
 
 pub type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;

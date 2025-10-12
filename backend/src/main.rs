@@ -56,8 +56,8 @@ async fn main() -> Result<()> {
     let addr = config.server_addr();
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 
-    eprintln!("GraphQL server running at http://{}/graphql", addr);
-    eprintln!("GraphQL Playground available at http://{}/", addr);
+    eprintln!("GraphQL server running at http://{addr}/graphql");
+    eprintln!("GraphQL Playground available at http://{addr}/");
 
     axum::serve(listener, app).await?;
 

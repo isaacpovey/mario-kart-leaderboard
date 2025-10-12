@@ -1,6 +1,8 @@
 use crate::graphql::groups::GroupLoader;
 use crate::graphql::matches::{MatchLoader, MatchesByTournamentLoader};
 use crate::graphql::players::{PlayerLoader, PlayersByGroupLoader};
+use crate::graphql::rounds::RoundsByMatchLoader;
+use crate::graphql::teams::TeamsByMatchLoader;
 use crate::graphql::tournaments::TournamentLoader;
 use async_graphql::dataloader::DataLoader;
 use sqlx::PgPool;
@@ -16,6 +18,8 @@ pub struct GraphQLContext {
     pub tournament_loader: Arc<DataLoader<TournamentLoader>>,
     pub match_loader: Arc<DataLoader<MatchLoader>>,
     pub matches_by_tournament_loader: Arc<DataLoader<MatchesByTournamentLoader>>,
+    pub rounds_by_match_loader: Arc<DataLoader<RoundsByMatchLoader>>,
+    pub teams_by_match_loader: Arc<DataLoader<TeamsByMatchLoader>>,
 }
 
 impl GraphQLContext {
@@ -44,6 +48,14 @@ impl GraphQLContext {
             )),
             matches_by_tournament_loader: Arc::new(DataLoader::new(
                 MatchesByTournamentLoader::new(pool.clone()),
+                tokio::spawn,
+            )),
+            rounds_by_match_loader: Arc::new(DataLoader::new(
+                RoundsByMatchLoader::new(pool.clone()),
+                tokio::spawn,
+            )),
+            teams_by_match_loader: Arc::new(DataLoader::new(
+                TeamsByMatchLoader::new(pool.clone()),
                 tokio::spawn,
             )),
             pool,

@@ -11,33 +11,28 @@ pub fn validate_name(name: &str, field_name: &str) -> Result<()> {
 
     if trimmed.is_empty() {
         return Err(AppError::InvalidInput(format!(
-            "{} cannot be empty",
-            field_name
+            "{field_name} cannot be empty"
         )));
     }
 
     if trimmed.len() < MIN_NAME_LENGTH {
         return Err(AppError::InvalidInput(format!(
-            "{} must be at least {} characters long",
-            field_name, MIN_NAME_LENGTH
+            "{field_name} must be at least {MIN_NAME_LENGTH} characters long"
         )));
     }
 
     if trimmed.len() > MAX_NAME_LENGTH {
         return Err(AppError::InvalidInput(format!(
-            "{} must be at most {} characters long",
-            field_name, MAX_NAME_LENGTH
+            "{field_name} must be at most {MAX_NAME_LENGTH} characters long"
         )));
     }
 
-    // Check for invalid characters (optional, adjust based on requirements)
     if !trimmed
         .chars()
         .all(|c| c.is_alphanumeric() || c.is_whitespace() || "-_'.".contains(c))
     {
         return Err(AppError::InvalidInput(format!(
-            "{} contains invalid characters. Only alphanumeric characters, spaces, hyphens, underscores, apostrophes, and periods are allowed",
-            field_name
+            "{field_name} contains invalid characters. Only alphanumeric characters, spaces, hyphens, underscores, apostrophes, and periods are allowed"
         )));
     }
 
@@ -54,15 +49,13 @@ pub fn validate_password(password: &str) -> Result<()> {
 
     if password.len() < MIN_PASSWORD_LENGTH {
         return Err(AppError::InvalidInput(format!(
-            "Password must be at least {} characters long",
-            MIN_PASSWORD_LENGTH
+            "Password must be at least {MIN_PASSWORD_LENGTH} characters long"
         )));
     }
 
     if password.len() > MAX_PASSWORD_LENGTH {
         return Err(AppError::InvalidInput(format!(
-            "Password must be at most {} characters long",
-            MAX_PASSWORD_LENGTH
+            "Password must be at most {MAX_PASSWORD_LENGTH} characters long"
         )));
     }
 

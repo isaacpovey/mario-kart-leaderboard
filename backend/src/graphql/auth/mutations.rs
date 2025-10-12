@@ -19,7 +19,6 @@ impl AuthMutation {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
         let config = ctx.data::<Config>()?;
 
-        // Validate inputs
         validate_name(&name, "Group name")?;
         validate_password(&password)?;
 

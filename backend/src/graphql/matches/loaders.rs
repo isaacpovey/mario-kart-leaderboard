@@ -1,7 +1,7 @@
 use crate::models::Match;
 use async_graphql::dataloader::*;
 use sqlx::PgPool;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 pub struct MatchLoader {
@@ -46,13 +46,18 @@ impl Loader<Uuid> for MatchesByTournamentLoader {
             .await
             .map_err(std::sync::Arc::new)?;
 
-        // Group matches by tournament_id using functional fold
-        let grouped = matches
+        let tournament_ids: HashSet<Uuid> = matches.iter().map(|m| m.tournament_id).collect();
+        let grouped: HashMap<Uuid, Vec<Match>> = tournament_ids
             .into_iter()
-            .fold(HashMap::<Uuid, Vec<Match>>::new(), |mut acc, m| {
-                acc.entry(m.tournament_id).or_default().push(m);
-                acc
-            });
+            .map(|tournament_id| {
+                let tournament_matches: Vec<Match> = matches
+                    .iter()
+                    .filter(|m| m.tournament_id == tournament_id)
+                    .cloned()
+                    .collect();
+                (tournament_id, tournament_matches)
+            })
+            .collect();
 
         Ok(grouped)
     }

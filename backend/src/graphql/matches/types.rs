@@ -2,29 +2,13 @@ use async_graphql::*;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-#[derive(Enum, Copy, Clone, Eq, PartialEq)]
-pub enum TeamCreationMode {
-    Balanced,
-    Full,
-}
-
-impl From<crate::models::TeamCreationMode> for TeamCreationMode {
-    fn from(model: crate::models::TeamCreationMode) -> Self {
-        match model {
-            crate::models::TeamCreationMode::Balanced => TeamCreationMode::Balanced,
-            crate::models::TeamCreationMode::Full => TeamCreationMode::Full,
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct Match {
     pub id: Uuid,
     pub group_id: Uuid,
     pub tournament_id: Uuid,
     pub time: DateTime<Utc>,
-    pub rounds: i32,
-    pub team_mode: TeamCreationMode,
+    pub num_of_rounds: i32,
     pub completed: bool,
 }
 
@@ -35,8 +19,7 @@ impl From<crate::models::Match> for Match {
             group_id: model.group_id,
             tournament_id: model.tournament_id,
             time: model.time,
-            rounds: model.rounds,
-            team_mode: TeamCreationMode::from(model.team_mode),
+            num_of_rounds: model.num_of_rounds,
             completed: model.completed,
         }
     }
@@ -56,12 +39,28 @@ impl Match {
         self.time.to_rfc3339()
     }
 
-    async fn rounds(&self) -> i32 {
-        self.rounds
+    async fn num_of_rounds(&self) -> i32 {
+        self.num_of_rounds
     }
 
-    async fn team_mode(&self) -> TeamCreationMode {
-        self.team_mode
+    async fn rounds(&self, ctx: &Context<'_>) -> Result<Vec<crate::graphql::rounds::Round>> {
+        let context = ctx.data_unchecked::<crate::graphql::GraphQLContext>();
+        let rounds = context
+            .rounds_by_match_loader
+            .load_one(self.id)
+            .await?
+            .unwrap_or_default();
+        Ok(rounds.into_iter().map(|r| r.into()).collect())
+    }
+
+    async fn teams(&self, ctx: &Context<'_>) -> Result<Vec<crate::graphql::teams::Team>> {
+        let context = ctx.data_unchecked::<crate::graphql::GraphQLContext>();
+        let teams = context
+            .teams_by_match_loader
+            .load_one(self.id)
+            .await?
+            .unwrap_or_default();
+        Ok(teams.into_iter().map(|t| t.into()).collect())
     }
 
     async fn completed(&self) -> bool {
