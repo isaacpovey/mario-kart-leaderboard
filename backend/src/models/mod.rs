@@ -1,15 +1,21 @@
 pub mod group;
 pub mod r#match;
 pub mod player;
+pub mod player_match_score;
+pub mod player_race_score;
 pub mod round;
 pub mod team;
+pub mod team_match_score;
 pub mod tournament;
 pub mod track;
 
 pub use group::Group;
 pub use player::Player;
+pub use player_match_score::PlayerMatchScore;
+pub use player_race_score::PlayerRaceScore;
 pub use r#match::Match;
 pub use round::Round;
 pub use team::Team;
+pub use team_match_score::TeamMatchScore;
 pub use tournament::Tournament;
 pub use track::Track;

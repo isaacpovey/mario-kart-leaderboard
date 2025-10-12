@@ -1,7 +1,7 @@
 use async_graphql::*;
 
 // Import all feature modules
-use crate::graphql::{auth, groups, matches, players, tournaments, tracks};
+use crate::graphql::{auth, groups, matches, players, rounds, tournaments, tracks};
 
 /// Root Query combining all feature queries
 #[derive(MergedObject, Default)]
@@ -21,6 +21,7 @@ pub struct Mutation(
     players::PlayersMutation,
     tournaments::TournamentsMutation,
     matches::MatchesMutation,
+    rounds::RoundsMutation,
 );
 
 pub type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;

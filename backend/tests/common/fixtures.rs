@@ -18,17 +18,13 @@ pub async fn create_test_group(
 
 /// Create multiple test groups
 pub async fn create_test_groups(pool: &PgPool, count: usize) -> Result<Vec<Group>, sqlx::Error> {
-    let mut groups = Vec::new();
-    for i in 0..count {
-        let group = create_test_group(
-            pool,
-            &format!("Test Group {}", i + 1),
-            &format!("password{}", i + 1),
-        )
-        .await?;
-        groups.push(group);
-    }
-    Ok(groups)
+    let params: Vec<_> = (0..count)
+        .map(|i| (format!("Test Group {}", i + 1), format!("password{}", i + 1)))
+        .collect();
+
+    futures::future::try_join_all(
+        params.iter().map(|(name, password)| create_test_group(pool, name, password))
+    ).await
 }
 
 /// Create a test player
@@ -46,12 +42,13 @@ pub async fn create_test_players(
     group_id: Uuid,
     count: usize,
 ) -> Result<Vec<Player>, sqlx::Error> {
-    let mut players = Vec::new();
-    for i in 0..count {
-        let player = create_test_player(pool, group_id, &format!("Player {}", i + 1)).await?;
-        players.push(player);
-    }
-    Ok(players)
+    let names: Vec<_> = (0..count)
+        .map(|i| format!("Player {}", i + 1))
+        .collect();
+
+    futures::future::try_join_all(
+        names.iter().map(|name| create_test_player(pool, group_id, name))
+    ).await
 }
 
 /// Create a test tournament
@@ -70,14 +67,13 @@ pub async fn create_test_tournaments(
     group_id: Uuid,
     count: usize,
 ) -> Result<Vec<Tournament>, sqlx::Error> {
-    let mut tournaments = Vec::new();
-    for i in 0..count {
-        let start_date = NaiveDate::from_ymd_opt(2024, 1, i as u32 + 1);
-        let end_date = NaiveDate::from_ymd_opt(2024, 1, i as u32 + 7);
-        let tournament = create_test_tournament(pool, group_id, start_date, end_date).await?;
-        tournaments.push(tournament);
-    }
-    Ok(tournaments)
+    futures::future::try_join_all(
+        (0..count).map(|i| {
+            let start_date = NaiveDate::from_ymd_opt(2024, 1, i as u32 + 1);
+            let end_date = NaiveDate::from_ymd_opt(2024, 1, i as u32 + 7);
+            create_test_tournament(pool, group_id, start_date, end_date)
+        })
+    ).await
 }
 
 /// Create a test match via direct DB insert
@@ -127,12 +123,9 @@ pub async fn create_test_teams(
     match_id: Uuid,
     count: i32,
 ) -> Result<Vec<Team>, sqlx::Error> {
-    let mut teams = Vec::new();
-    for i in 0..count {
-        let team = create_test_team(pool, group_id, match_id, i + 1).await?;
-        teams.push(team);
-    }
-    Ok(teams)
+    futures::future::try_join_all(
+        (0..count).map(|i| create_test_team(pool, group_id, match_id, i + 1))
+    ).await
 }
 
 /// Create a test round for a match
@@ -143,13 +136,14 @@ pub async fn create_test_round(
     track_id: Option<Uuid>,
 ) -> Result<Round, sqlx::Error> {
     sqlx::query_as::<_, Round>(
-        "INSERT INTO rounds (match_id, round_number, track_id)
-         VALUES ($1, $2, $3)
-         RETURNING match_id, round_number, track_id",
+        "INSERT INTO rounds (match_id, round_number, track_id, completed)
+         VALUES ($1, $2, $3, $4)
+         RETURNING match_id, round_number, track_id, completed",
     )
     .bind(match_id)
     .bind(round_number)
     .bind(track_id)
+    .bind(false)
     .fetch_one(pool)
     .await
 }
@@ -160,15 +154,38 @@ pub async fn create_test_rounds(
     match_id: Uuid,
     count: i32,
 ) -> Result<Vec<Round>, sqlx::Error> {
-    // Get a track ID to use
     let track_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM tracks LIMIT 1")
         .fetch_optional(pool)
         .await?;
 
-    let mut rounds = Vec::new();
-    for i in 0..count {
-        let round = create_test_round(pool, match_id, i + 1, track_id).await?;
-        rounds.push(round);
-    }
-    Ok(rounds)
+    futures::future::try_join_all(
+        (0..count).map(|i| create_test_round(pool, match_id, i + 1, track_id))
+    ).await
+}
+
+/// Add players to a round
+pub async fn add_players_to_round(
+    pool: &PgPool,
+    group_id: Uuid,
+    match_id: Uuid,
+    round_number: i32,
+    team_id: Uuid,
+    player_ids: &[Uuid],
+) -> Result<(), sqlx::Error> {
+    futures::future::try_join_all(
+        player_ids.iter().enumerate().map(|(position, player_id)| {
+            sqlx::query(
+                "INSERT INTO round_players (group_id, match_id, round_number, player_id, team_id, player_position)
+                 VALUES ($1, $2, $3, $4, $5, $6)",
+            )
+            .bind(group_id)
+            .bind(match_id)
+            .bind(round_number)
+            .bind(player_id)
+            .bind(team_id)
+            .bind((position + 1) as i32)
+            .execute(pool)
+        })
+    ).await?;
+    Ok(())
 }

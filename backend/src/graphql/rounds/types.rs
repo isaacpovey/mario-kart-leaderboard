@@ -6,6 +6,7 @@ pub struct Round {
     pub match_id: Uuid,
     pub round_number: i32,
     pub track_id: Option<Uuid>,
+    pub completed: bool,
 }
 
 impl From<crate::models::Round> for Round {
@@ -14,6 +15,7 @@ impl From<crate::models::Round> for Round {
             match_id: model.match_id,
             round_number: model.round_number,
             track_id: model.track_id,
+            completed: model.completed,
         }
     }
 }
@@ -26,5 +28,9 @@ impl Round {
 
     async fn track_id(&self) -> Option<ID> {
         self.track_id.map(|id| ID(id.to_string()))
+    }
+
+    async fn completed(&self) -> bool {
+        self.completed
     }
 }
