@@ -64,16 +64,12 @@ impl Tournament {
                 p.id,
                 p.name,
                 p.elo_rating,
-                COALESCE(SUM(pms.score), 0)::int as total_score
+                p.elo_rating as total_score
             FROM players p
-            LEFT JOIN player_match_scores pms ON p.id = pms.player_id
-            LEFT JOIN matches m ON pms.match_id = m.id AND m.tournament_id = $1
-            WHERE p.group_id = $2
-            GROUP BY p.id, p.name, p.elo_rating
-            ORDER BY total_score DESC
+            WHERE p.group_id = $1
+            ORDER BY p.elo_rating DESC
             "#,
         )
-        .bind(self.id)
         .bind(self.group_id)
         .fetch_all(&gql_ctx.pool)
         .await?;

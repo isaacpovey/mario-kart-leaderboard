@@ -1,4 +1,4 @@
-use crate::models::Round;
+use crate::models::{Player, Round};
 use async_graphql::dataloader::*;
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -29,6 +29,40 @@ impl Loader<Uuid> for RoundsByMatchLoader {
                 acc.entry(r.match_id).or_default().push(r);
                 acc
             });
+
+        Ok(grouped)
+    }
+}
+
+pub struct PlayersByRoundLoader {
+    pool: PgPool,
+}
+
+impl PlayersByRoundLoader {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+impl Loader<(Uuid, i32)> for PlayersByRoundLoader {
+    type Value = Vec<Player>;
+    type Error = std::sync::Arc<sqlx::Error>;
+
+    async fn load(
+        &self,
+        keys: &[(Uuid, i32)],
+    ) -> Result<HashMap<(Uuid, i32), Self::Value>, Self::Error> {
+        let player_rounds = Player::find_by_round_keys(&self.pool, keys)
+            .await
+            .map_err(std::sync::Arc::new)?;
+
+        let grouped = player_rounds.into_iter().fold(
+            HashMap::<(Uuid, i32), Vec<Player>>::new(),
+            |mut acc, (round_key, player)| {
+                acc.entry(round_key).or_default().push(player);
+                acc
+            },
+        );
 
         Ok(grouped)
     }

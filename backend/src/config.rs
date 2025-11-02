@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use std::env;
+use shuttle_runtime::SecretStore;
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -12,12 +12,12 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn from_env() -> Result<Self> {
-        dotenv::dotenv().ok();
+    pub fn from_env(secrets: SecretStore) -> Result<Self> {
+
 
         // JWT_SECRET is mandatory for security - fail fast if not set
         let jwt_secret =
-            env::var("JWT_SECRET").map_err(|_| AppError::EnvVar(std::env::VarError::NotPresent))?;
+            secrets.get("JWT_SECRET").ok_or(AppError::EnvVar(std::env::VarError::NotPresent))?;
 
         if jwt_secret.len() < 32 {
             return Err(AppError::InvalidInput(
@@ -25,28 +25,28 @@ impl Config {
             ));
         }
 
-        let server_port = env::var("SERVER_PORT")
-            .unwrap_or_else(|_| "8080".to_string())
+        let server_port = secrets.get("SERVER_PORT")
+            .unwrap_or_else(|| "8080".to_string())
             .parse()
             .map_err(|_| AppError::InvalidInput("SERVER_PORT must be a valid u16".to_string()))?;
 
         // Parse CORS origins from comma-separated env var
-        let cors_origins = env::var("CORS_ORIGINS")
-            .unwrap_or_else(|_| "http://localhost:5174".to_string())
+        let cors_origins = secrets.get("CORS_ORIGINS")
+            .unwrap_or_else(|| "http://localhost:5174".to_string())
             .split(',')
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .collect();
 
         Ok(Self {
-            database_url: env::var("DATABASE_URL").unwrap_or_else(|_| {
+            database_url: secrets.get("DATABASE_URL").unwrap_or_else(|| {
                 "postgresql://postgres:password@localhost/mario_kart".to_string()
             }),
             jwt_secret,
-            server_host: env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
+            server_host: secrets.get("SERVER_HOST").unwrap_or_else(|| "0.0.0.0".to_string()),
             server_port,
-            enable_playground: env::var("ENABLE_PLAYGROUND")
-                .unwrap_or_else(|_| "false".to_string())
+            enable_playground: secrets.get("ENABLE_PLAYGROUND")
+                .unwrap_or_else(|| "false".to_string())
                 == "true",
             cors_origins,
         })

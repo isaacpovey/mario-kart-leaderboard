@@ -2,187 +2,23 @@
 /* prettier-ignore */
 
 export type introspection_types = {
-  Boolean: unknown
-  Float: unknown
-  Group: {
-    kind: 'OBJECT'
-    name: 'Group'
-    fields: {
-      id: { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null } } }
-      name: { name: 'name'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null } } }
-      players: {
-        name: 'players'
-        type: {
-          kind: 'NON_NULL'
-          name: never
-          ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Player'; ofType: null } } }
-        }
-      }
-    }
-  }
-  ID: unknown
-  Int: unknown
-  LeaderboardEntry: {
-    kind: 'OBJECT'
-    name: 'LeaderboardEntry'
-    fields: {
-      eloRating: { name: 'eloRating'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null } } }
-      playerId: { name: 'playerId'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null } } }
-      playerName: { name: 'playerName'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null } } }
-      totalScore: { name: 'totalScore'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null } } }
-    }
-  }
-  Match: {
-    kind: 'OBJECT'
-    name: 'Match'
-    fields: {
-      completed: { name: 'completed'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Boolean'; ofType: null } } }
-      id: { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null } } }
-      numOfRounds: { name: 'numOfRounds'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null } } }
-      rounds: {
-        name: 'rounds'
-        type: {
-          kind: 'NON_NULL'
-          name: never
-          ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Round'; ofType: null } } }
-        }
-      }
-      teams: {
-        name: 'teams'
-        type: {
-          kind: 'NON_NULL'
-          name: never
-          ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Team'; ofType: null } } }
-        }
-      }
-      time: { name: 'time'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null } } }
-      tournamentId: { name: 'tournamentId'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null } } }
-    }
-  }
-  Mutation: {
-    kind: 'OBJECT'
-    name: 'Mutation'
-    fields: {
-      createGroup: { name: 'createGroup'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null } } }
-      createMatchWithRounds: { name: 'createMatchWithRounds'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Match'; ofType: null } } }
-      createPlayer: { name: 'createPlayer'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Player'; ofType: null } } }
-      createTournament: { name: 'createTournament'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Tournament'; ofType: null } } }
-      recordRoundResults: { name: 'recordRoundResults'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Match'; ofType: null } } }
-    }
-  }
-  Player: {
-    kind: 'OBJECT'
-    name: 'Player'
-    fields: {
-      eloRating: { name: 'eloRating'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null } } }
-      group: { name: 'group'; type: { kind: 'OBJECT'; name: 'Group'; ofType: null } }
-      id: { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null } } }
-      name: { name: 'name'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null } } }
-    }
-  }
-  PlayerResultInput: {
-    kind: 'INPUT_OBJECT'
-    name: 'PlayerResultInput'
-    isOneOf: false
-    inputFields: [
-      { name: 'playerId'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null } }; defaultValue: null },
-      { name: 'position'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null } }; defaultValue: null },
-    ]
-  }
-  Query: {
-    kind: 'OBJECT'
-    name: 'Query'
-    fields: {
-      currentGroup: { name: 'currentGroup'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Group'; ofType: null } } }
-      login: { name: 'login'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null } } }
-      matchById: { name: 'matchById'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Match'; ofType: null } } }
-      matches: {
-        name: 'matches'
-        type: {
-          kind: 'NON_NULL'
-          name: never
-          ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Match'; ofType: null } } }
-        }
-      }
-      players: {
-        name: 'players'
-        type: {
-          kind: 'NON_NULL'
-          name: never
-          ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Player'; ofType: null } } }
-        }
-      }
-      tournaments: {
-        name: 'tournaments'
-        type: {
-          kind: 'NON_NULL'
-          name: never
-          ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Tournament'; ofType: null } } }
-        }
-      }
-      tracks: {
-        name: 'tracks'
-        type: {
-          kind: 'NON_NULL'
-          name: never
-          ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Track'; ofType: null } } }
-        }
-      }
-    }
-  }
-  Round: {
-    kind: 'OBJECT'
-    name: 'Round'
-    fields: {
-      roundNumber: { name: 'roundNumber'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null } } }
-      trackId: { name: 'trackId'; type: { kind: 'SCALAR'; name: 'ID'; ofType: null } }
-    }
-  }
-  String: unknown
-  Team: {
-    kind: 'OBJECT'
-    name: 'Team'
-    fields: {
-      id: { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null } } }
-      score: { name: 'score'; type: { kind: 'SCALAR'; name: 'Int'; ofType: null } }
-      teamNum: { name: 'teamNum'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null } } }
-    }
-  }
-  Tournament: {
-    kind: 'OBJECT'
-    name: 'Tournament'
-    fields: {
-      endDate: { name: 'endDate'; type: { kind: 'SCALAR'; name: 'String'; ofType: null } }
-      id: { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null } } }
-      leaderboard: {
-        name: 'leaderboard'
-        type: {
-          kind: 'NON_NULL'
-          name: never
-          ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'LeaderboardEntry'; ofType: null } } }
-        }
-      }
-      matches: {
-        name: 'matches'
-        type: {
-          kind: 'NON_NULL'
-          name: never
-          ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Match'; ofType: null } } }
-        }
-      }
-      startDate: { name: 'startDate'; type: { kind: 'SCALAR'; name: 'String'; ofType: null } }
-      winnerId: { name: 'winnerId'; type: { kind: 'SCALAR'; name: 'ID'; ofType: null } }
-    }
-  }
-  Track: {
-    kind: 'OBJECT'
-    name: 'Track'
-    fields: {
-      id: { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null } } }
-      name: { name: 'name'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null } } }
-    }
-  }
-}
+    'Boolean': unknown;
+    'Float': unknown;
+    'Group': { kind: 'OBJECT'; name: 'Group'; fields: { 'id': { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null; }; } }; 'name': { name: 'name'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null; }; } }; 'players': { name: 'players'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Player'; ofType: null; }; }; }; } }; }; };
+    'ID': unknown;
+    'Int': unknown;
+    'LeaderboardEntry': { kind: 'OBJECT'; name: 'LeaderboardEntry'; fields: { 'eloRating': { name: 'eloRating'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null; }; } }; 'playerId': { name: 'playerId'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null; }; } }; 'playerName': { name: 'playerName'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null; }; } }; 'totalScore': { name: 'totalScore'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null; }; } }; }; };
+    'Match': { kind: 'OBJECT'; name: 'Match'; fields: { 'completed': { name: 'completed'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Boolean'; ofType: null; }; } }; 'id': { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null; }; } }; 'numOfRounds': { name: 'numOfRounds'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null; }; } }; 'rounds': { name: 'rounds'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Round'; ofType: null; }; }; }; } }; 'teams': { name: 'teams'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Team'; ofType: null; }; }; }; } }; 'time': { name: 'time'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null; }; } }; 'tournamentId': { name: 'tournamentId'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null; }; } }; }; };
+    'Mutation': { kind: 'OBJECT'; name: 'Mutation'; fields: { 'createGroup': { name: 'createGroup'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null; }; } }; 'createMatchWithRounds': { name: 'createMatchWithRounds'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Match'; ofType: null; }; } }; 'createPlayer': { name: 'createPlayer'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Player'; ofType: null; }; } }; 'createTournament': { name: 'createTournament'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Tournament'; ofType: null; }; } }; 'recordRoundResults': { name: 'recordRoundResults'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Match'; ofType: null; }; } }; }; };
+    'Player': { kind: 'OBJECT'; name: 'Player'; fields: { 'eloRating': { name: 'eloRating'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null; }; } }; 'group': { name: 'group'; type: { kind: 'OBJECT'; name: 'Group'; ofType: null; } }; 'id': { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null; }; } }; 'name': { name: 'name'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null; }; } }; }; };
+    'PlayerResultInput': { kind: 'INPUT_OBJECT'; name: 'PlayerResultInput'; isOneOf: false; inputFields: [{ name: 'playerId'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null; }; }; defaultValue: null }, { name: 'position'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null; }; }; defaultValue: null }]; };
+    'Query': { kind: 'OBJECT'; name: 'Query'; fields: { 'currentGroup': { name: 'currentGroup'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Group'; ofType: null; }; } }; 'login': { name: 'login'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null; }; } }; 'matchById': { name: 'matchById'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Match'; ofType: null; }; } }; 'matches': { name: 'matches'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Match'; ofType: null; }; }; }; } }; 'players': { name: 'players'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Player'; ofType: null; }; }; }; } }; 'tournaments': { name: 'tournaments'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Tournament'; ofType: null; }; }; }; } }; 'tracks': { name: 'tracks'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Track'; ofType: null; }; }; }; } }; }; };
+    'Round': { kind: 'OBJECT'; name: 'Round'; fields: { 'completed': { name: 'completed'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Boolean'; ofType: null; }; } }; 'players': { name: 'players'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Player'; ofType: null; }; }; }; } }; 'roundNumber': { name: 'roundNumber'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null; }; } }; 'track': { name: 'track'; type: { kind: 'OBJECT'; name: 'Track'; ofType: null; } }; 'trackId': { name: 'trackId'; type: { kind: 'SCALAR'; name: 'ID'; ofType: null; } }; }; };
+    'String': unknown;
+    'Team': { kind: 'OBJECT'; name: 'Team'; fields: { 'id': { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null; }; } }; 'name': { name: 'name'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null; }; } }; 'players': { name: 'players'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Player'; ofType: null; }; }; }; } }; 'score': { name: 'score'; type: { kind: 'SCALAR'; name: 'Int'; ofType: null; } }; 'teamNum': { name: 'teamNum'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'Int'; ofType: null; }; } }; }; };
+    'Tournament': { kind: 'OBJECT'; name: 'Tournament'; fields: { 'endDate': { name: 'endDate'; type: { kind: 'SCALAR'; name: 'String'; ofType: null; } }; 'id': { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null; }; } }; 'leaderboard': { name: 'leaderboard'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'LeaderboardEntry'; ofType: null; }; }; }; } }; 'matches': { name: 'matches'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'LIST'; name: never; ofType: { kind: 'NON_NULL'; name: never; ofType: { kind: 'OBJECT'; name: 'Match'; ofType: null; }; }; }; } }; 'startDate': { name: 'startDate'; type: { kind: 'SCALAR'; name: 'String'; ofType: null; } }; 'winnerId': { name: 'winnerId'; type: { kind: 'SCALAR'; name: 'ID'; ofType: null; } }; }; };
+    'Track': { kind: 'OBJECT'; name: 'Track'; fields: { 'id': { name: 'id'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'ID'; ofType: null; }; } }; 'name': { name: 'name'; type: { kind: 'NON_NULL'; name: never; ofType: { kind: 'SCALAR'; name: 'String'; ofType: null; }; } }; }; };
+};
 
 /** An IntrospectionQuery representation of your schema.
  *
@@ -193,14 +29,14 @@ export type introspection_types = {
  * instead save to a .ts instead of a .d.ts file.
  */
 export type introspection = {
-  name: never
-  query: 'Query'
-  mutation: 'Mutation'
-  subscription: never
-  types: introspection_types
-}
+  name: never;
+  query: 'Query';
+  mutation: 'Mutation';
+  subscription: never;
+  types: introspection_types;
+};
 
-import * as gqlTada from 'gql.tada'
+import * as gqlTada from 'gql.tada';
 
 declare module 'gql.tada' {
   interface setupSchema {

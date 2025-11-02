@@ -3,8 +3,10 @@ import { atom } from 'jotai'
 import { createClient, fetchExchange } from 'urql'
 import { createAuthExchange } from './auth-exchange'
 
+const graphqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:8000/graphql'
+
 export const urqlClient = createClient({
-  url: 'http://localhost:8080/graphql',
+  url: graphqlUrl,
   preferGetMethod: false,
   fetchOptions: {
     method: 'POST',

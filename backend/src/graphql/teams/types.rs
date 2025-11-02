@@ -1,3 +1,5 @@
+use crate::graphql::context::GraphQLContext;
+use crate::graphql::players::types::Player;
 use async_graphql::*;
 use uuid::Uuid;
 
@@ -32,7 +34,26 @@ impl Team {
         self.team_num
     }
 
+    async fn name(&self) -> String {
+        format!("Team {}", self.team_num)
+    }
+
     async fn score(&self) -> Option<i32> {
         self.score
+    }
+
+    async fn players(&self, ctx: &Context<'_>) -> Result<Vec<Player>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+
+        let players = gql_ctx
+            .players_by_team_loader
+            .load_one(self.id)
+            .await?
+            .unwrap_or_default()
+            .into_iter()
+            .map(Player::from)
+            .collect();
+
+        Ok(players)
     }
 }

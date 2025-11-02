@@ -1,12 +1,17 @@
 import { Button, Center, Container, Heading, HStack, Spinner, Text, VStack } from '@chakra-ui/react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { useQuery } from 'urql'
+import { CreateTournamentModal } from '../components/CreateTournamentModal'
+import { CreateMatchModal } from '../components/CreateMatchModal'
 import { useAuth } from '../hooks/useAuth'
 import { tournamentsQuery } from '../queries/tournaments.query'
 
 const Home = () => {
   const { logout } = useAuth()
   const [result] = useQuery({ query: tournamentsQuery })
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
 
   useEffect(() => {
     document.title = 'Mario Kart Leaderboard'
@@ -30,19 +35,28 @@ const Home = () => {
     )
   }
 
-  const currentTournament = data?.tournaments.reduce(
-    (latest, tournament) => (!latest || (tournament.startDate && (!latest.startDate || tournament.startDate > latest.startDate)) ? tournament : latest),
-    undefined
-  )
+  const currentTournament = data?.tournaments
+    .filter((tournament) => tournament.startDate)
+    .sort((a, b) => (b.startDate && a.startDate ? b.startDate.localeCompare(a.startDate) : 0))[0]
 
   return (
     <Container maxW="4xl" py={8}>
       <VStack gap={6} align="stretch">
         <HStack justify="space-between">
           <Heading size="3xl">Mario Kart Leaderboard</Heading>
-          <Button onClick={logout} colorScheme="red">
-            Logout
-          </Button>
+          <HStack gap={2}>
+            <Button onClick={() => setIsModalOpen(true)} colorScheme="blue">
+              Create Tournament
+            </Button>
+            {currentTournament && (
+              <Button onClick={() => setIsMatchModalOpen(true)} colorScheme="green">
+                New Match
+              </Button>
+            )}
+            <Button onClick={logout} colorScheme="red">
+              Logout
+            </Button>
+          </HStack>
         </HStack>
 
         {currentTournament ? (
@@ -93,17 +107,16 @@ const Home = () => {
               <Heading size="lg">Matches</Heading>
               {currentTournament.matches.length > 0 ? (
                 currentTournament.matches.map((match) => (
-                  <HStack key={match.id} p={4} bg="bg.panel" borderRadius="md" borderWidth="1px" justify="space-between" width="full">
-                    <VStack align="start" gap={0}>
-                      <Text fontWeight="semibold">Match {match.id}</Text>
-                      <Text fontSize="sm" color="fg.subtle">
-                        {match.time}
+                  <Link key={match.id} to={`/match/${match.id}`} style={{ width: '100%' }}>
+                    <HStack p={4} bg="bg.panel" borderRadius="md" borderWidth="1px" justify="space-between" width="full" cursor="pointer" _hover={{ bg: 'bg.subtle' }}>
+                      <VStack align="start" gap={0}>
+                        <Text fontWeight="semibold">{new Date(match.time).toLocaleString()}</Text>
+                      </VStack>
+                      <Text fontSize="sm" fontWeight="semibold" color={match.completed ? 'green.500' : 'orange.500'}>
+                        {match.completed ? 'Completed' : 'In Progress'}
                       </Text>
-                    </VStack>
-                    <Text fontSize="sm" fontWeight="semibold" color={match.completed ? 'green.500' : 'orange.500'}>
-                      {match.completed ? 'Completed' : 'In Progress'}
-                    </Text>
-                  </HStack>
+                    </HStack>
+                  </Link>
                 ))
               ) : (
                 <Text color="fg.subtle">No matches yet</Text>
@@ -114,6 +127,14 @@ const Home = () => {
           <Text color="fg.subtle">No tournament data available</Text>
         )}
       </VStack>
+      <CreateTournamentModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+      {currentTournament && (
+        <CreateMatchModal
+          open={isMatchModalOpen}
+          onOpenChange={setIsMatchModalOpen}
+          tournamentId={currentTournament.id}
+        />
+      )}
     </Container>
   )
 }

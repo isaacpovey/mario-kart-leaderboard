@@ -6,23 +6,24 @@ use axum::{
 use mario_kart_leaderboard_backend::{
     config::Config,
     db::create_pool,
-    error::Result,
     graphql::build_schema,
     handlers::{graphql_handler, graphql_playground},
     middleware::auth::auth_middleware,
 };
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    let config = Config::from_env()?;
-    let pool = create_pool(&config.database_url).await?;
+#[shuttle_runtime::main]
+async fn main(
+    #[shuttle_runtime::Secrets] secrets: shuttle_runtime::SecretStore
+) -> shuttle_axum::ShuttleAxum {
+    let config = Config::from_env(secrets).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    let pool = create_pool(&config.database_url).await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
     eprintln!("Connected to database");
 
     let schema = build_schema();
 
-    // Configure CORS with specific allowed origins
+    // Configure CORS with specific allowed origin
     let allowed_origins: Vec<_> = config
         .cors_origins
         .iter()
@@ -53,13 +54,5 @@ async fn main() -> Result<()> {
         .layer(Extension(config.clone()))
         .layer(cors);
 
-    let addr = config.server_addr();
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-
-    eprintln!("GraphQL server running at http://{addr}/graphql");
-    eprintln!("GraphQL Playground available at http://{addr}/");
-
-    axum::serve(listener, app).await?;
-
-    Ok(())
+    Ok(app.into())
 }
