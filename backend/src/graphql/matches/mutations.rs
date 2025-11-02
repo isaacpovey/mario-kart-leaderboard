@@ -8,7 +8,6 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 const DEFAULT_PLAYERS_PER_RACE: i32 = 4;
-const CONSECUTIVE_RACE_PENALTY: i32 = 1000;
 
 #[derive(Default)]
 pub struct MatchesMutation;
@@ -20,7 +19,7 @@ impl MatchesMutation {
         ctx: &Context<'_>,
         #[graphql(desc = "The tournament ID")] tournament_id: ID,
         #[graphql(desc = "The player IDs participating in this match")] player_ids: Vec<ID>,
-        #[graphql(desc = "The number of races (num_races * players_per_race must be divisible by number of players)")]
+        #[graphql(desc = "The number of races")]
         num_races: i32,
         #[graphql(desc = "The number of players per race (default: 4)")]
         players_per_race: Option<i32>,
@@ -61,11 +60,12 @@ impl MatchesMutation {
 
 
         let teams = allocate_teams(&players, &players_per_race);
-        
+
         let tracks = select_tracks(&gql_ctx.pool, tournament_uuid, num_races).await?;
-        
+
         let race_allocations = allocate_races(
             &players,
+            &teams,
             num_races,
             players_per_race,
         )?;
@@ -109,10 +109,9 @@ fn validate_create_match_inputs(
     }
 
     let total_slots = num_races * players_per_race;
-    if total_slots % num_players != 0 {
-        let races_per_player = total_slots as f64 / num_players as f64;
+    if total_slots < num_players {
         return Err(Error::new(format!(
-            "Invalid configuration: {num_races} races with {players_per_race} players per race gives {total_slots} total slots, which cannot be evenly divided among {num_players} players (would be {races_per_player:.2} races per player). Total slots must be divisible by number of players."
+            "Invalid configuration: {num_races} races with {players_per_race} players per race gives {total_slots} total slots, which is less than {num_players} players. Each player must be able to participate in at least one race."
         )));
     }
 
@@ -127,48 +126,64 @@ struct Team {
     total_elo: i32,
 }
 
+fn calculate_team_sizes(num_players: usize, num_teams: usize) -> Vec<usize> {
+    let base_size = num_players / num_teams;
+    let remainder = num_players % num_teams;
+
+    (0..num_teams)
+        .map(|team_idx| {
+            if team_idx < remainder {
+                base_size + 1
+            } else {
+                base_size
+            }
+        })
+        .collect()
+}
+
 fn allocate_teams(players: &[models::Player], players_per_race: &i32) -> Vec<Team> {
     let mut sorted_players = players.to_vec();
     sorted_players.sort_by(|a, b| b.elo_rating.cmp(&a.elo_rating));
 
     let num_players = players.len();
     let num_teams = std::cmp::min(*players_per_race as usize, num_players);
+    let team_sizes = calculate_team_sizes(num_players, num_teams);
 
-    let player_team_assignments: Vec<(usize, models::Player)> = sorted_players
-        .into_iter()
-        .enumerate()
-        .map(|(player_idx, player)| (snake_draft_index(player_idx, num_teams), player))
+    let initial_teams: Vec<Team> = (0..num_teams)
+        .map(|team_idx| Team {
+            team_num: (team_idx + 1) as i32,
+            players: Vec::new(),
+            total_elo: 0,
+        })
         .collect();
 
-    (0..num_teams)
-        .map(|team_idx| {
-            let team_players: Vec<models::Player> = player_team_assignments
-                .iter()
-                .filter(|(assigned_team_idx, _)| *assigned_team_idx == team_idx)
-                .map(|(_, player)| player.clone())
-                .collect();
+    sorted_players.into_iter().fold(initial_teams, |teams, player| {
+        let team_idx = teams
+            .iter()
+            .enumerate()
+            .filter(|(idx, team)| team.players.len() < team_sizes[*idx])
+            .min_by_key(|(_, team)| team.total_elo)
+            .map(|(idx, _)| idx)
+            .unwrap_or(0);
 
-            let total_elo = team_players.iter().map(|p| p.elo_rating).sum();
-
-            Team {
-                team_num: (team_idx + 1) as i32,
-                players: team_players,
-                total_elo,
-            }
-        })
-        .collect()
+        teams
+            .into_iter()
+            .enumerate()
+            .map(|(idx, team)| {
+                if idx == team_idx {
+                    Team {
+                        team_num: team.team_num,
+                        players: team.players.iter().cloned().chain(std::iter::once(player.clone())).collect(),
+                        total_elo: team.total_elo + player.elo_rating,
+                    }
+                } else {
+                    team
+                }
+            })
+            .collect()
+    })
 }
 
-fn snake_draft_index(pick_number: usize, num_teams: usize) -> usize {
-    let round = pick_number / num_teams;
-    let position = pick_number % num_teams;
-
-    if round % 2 == 0 {
-        position
-    } else {
-        num_teams - 1 - position
-    }
-}
 
 async fn select_tracks(
     pool: &sqlx::PgPool,
@@ -222,158 +237,80 @@ struct RaceAllocation {
     player_ids: Vec<Uuid>,
 }
 
-#[derive(Debug, Clone)]
-struct AllocationState {
-    races_remaining: HashMap<Uuid, i32>,
-    allocations: Vec<RaceAllocation>,
-}
-
 fn allocate_races(
     players: &[models::Player],
+    teams: &[Team],
     num_races: i32,
-    players_per_race: i32,
+    _players_per_race: i32,
 ) -> Result<Vec<RaceAllocation>> {
-    let total_slots = num_races * players_per_race;
-    let races_per_player = total_slots / players.len() as i32;
-    
-    let initial_state = AllocationState {
-        races_remaining: players
-            .iter()
-            .map(|p| (p.id, races_per_player))
-            .collect(),
-        allocations: Vec::new(),
-    };
-    
-    let final_state = (0..num_races).fold(initial_state, |state, race_num| {
-        allocate_single_race(state, race_num, players, players_per_race)
-    });
+    let total_slots = num_races * teams.len() as i32;
+    let num_players = players.len();
 
-    Ok(final_state.allocations)
-}
+    let avg_team_size: f64 = teams.iter().map(|t| t.players.len()).sum::<usize>() as f64 / teams.len() as f64;
+    let base_races_per_player = total_slots as f64 / num_players as f64;
 
-fn allocate_single_race(
-    state: AllocationState,
-    race_num: i32,
-    all_players: &[models::Player],
-    players_per_race: i32,
-) -> AllocationState {
-    let available_players: Vec<&models::Player> = all_players
+    let mut team_state: Vec<(i32, Vec<Uuid>, HashMap<Uuid, i32>)> = teams
         .iter()
-        .filter(|p| *state.races_remaining.get(&p.id).unwrap_or(&0) > 0)
-        .collect();
-    
-    let previous_race_players: HashSet<Uuid> = if race_num > 0 {
-        state.allocations
-            .get((race_num - 1) as usize)
-            .map(|alloc| alloc.player_ids.iter().copied().collect())
-            .unwrap_or_default()
-    } else {
-        HashSet::new()
-    };
-    
-    let selected_players = select_best_players_for_race(
-        &available_players,
-        players_per_race as usize,
-        &previous_race_players,
-    );
-    
-    let new_allocations = state
-        .allocations
-        .iter()
-        .cloned()
-        .chain(std::iter::once(RaceAllocation {
-            race_number: race_num + 1,
-            player_ids: selected_players.iter().map(|p| p.id).collect(),
-        }))
+        .map(|team| {
+            let team_size = team.players.len() as f64;
+            let races_per_player = (base_races_per_player * (avg_team_size / team_size)).round() as i32;
+
+            let player_races: HashMap<Uuid, i32> = team.players
+                .iter()
+                .map(|p| (p.id, races_per_player))
+                .collect();
+
+            let player_ids: Vec<Uuid> = team.players.iter().map(|p| p.id).collect();
+
+            (team.team_num, player_ids, player_races)
+        })
         .collect();
 
-    let selected_player_ids: HashSet<Uuid> = selected_players.iter().map(|p| p.id).collect();
-    let new_races_remaining = state.races_remaining
-        .into_iter()
-        .map(|(player_id, remaining_races)| {
-            if selected_player_ids.contains(&player_id) {
-                (player_id, remaining_races - 1)
+    let mut allocations = Vec::new();
+
+    for race_num in 0..num_races {
+        let previous_race_players: HashSet<Uuid> = if race_num > 0 {
+            allocations
+                .get((race_num - 1) as usize)
+                .map(|alloc: &RaceAllocation| alloc.player_ids.iter().copied().collect())
+                .unwrap_or_default()
+        } else {
+            HashSet::new()
+        };
+
+        let mut race_players = Vec::new();
+
+        for (_team_num, team_player_ids, player_races) in team_state.iter_mut() {
+            let available: Vec<&Uuid> = team_player_ids
+                .iter()
+                .filter(|pid| *player_races.get(pid).unwrap_or(&0) > 0)
+                .collect();
+
+            let selected_player = if available.is_empty() {
+                team_player_ids.first().unwrap()
+            } else if available.len() == 1 {
+                available[0]
             } else {
-                (player_id, remaining_races)
+                *available
+                    .iter()
+                    .find(|pid| !previous_race_players.contains(**pid))
+                    .unwrap_or(&available[0])
+            };
+
+            race_players.push(*selected_player);
+
+            if let Some(count) = player_races.get_mut(selected_player) {
+                *count = (*count - 1).max(0);
             }
-        })
-        .collect();
+        }
 
-    AllocationState {
-        races_remaining: new_races_remaining,
-        allocations: new_allocations,
-    }
-}
-
-fn select_best_players_for_race(
-    available_players: &[&models::Player],
-    num_players: usize,
-    previous_race_players: &HashSet<Uuid>,
-) -> Vec<models::Player> {
-    if available_players.len() <= num_players {
-        return available_players.iter().map(|&p| p.clone()).collect();
-    }
-    
-    let combinations = generate_combinations(available_players, num_players);
-    
-    let best_combo = combinations
-        .into_iter()
-        .min_by_key(|combo| {
-            let players: Vec<models::Player> = combo.iter().map(|&p| p.clone()).collect();
-            score_combination(&players, previous_race_players)
-        })
-        .unwrap_or_else(|| {
-            available_players.iter().take(num_players).copied().collect()
+        allocations.push(RaceAllocation {
+            race_number: race_num + 1,
+            player_ids: race_players,
         });
-    
-    best_combo.iter().map(|&p| p.clone()).collect()
-}
-
-fn score_combination(players: &[models::Player], previous_race_players: &HashSet<Uuid>) -> i32 {
-    let elos: Vec<i32> = players.iter().map(|p| p.elo_rating).collect();
-    let mean_elo = elos.iter().sum::<i32>() as f64 / elos.len() as f64;
-    let variance = elos
-        .iter()
-        .map(|&elo| {
-            let diff = elo as f64 - mean_elo;
-            (diff * diff) as i32
-        })
-        .sum::<i32>();
-    
-    let consecutive_count = players
-        .iter()
-        .filter(|p| previous_race_players.contains(&p.id))
-        .count() as i32;
-
-    variance + (consecutive_count * CONSECUTIVE_RACE_PENALTY)
-}
-
-fn generate_combinations<T: Clone>(items: &[T], k: usize) -> Vec<Vec<T>> {
-    if k == 0 {
-        return vec![vec![]];
-    }
-    if items.is_empty() {
-        return vec![];
     }
 
-    let first = &items[0];
-    let rest = &items[1..];
-    
-    let with_first: Vec<Vec<T>> = generate_combinations(rest, k - 1)
-        .into_iter()
-        .map(|combo| {
-            std::iter::once(first.clone())
-                .chain(combo)
-                .collect()
-        })
-        .collect();
-    
-    let without_first = generate_combinations(rest, k);
-    
-    with_first
-        .into_iter()
-        .chain(without_first)
-        .collect()
+    Ok(allocations)
 }
 
 async fn create_match_in_transaction(

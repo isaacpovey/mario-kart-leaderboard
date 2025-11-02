@@ -37,12 +37,12 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
 
   const totalSlots = (Number.parseInt(form.numRaces, 10) || 4) * (Number.parseInt(form.playersPerRace, 10) || 4)
   const selectedCount = selectedPlayerIds.length
-  const isValidAllocation = selectedCount > 0 && totalSlots % selectedCount === 0
+  const isValidAllocation = selectedCount > 0 && totalSlots >= selectedCount
 
   const validationMessage = useMemo(() => {
     if (selectedCount === 0) return 'Select at least one player'
-    if (totalSlots % selectedCount !== 0) {
-      return `Total slots (${totalSlots}) must be divisible by player count (${selectedCount})`
+    if (totalSlots < selectedCount) {
+      return `Total slots (${totalSlots}) must be at least equal to player count (${selectedCount})`
     }
     return ''
   }, [totalSlots, selectedCount])
