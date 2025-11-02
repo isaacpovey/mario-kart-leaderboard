@@ -10,6 +10,22 @@ pub struct Round {
 }
 
 impl Round {
+    pub async fn find_one(
+        pool: &sqlx::PgPool,
+        match_id: Uuid,
+        round_number: i32,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, Self>(
+            "SELECT match_id, round_number, track_id, completed
+             FROM rounds
+             WHERE match_id = $1 AND round_number = $2",
+        )
+        .bind(match_id)
+        .bind(round_number)
+        .fetch_optional(pool)
+        .await
+    }
+
     pub async fn find_by_match_id(
         pool: &sqlx::PgPool,
         match_id: Uuid,
@@ -37,22 +53,6 @@ impl Round {
         )
         .bind(match_ids)
         .fetch_all(pool)
-        .await
-    }
-
-    pub async fn find_one(
-        pool: &sqlx::PgPool,
-        match_id: Uuid,
-        round_number: i32,
-    ) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as::<_, Self>(
-            "SELECT match_id, round_number, track_id, completed
-             FROM rounds
-             WHERE match_id = $1 AND round_number = $2",
-        )
-        .bind(match_id)
-        .bind(round_number)
-        .fetch_optional(pool)
         .await
     }
 }

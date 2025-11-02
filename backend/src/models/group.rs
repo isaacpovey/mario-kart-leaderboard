@@ -23,6 +23,16 @@ impl Group {
             .await
     }
 
+    pub async fn find_by_name(
+        pool: &sqlx::PgPool,
+        name: &str,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, Self>("SELECT id, name, password FROM groups WHERE name = $1")
+            .bind(name)
+            .fetch_optional(pool)
+            .await
+    }
+
     pub async fn create(
         pool: &sqlx::PgPool,
         name: &str,

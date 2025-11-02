@@ -1,4 +1,19 @@
 {
-  "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+  "extends": "@tsconfig/vite-react/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": ".",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "plugins": [
+      {
+        "name": "gql.tada/ts-plugin",
+        "schema": "http://localhost:8080/graphql",
+        "tadaOutputLocation": "./src/lib/graphql-env.d.ts"
+      }
+    ]
+  },
+  "include": ["src/**/*", "vite.config.ts"]
 }

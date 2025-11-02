@@ -18,12 +18,15 @@ pub async fn create_test_group(
 
 /// Create multiple test groups
 pub async fn create_test_groups(pool: &PgPool, count: usize) -> Result<Vec<Group>, sqlx::Error> {
-    let params: Vec<_> = (0..count)
-        .map(|i| (format!("Test Group {}", i + 1), format!("password{}", i + 1)))
+    let group_data: Vec<(String, String)> = (0..count)
+        .map(|i| (
+            format!("Test Group {}", i + 1),
+            format!("password{}", i + 1),
+        ))
         .collect();
 
     futures::future::try_join_all(
-        params.iter().map(|(name, password)| create_test_group(pool, name, password))
+        group_data.iter().map(|(name, password)| create_test_group(pool, name, password))
     ).await
 }
 
@@ -42,12 +45,12 @@ pub async fn create_test_players(
     group_id: Uuid,
     count: usize,
 ) -> Result<Vec<Player>, sqlx::Error> {
-    let names: Vec<_> = (0..count)
+    let player_names: Vec<String> = (0..count)
         .map(|i| format!("Player {}", i + 1))
         .collect();
 
     futures::future::try_join_all(
-        names.iter().map(|name| create_test_player(pool, group_id, name))
+        player_names.iter().map(|name| create_test_player(pool, group_id, name))
     ).await
 }
 

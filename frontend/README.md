@@ -27,7 +27,7 @@ frontend/
 │   │   └── utils.ts     # Utility functions (cn, etc.)
 │   ├── store/           # Jotai atoms for state management
 │   ├── App.tsx          # Main application component
-│   ├── main.tsx         # Application entry point
+│   ├── root.tsx         # Application entry point
 │   └── index.css        # Global styles with Tailwind
 ├── biome.json           # Biome linting configuration
 ├── components.json      # shadcn/ui configuration

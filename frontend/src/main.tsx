@@ -1,9 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Provider } from 'urql'
-import { urqlClient } from '@/lib/urql'
-import App from './App.tsx'
-import './index.css'
+import App from './App'
 
 const rootElement = document.getElementById('root')
 
@@ -13,8 +10,6 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <Provider value={urqlClient}>
-      <App />
-    </Provider>
+    <App />
   </StrictMode>
 )

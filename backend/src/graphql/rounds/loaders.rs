@@ -1,7 +1,7 @@
 use crate::models::Round;
 use async_graphql::dataloader::*;
 use sqlx::PgPool;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 pub struct RoundsByMatchLoader {
@@ -23,18 +23,12 @@ impl Loader<Uuid> for RoundsByMatchLoader {
             .await
             .map_err(std::sync::Arc::new)?;
 
-        let match_ids: HashSet<Uuid> = rounds.iter().map(|r| r.match_id).collect();
-        let grouped: HashMap<Uuid, Vec<Round>> = match_ids
+        let grouped = rounds
             .into_iter()
-            .map(|match_id| {
-                let match_rounds: Vec<Round> = rounds
-                    .iter()
-                    .filter(|r| r.match_id == match_id)
-                    .cloned()
-                    .collect();
-                (match_id, match_rounds)
-            })
-            .collect();
+            .fold(HashMap::<Uuid, Vec<Round>>::new(), |mut acc, r| {
+                acc.entry(r.match_id).or_default().push(r);
+                acc
+            });
 
         Ok(grouped)
     }
