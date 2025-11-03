@@ -11,13 +11,13 @@ use mario_kart_leaderboard_backend::{
     middleware::auth::auth_middleware,
 };
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use mario_kart_leaderboard_backend::error::AppError;
 
-#[shuttle_runtime::main]
+#[tokio::main]
 async fn main(
-    #[shuttle_runtime::Secrets] secrets: shuttle_runtime::SecretStore
-) -> shuttle_axum::ShuttleAxum {
-    let config = Config::from_env(secrets).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let pool = create_pool(&config.database_url).await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+) -> Result<(), AppError> {
+    let config = Config::from_env()?;
+    let pool = create_pool(&config.database_url).await?;
 
     eprintln!("Connected to database");
 
@@ -54,5 +54,13 @@ async fn main(
         .layer(Extension(config.clone()))
         .layer(cors);
 
-    Ok(app.into())
+    let addr = config.server_addr();
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+
+    eprintln!("GraphQL server running at http://{addr}/graphql");
+    eprintln!("GraphQL Playground available at http://{addr}/");
+
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }
