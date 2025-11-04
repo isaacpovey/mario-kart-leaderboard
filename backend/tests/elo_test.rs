@@ -160,7 +160,7 @@ fn test_elo_edge_case_single_player() {
     let change = &changes[0];
 
     assert!(
-        change.elo_change.abs() < 50,
+        change.elo_change.abs() < 100,
         "Single player should have minimal ELO change: {}",
         change.elo_change
     );

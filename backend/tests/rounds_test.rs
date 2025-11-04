@@ -710,3 +710,98 @@ async fn test_record_round_results_validation_already_completed() {
     assert!(!response2.errors.is_empty());
     assert!(response2.errors[0].message.contains("already completed"));
 }
+
+#[tokio::test]
+async fn test_teammates_have_same_player_position() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 6)
+        .await
+        .expect("Failed to create test players");
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 2)
+        .await
+        .expect("Failed to create test teams");
+
+    let _rounds = fixtures::create_test_rounds(&ctx.pool, match_record.id, 2)
+        .await
+        .expect("Failed to create test rounds");
+
+    fixtures::add_players_to_round(
+        &ctx.pool,
+        group.id,
+        match_record.id,
+        1,
+        teams[0].id,
+        &[players[0].id, players[1].id, players[2].id],
+    )
+    .await
+    .expect("Failed to add players to round 1");
+
+    fixtures::add_players_to_round(
+        &ctx.pool,
+        group.id,
+        match_record.id,
+        2,
+        teams[1].id,
+        &[players[3].id, players[4].id, players[5].id],
+    )
+    .await
+    .expect("Failed to add players to round 2");
+
+    let round_players: Vec<(uuid::Uuid, uuid::Uuid, i32)> = sqlx::query_as(
+        "SELECT player_id, team_id, player_position
+         FROM round_players
+         WHERE match_id = $1
+         ORDER BY team_id, player_id",
+    )
+    .bind(match_record.id)
+    .fetch_all(&ctx.pool)
+    .await
+    .expect("Failed to fetch round players");
+
+    let team0_positions: Vec<i32> = round_players
+        .iter()
+        .filter(|(_, team_id, _)| team_id == &teams[0].id)
+        .map(|(_, _, pos)| *pos)
+        .collect();
+
+    let team1_positions: Vec<i32> = round_players
+        .iter()
+        .filter(|(_, team_id, _)| team_id == &teams[1].id)
+        .map(|(_, _, pos)| *pos)
+        .collect();
+
+    assert_eq!(team0_positions.len(), 3);
+    assert_eq!(team1_positions.len(), 3);
+
+    assert!(
+        team0_positions.iter().all(|&pos| pos == team0_positions[0]),
+        "All players on team 0 should have the same player_position. Got: {:?}",
+        team0_positions
+    );
+
+    assert!(
+        team1_positions.iter().all(|&pos| pos == team1_positions[0]),
+        "All players on team 1 should have the same player_position. Got: {:?}",
+        team1_positions
+    );
+
+    assert_ne!(
+        team0_positions[0], team1_positions[0],
+        "Different teams should have different player_positions"
+    );
+}

@@ -26,6 +26,7 @@ use crate::error::{AppError, Result};
 use crate::models;
 use crate::services::elo::{self, PlayerResult};
 use crate::services::score_calculation;
+use crate::services::teammate_elo;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -345,6 +346,94 @@ pub async fn record_results_in_transaction(
         .map_err(|e| AppError::Internal(format!("Failed to insert player race score: {e}")))?;
     }
 
+    let player_teams: Vec<(Uuid, Uuid)> = sqlx::query_as(
+        "SELECT tp.player_id, tp.team_id
+         FROM team_players tp
+         INNER JOIN teams t ON tp.team_id = t.id
+         WHERE t.match_id = $1",
+    )
+    .bind(match_id)
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to fetch player teams: {e}")))?;
+
+    let player_to_team: HashMap<Uuid, Uuid> = player_teams.into_iter().collect();
+
+    let team_to_players: HashMap<Uuid, Vec<Uuid>> =
+        player_to_team
+            .iter()
+            .fold(HashMap::new(), |mut acc, (player_id, team_id)| {
+                acc.entry(*team_id).or_default().push(*player_id);
+                acc
+            });
+
+    let tournament_elo_change_map: HashMap<Uuid, i32> = tournament_elo_map
+        .iter()
+        .map(|(player_id, change)| (*player_id, change.elo_change))
+        .collect();
+
+    let (teammate_contributions, tournament_elo_adjustments) =
+        teammate_elo::calculate_teammate_contributions(
+            results,
+            &player_to_team,
+            &team_to_players,
+            &tournament_elo_change_map,
+        );
+
+    let contributions: Vec<(Uuid, i32, Uuid, Uuid, i32, i32)> = teammate_contributions
+        .iter()
+        .map(|c| {
+            (
+                match_id,
+                round_number,
+                c.source_player_id,
+                c.beneficiary_player_id,
+                c.source_tournament_elo_change,
+                c.contribution_amount,
+            )
+        })
+        .collect();
+
+    let already_updated_players: std::collections::HashSet<Uuid> =
+        tournament_elo_adjustments.keys().copied().collect();
+
+    if !contributions.is_empty() {
+        models::PlayerTeammateEloContribution::insert_contributions_batch(&mut tx, &contributions)
+            .await?;
+
+        let beneficiary_ids: Vec<Uuid> = tournament_elo_adjustments.keys().copied().collect();
+
+        let beneficiary_current_elos = models::PlayerTournamentScore::get_or_create_batch(
+            &mut tx,
+            &beneficiary_ids,
+            match_record.tournament_id,
+            group_id,
+        )
+        .await?;
+
+        let tournament_elo_updates_with_contributions: Vec<(Uuid, Uuid, i32)> =
+            tournament_elo_adjustments
+                .into_iter()
+                .map(|(player_id, adjustment)| {
+                    let base_elo = tournament_elo_map
+                        .get(&player_id)
+                        .map(|change| change.new_elo)
+                        .or_else(|| beneficiary_current_elos.get(&player_id).copied())
+                        .unwrap_or(1200);
+
+                    (player_id, match_record.tournament_id, base_elo + adjustment)
+                })
+                .collect();
+
+        if !tournament_elo_updates_with_contributions.is_empty() {
+            models::PlayerTournamentScore::update_elo_batch(
+                &mut tx,
+                &tournament_elo_updates_with_contributions,
+            )
+            .await?;
+        }
+    }
+
     for change in all_time_elo_changes {
         sqlx::query(
             "UPDATE players
@@ -360,9 +449,13 @@ pub async fn record_results_in_transaction(
 
     let tournament_elo_updates: Vec<(Uuid, Uuid, i32)> = tournament_elo_changes
         .iter()
+        .filter(|c| !already_updated_players.contains(&c.player_id))
         .map(|c| (c.player_id, match_record.tournament_id, c.new_elo))
         .collect();
-    models::PlayerTournamentScore::update_elo_batch(&mut tx, &tournament_elo_updates).await?;
+
+    if !tournament_elo_updates.is_empty() {
+        models::PlayerTournamentScore::update_elo_batch(&mut tx, &tournament_elo_updates).await?;
+    }
 
     let player_match_updates = score_calculation::calculate_player_match_aggregates(
         &mut tx,

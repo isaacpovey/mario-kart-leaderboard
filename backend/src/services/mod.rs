@@ -11,6 +11,7 @@
 //! - **scoring**: Position-to-points conversion utilities
 //! - **validation**: Input validation for names, passwords, etc.
 //! - **team_allocation**: Pure functions for balanced team creation
+//! - **teammate_elo**: Pure functions for teammate ELO contribution calculations
 //! - **race_allocation**: Algorithm for fair race distribution across players
 //! - **track_selection**: Track selection with history avoidance
 //! - **match_service**: High-level match creation orchestration
@@ -24,5 +25,6 @@ pub mod result_recording;
 pub mod score_calculation;
 pub mod scoring;
 pub mod team_allocation;
+pub mod teammate_elo;
 pub mod track_selection;
 pub mod validation;

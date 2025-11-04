@@ -165,8 +165,15 @@ pub async fn add_players_to_round(
     team_id: Uuid,
     player_ids: &[Uuid],
 ) -> Result<(), sqlx::Error> {
+    let (team_num,): (i32,) = sqlx::query_as(
+        "SELECT team_num FROM teams WHERE id = $1",
+    )
+    .bind(team_id)
+    .fetch_one(pool)
+    .await?;
+
     futures::future::try_join_all(
-        player_ids.iter().enumerate().map(|(position, player_id)| {
+        player_ids.iter().map(|player_id| {
             sqlx::query(
                 "INSERT INTO round_players (group_id, match_id, round_number, player_id, team_id, player_position)
                  VALUES ($1, $2, $3, $4, $5, $6)",
@@ -176,7 +183,7 @@ pub async fn add_players_to_round(
             .bind(round_number)
             .bind(player_id)
             .bind(team_id)
-            .bind((position + 1) as i32)
+            .bind(team_num)
             .execute(pool)
         })
     ).await?;

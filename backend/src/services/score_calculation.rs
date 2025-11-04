@@ -77,16 +77,25 @@ pub async fn calculate_player_match_aggregates(
         .map(|change| (change.player_id, change.elo_change))
         .collect();
 
+    let all_player_ids: Vec<Uuid> = player_positions.keys().copied().collect();
+    let teammate_contributions =
+        models::PlayerTeammateEloContribution::get_match_total_for_players(
+            tx,
+            match_id,
+            &all_player_ids,
+        )
+        .await?;
+
     let aggregates = player_positions
         .into_iter()
         .map(|(player_id, positions)| {
             let avg_position =
                 (positions.iter().sum::<i32>() as f64 / positions.len() as f64).round() as i32;
             let all_time_elo_change = all_time_elo_change_map.get(&player_id).copied().unwrap_or(0);
-            let tournament_elo_change = tournament_elo_change_map
-                .get(&player_id)
-                .copied()
-                .unwrap_or(0);
+            let tournament_elo_change_from_races =
+                tournament_elo_change_map.get(&player_id).copied().unwrap_or(0);
+            let teammate_contribution = teammate_contributions.get(&player_id).copied().unwrap_or(0);
+            let tournament_elo_change = tournament_elo_change_from_races + teammate_contribution;
             (player_id, avg_position, all_time_elo_change, tournament_elo_change)
         })
         .collect();

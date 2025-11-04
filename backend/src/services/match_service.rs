@@ -278,6 +278,11 @@ async fn create_match_in_transaction(
         })
         .collect();
 
+    let team_to_team_num: HashMap<Uuid, i32> = teams
+        .iter()
+        .filter_map(|team| team_id_map.get(&team.team_num).map(|&team_id| (team_id, team.team_num)))
+        .collect();
+
     for (idx, track) in tracks.iter().enumerate() {
         sqlx::query(
             "INSERT INTO rounds (match_id, round_number, track_id)
@@ -296,22 +301,28 @@ async fn create_match_in_transaction(
             allocation
                 .player_ids
                 .iter()
-                .enumerate()
-                .map(|(position, player_id)| {
+                .map(|player_id| {
                     player_team_map
                         .get(player_id)
                         .ok_or_else(|| {
                             AppError::Internal("Player team mapping not found".to_string())
                         })
-                        .map(|&team_id| {
-                            (
-                                group_id,
-                                match_record.id,
-                                allocation.race_number,
-                                *player_id,
-                                team_id,
-                                (position + 1) as i32,
-                            )
+                        .and_then(|&team_id| {
+                            team_to_team_num
+                                .get(&team_id)
+                                .ok_or_else(|| {
+                                    AppError::Internal("Team number not found".to_string())
+                                })
+                                .map(|&team_num| {
+                                    (
+                                        group_id,
+                                        match_record.id,
+                                        allocation.race_number,
+                                        *player_id,
+                                        team_id,
+                                        team_num,
+                                    )
+                                })
                         })
                 })
         })

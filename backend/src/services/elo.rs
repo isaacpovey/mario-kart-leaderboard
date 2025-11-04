@@ -14,7 +14,7 @@
 //! 2. **Calculate Expected Score**: For each player, calculate their expected performance
 //!    against all other opponents using the standard ELO formula
 //! 3. **Calculate Actual Score**: Convert race position (1-24) to a normalized score (1.0-0.0)
-//! 4. **Apply K-Factor**: Calculate rating change using K=32 and the difference between
+//! 4. **Apply K-Factor**: Calculate rating change using K=100 and the difference between
 //!    expected and actual scores
 //!
 //! ## Examples
@@ -58,7 +58,7 @@
 use uuid::Uuid;
 
 /// K-factor determines the maximum rating change per race
-const K_FACTOR: f64 = 50.0;
+const K_FACTOR: f64 = 100.0;
 
 /// Total number of racers in a Mario Kart race (including CPUs)
 const TOTAL_RACE_SIZE: usize = 24;
