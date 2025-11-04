@@ -1,5 +1,6 @@
 use crate::graphql::context::GraphQLContext;
 use crate::graphql::matches::types::Match;
+use crate::models;
 use async_graphql::*;
 use chrono::NaiveDate;
 use uuid::Uuid;
@@ -58,32 +59,18 @@ impl Tournament {
     async fn leaderboard(&self, ctx: &Context<'_>) -> Result<Vec<LeaderboardEntry>> {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
 
-        let entries = sqlx::query_as::<_, (Uuid, String, i32, i32)>(
-            r#"
-            SELECT
-                p.id,
-                p.name,
-                p.elo_rating,
-                p.elo_rating as total_score
-            FROM players p
-            WHERE p.group_id = $1
-            ORDER BY p.elo_rating DESC
-            "#,
-        )
-        .bind(self.group_id)
-        .fetch_all(&gql_ctx.pool)
-        .await?;
+        let entries =
+            models::PlayerTournamentScore::get_tournament_leaderboard(&gql_ctx.pool, self.id)
+                .await?;
 
         Ok(entries
             .into_iter()
-            .map(
-                |(player_id, player_name, elo_rating, total_score)| LeaderboardEntry {
-                    player_id,
-                    player_name,
-                    elo_rating,
-                    total_score,
-                },
-            )
+            .map(|(player_id, player_name, elo_rating)| LeaderboardEntry {
+                player_id,
+                player_name,
+                elo_rating,
+                total_score: elo_rating,
+            })
             .collect())
     }
 }

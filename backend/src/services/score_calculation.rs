@@ -24,17 +24,19 @@ use uuid::Uuid;
 ///
 /// This function computes:
 /// - Average position for each player across all races
-/// - Total ELO change from the current round
+/// - Total all-time ELO change from the current round
+/// - Total tournament ELO change from the current round
 ///
 /// # Arguments
 ///
 /// * `tx` - Active database transaction
 /// * `match_id` - UUID of the match
-/// * `current_round_elo_changes` - ELO changes from the current round
+/// * `current_round_all_time_elo_changes` - All-time ELO changes from the current round
+/// * `current_round_tournament_elo_changes` - Tournament ELO changes from the current round
 ///
 /// # Returns
 ///
-/// Result containing a vector of tuples: (player_id, avg_position, elo_change)
+/// Result containing a vector of tuples: (player_id, avg_position, all_time_elo_change, tournament_elo_change)
 ///
 /// # Errors
 ///
@@ -42,10 +44,13 @@ use uuid::Uuid;
 pub async fn calculate_player_match_aggregates(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
-    current_round_elo_changes: &[elo::EloChange],
-) -> Result<Vec<(Uuid, i32, i32)>> {
+    current_round_all_time_elo_changes: &[elo::EloChange],
+    current_round_tournament_elo_changes: &[elo::EloChange],
+) -> Result<Vec<(Uuid, i32, i32, i32)>> {
     let all_race_scores: Vec<models::PlayerRaceScore> = sqlx::query_as(
-        "SELECT group_id, match_id, round_number, player_id, position
+        "SELECT group_id, match_id, round_number, player_id, position,
+                all_time_elo_change, all_time_elo_after,
+                tournament_elo_change, tournament_elo_after, created_at
          FROM player_race_scores
          WHERE match_id = $1
          ORDER BY round_number ASC, position ASC",
@@ -62,7 +67,12 @@ pub async fn calculate_player_match_aggregates(
                 acc
             });
 
-    let elo_change_map: HashMap<Uuid, i32> = current_round_elo_changes
+    let all_time_elo_change_map: HashMap<Uuid, i32> = current_round_all_time_elo_changes
+        .iter()
+        .map(|change| (change.player_id, change.elo_change))
+        .collect();
+
+    let tournament_elo_change_map: HashMap<Uuid, i32> = current_round_tournament_elo_changes
         .iter()
         .map(|change| (change.player_id, change.elo_change))
         .collect();
@@ -72,8 +82,12 @@ pub async fn calculate_player_match_aggregates(
         .map(|(player_id, positions)| {
             let avg_position =
                 (positions.iter().sum::<i32>() as f64 / positions.len() as f64).round() as i32;
-            let elo_change = elo_change_map.get(&player_id).copied().unwrap_or(0);
-            (player_id, avg_position, elo_change)
+            let all_time_elo_change = all_time_elo_change_map.get(&player_id).copied().unwrap_or(0);
+            let tournament_elo_change = tournament_elo_change_map
+                .get(&player_id)
+                .copied()
+                .unwrap_or(0);
+            (player_id, avg_position, all_time_elo_change, tournament_elo_change)
         })
         .collect();
 

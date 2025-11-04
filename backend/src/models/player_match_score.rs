@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -8,4 +9,6 @@ pub struct PlayerMatchScore {
     pub player_id: Uuid,
     pub position: i32,
     pub elo_change: i32,
+    pub tournament_elo_change: i32,
+    pub created_at: DateTime<Utc>,
 }

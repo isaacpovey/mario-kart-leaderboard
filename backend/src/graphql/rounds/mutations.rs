@@ -1,7 +1,6 @@
 use crate::graphql::context::GraphQLContext;
 use crate::graphql::matches::types::Match;
 use crate::models;
-use crate::services::elo;
 use crate::services::result_recording;
 use async_graphql::*;
 use uuid::Uuid;
@@ -82,20 +81,12 @@ impl RoundsMutation {
             .collect();
         result_recording::validate_players_in_round(&player_uuids, &round_players)?;
 
-        let players = models::Player::find_by_ids(&gql_ctx.pool, &player_uuids).await?;
-        let player_elos = result_recording::create_player_elo_map(&players);
-
-        let player_results =
-            result_recording::create_player_results(&player_uuids_with_positions, &player_elos)?;
-        let elo_changes = elo::calculate_elo_changes(&player_results);
-
-        let updated_match = result_recording::record_results_in_transaction(
+        let updated_match = result_recording::record_race_results(
             &gql_ctx.pool,
             group_id,
             match_uuid,
             round_number,
             &player_uuids_with_positions,
-            &elo_changes,
             &match_record,
         )
         .await?;

@@ -195,6 +195,79 @@ pub fn create_player_results(
         .collect()
 }
 
+/// High-level orchestration function for recording race results with dual ELO tracking.
+///
+/// This is the main entry point that:
+/// 1. Fetches players from database (for all-time ELO)
+/// 2. Gets or creates tournament ELO records (lazy initialization at 1200)
+/// 3. Calculates all-time ELO changes using current all-time ELO
+/// 4. Calculates tournament ELO changes using current tournament ELO (independent)
+/// 5. Calls record_results_in_transaction to persist everything
+///
+/// # Arguments
+///
+/// * `pool` - Database connection pool
+/// * `group_id` - UUID of the group
+/// * `match_id` - UUID of the match
+/// * `round_number` - Round number (1-indexed)
+/// * `results` - Slice of tuples containing (player_id, position)
+/// * `match_record` - Current match record
+///
+/// # Returns
+///
+/// Result containing the updated match record
+///
+/// # Errors
+///
+/// Returns an error if any operation fails
+pub async fn record_race_results(
+    pool: &sqlx::PgPool,
+    group_id: Uuid,
+    match_id: Uuid,
+    round_number: i32,
+    results: &[(Uuid, i32)],
+    match_record: &models::Match,
+) -> Result<models::Match> {
+    let player_ids: Vec<Uuid> = results.iter().map(|(id, _)| *id).collect();
+
+    let players = models::Player::find_by_ids(pool, &player_ids).await?;
+    let all_time_player_elos = create_player_elo_map(&players);
+
+    let mut tx = pool.begin().await.map_err(|e| {
+        AppError::Internal(format!("Failed to start transaction for ELO fetch: {e}"))
+    })?;
+
+    let tournament_player_elos = models::PlayerTournamentScore::get_or_create_batch(
+        &mut tx,
+        &player_ids,
+        match_record.tournament_id,
+        group_id,
+    )
+    .await?;
+
+    tx.commit().await.map_err(|e| {
+        AppError::Internal(format!("Failed to commit tournament ELO fetch transaction: {e}"))
+    })?;
+
+    let all_time_player_results = create_player_results(results, &all_time_player_elos)?;
+    let all_time_elo_changes = elo::calculate_elo_changes(&all_time_player_results);
+
+    let tournament_player_results = create_player_results(results, &tournament_player_elos)?;
+    let tournament_elo_changes = elo::calculate_elo_changes(&tournament_player_results);
+
+    record_results_in_transaction(
+        pool,
+        group_id,
+        match_id,
+        round_number,
+        results,
+        &all_time_elo_changes,
+        &tournament_elo_changes,
+        match_record,
+    )
+    .await
+}
+
 /// Records race results and updates all related data in a single transaction.
 ///
 /// This is the main orchestration function that:
@@ -229,7 +302,8 @@ pub async fn record_results_in_transaction(
     match_id: Uuid,
     round_number: i32,
     results: &[(Uuid, i32)],
-    elo_changes: &[elo::EloChange],
+    all_time_elo_changes: &[elo::EloChange],
+    tournament_elo_changes: &[elo::EloChange],
     match_record: &models::Match,
 ) -> Result<models::Match> {
     let mut tx = pool
@@ -237,22 +311,41 @@ pub async fn record_results_in_transaction(
         .await
         .map_err(|e| AppError::Internal(format!("Failed to start database transaction: {e}")))?;
 
+    let all_time_elo_map: HashMap<Uuid, &elo::EloChange> =
+        all_time_elo_changes.iter().map(|c| (c.player_id, c)).collect();
+    let tournament_elo_map: HashMap<Uuid, &elo::EloChange> =
+        tournament_elo_changes.iter().map(|c| (c.player_id, c)).collect();
+
     for (player_id, position) in results {
+        let all_time_change = all_time_elo_map
+            .get(player_id)
+            .ok_or_else(|| AppError::Internal("Missing all-time ELO change".to_string()))?;
+        let tournament_change = tournament_elo_map
+            .get(player_id)
+            .ok_or_else(|| AppError::Internal("Missing tournament ELO change".to_string()))?;
+
         sqlx::query(
-            "INSERT INTO player_race_scores (group_id, match_id, round_number, player_id, position)
-             VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO player_race_scores (
+                group_id, match_id, round_number, player_id, position,
+                all_time_elo_change, all_time_elo_after,
+                tournament_elo_change, tournament_elo_after
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(group_id)
         .bind(match_id)
         .bind(round_number)
         .bind(player_id)
         .bind(position)
+        .bind(all_time_change.elo_change)
+        .bind(all_time_change.new_elo)
+        .bind(tournament_change.elo_change)
+        .bind(tournament_change.new_elo)
         .execute(&mut *tx)
         .await
         .map_err(|e| AppError::Internal(format!("Failed to insert player race score: {e}")))?;
     }
 
-    for change in elo_changes {
+    for change in all_time_elo_changes {
         sqlx::query(
             "UPDATE players
              SET elo_rating = $1
@@ -265,22 +358,38 @@ pub async fn record_results_in_transaction(
         .map_err(|e| AppError::Internal(format!("Failed to update player ELO rating: {e}")))?;
     }
 
-    let player_match_updates =
-        score_calculation::calculate_player_match_aggregates(&mut tx, match_id, elo_changes)
-            .await?;
+    let tournament_elo_updates: Vec<(Uuid, Uuid, i32)> = tournament_elo_changes
+        .iter()
+        .map(|c| (c.player_id, match_record.tournament_id, c.new_elo))
+        .collect();
+    models::PlayerTournamentScore::update_elo_batch(&mut tx, &tournament_elo_updates).await?;
 
-    for (player_id, avg_position, total_elo_change) in player_match_updates {
+    let player_match_updates = score_calculation::calculate_player_match_aggregates(
+        &mut tx,
+        match_id,
+        all_time_elo_changes,
+        tournament_elo_changes,
+    )
+    .await?;
+
+    for (player_id, avg_position, all_time_total_change, tournament_total_change) in
+        player_match_updates
+    {
         sqlx::query(
-            "INSERT INTO player_match_scores (group_id, match_id, player_id, position, elo_change)
-             VALUES ($1, $2, $3, $4, $5)
+            "INSERT INTO player_match_scores (group_id, match_id, player_id, position, elo_change, tournament_elo_change)
+             VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (match_id, player_id)
-             DO UPDATE SET position = $4, elo_change = player_match_scores.elo_change + $5",
+             DO UPDATE SET
+                position = $4,
+                elo_change = player_match_scores.elo_change + $5,
+                tournament_elo_change = player_match_scores.tournament_elo_change + $6",
         )
         .bind(group_id)
         .bind(match_id)
         .bind(player_id)
         .bind(avg_position)
-        .bind(total_elo_change)
+        .bind(all_time_total_change)
+        .bind(tournament_total_change)
         .execute(&mut *tx)
         .await?;
     }
