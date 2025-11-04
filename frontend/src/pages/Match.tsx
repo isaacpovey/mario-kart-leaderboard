@@ -8,7 +8,11 @@ import { recordRoundResultsMutation } from '../queries/recordRoundResults.mutati
 const Match = () => {
   const { matchId } = useParams()
   const navigate = useNavigate()
-  const [result] = useQuery({ query: matchQuery, variables: { matchId: matchId || '' } })
+  const [result, reexecuteQuery] = useQuery({
+    query: matchQuery,
+    variables: { matchId: matchId || '' },
+    requestPolicy: 'cache-first'
+  })
   const [, executeRecordRoundResults] = useMutation(recordRoundResultsMutation)
 
   const [selectedRound, setSelectedRound] = useState<number | null>(null)
@@ -96,6 +100,7 @@ const Match = () => {
 
     setSelectedRound(null)
     setPositions({})
+    reexecuteQuery({ requestPolicy: 'network-only' })
   }
 
   const selectedRoundData = match.rounds.find((r) => r.roundNumber === selectedRound)
@@ -103,31 +108,31 @@ const Match = () => {
   return (
     <Container maxW="4xl" py={8}>
       <VStack gap={6} align="stretch">
-        <HStack justify="space-between">
+        <HStack justify="space-between" flexWrap={{ base: 'wrap', sm: 'nowrap' }} gap={4}>
           <VStack align="start" gap={1}>
-            <Heading size="3xl">Match Details</Heading>
-            <Text color="fg.subtle">{new Date(match.time).toLocaleString()}</Text>
+            <Heading size={{ base: 'xl', md: '2xl', lg: '3xl' }}>Match Details</Heading>
+            <Text color="fg.subtle" fontSize={{ base: 'sm', md: 'md' }}>{new Date(match.time).toLocaleString()}</Text>
           </VStack>
-          <Button onClick={() => navigate('/')}>Back to Home</Button>
+          <Button onClick={() => navigate('/')} flexShrink={0}>Back to Home</Button>
         </HStack>
 
         <VStack gap={4} align="stretch">
           <Heading size="lg">Teams</Heading>
           {match.teams.map((team) => (
-            <VStack key={team.id} p={4} bg="bg.panel" borderRadius="md" borderWidth="1px" align="stretch" gap={2}>
+            <VStack key={team.id} p={{ base: 3, md: 4 }} bg="bg.panel" borderRadius="md" borderWidth="1px" align="stretch" gap={2}>
               <HStack justify="space-between">
-                <Text fontWeight="bold" fontSize="lg">
+                <Text fontWeight="bold" fontSize={{ base: 'md', md: 'lg' }} truncate>
                   {team.name}
                 </Text>
-                <Text fontWeight="semibold" fontSize="lg">
+                <Text fontWeight="semibold" fontSize={{ base: 'md', md: 'lg' }} flexShrink={0}>
                   {team.score} pts
                 </Text>
               </HStack>
               <VStack align="stretch" gap={1}>
                 {team.players.map((player) => (
-                  <HStack key={player.id} justify="space-between">
-                    <Text>{player.name}</Text>
-                    <Text fontSize="sm" color="fg.subtle">
+                  <HStack key={player.id} justify="space-between" gap={2}>
+                    <Text fontSize={{ base: 'sm', md: 'md' }} truncate>{player.name}</Text>
+                    <Text fontSize="sm" color="fg.subtle" flexShrink={0}>
                       ELO: {player.eloRating}
                     </Text>
                   </HStack>
@@ -184,7 +189,7 @@ const Match = () => {
                 )}
 
                 <HStack gap={2}>
-                  <Button type="submit" colorScheme="blue" width="full" disabled={submitting}>
+                  <Button type="submit" colorScheme="blue" width="full" loading={submitting}>
                     {submitting ? 'Submitting...' : 'Submit Results'}
                   </Button>
                   <Button

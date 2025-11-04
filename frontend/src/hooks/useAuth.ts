@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { useClient } from 'urql'
 import { createGroupMutation } from '../queries/createGroup.mutation'
@@ -9,7 +10,7 @@ export const useAuth = () => {
   const isAuthenticated = useAtomValue(isAuthenticatedAtom)
   const client = useClient()
 
-  const login = async (dependencies: { groupId: string; password: string }): Promise<{ success: boolean; error?: string }> => {
+  const login = useCallback(async (dependencies: { groupId: string; password: string }): Promise<{ success: boolean; error?: string }> => {
     const { groupId, password } = dependencies
 
     const result = await client.query(loginQuery, { groupId, password }).toPromise()
@@ -24,9 +25,9 @@ export const useAuth = () => {
     }
 
     return { success: false, error: 'Login failed' }
-  }
+  }, [client, setToken])
 
-  const createGroup = async (dependencies: { name: string; password: string }): Promise<{ success: boolean; error?: string }> => {
+  const createGroup = useCallback(async (dependencies: { name: string; password: string }): Promise<{ success: boolean; error?: string }> => {
     const { name, password } = dependencies
 
     const result = await client.mutation(createGroupMutation, { name, password }).toPromise()
@@ -41,11 +42,11 @@ export const useAuth = () => {
     }
 
     return { success: false, error: 'Group creation failed' }
-  }
+  }, [client, setToken])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setToken(null)
-  }
+  }, [setToken])
 
   return {
     token,

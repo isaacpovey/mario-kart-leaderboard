@@ -62,7 +62,7 @@ export const Login = () => {
               <VStack gap={4} align="stretch">
                 <Field.Root required>
                   <Field.Label>Group ID</Field.Label>
-                  <Input value={loginForm.groupId} onChange={(e) => setLoginForm({ ...loginForm, groupId: e.target.value })} placeholder="Enter group ID" disabled={isLoading} />
+                  <Input value={loginForm.groupId} onChange={(e) => setLoginForm((prev) => ({ ...prev, groupId: e.target.value }))} placeholder="Enter group ID" disabled={isLoading} />
                 </Field.Root>
 
                 <Field.Root required>
@@ -70,7 +70,7 @@ export const Login = () => {
                   <Input
                     type="password"
                     value={loginForm.password}
-                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    onChange={(e) => setLoginForm((prev) => ({ ...prev, password: e.target.value }))}
                     placeholder="Enter password"
                     disabled={isLoading}
                   />
@@ -82,8 +82,8 @@ export const Login = () => {
                   </Text>
                 )}
 
-                <Button type="submit" colorScheme="blue" width="full" disabled={isLoading}>
-                  Login
+                <Button type="submit" colorScheme="blue" width="full" loading={isLoading}>
+                  {isLoading ? 'Logging in...' : 'Login'}
                 </Button>
               </VStack>
             </form>
@@ -94,7 +94,7 @@ export const Login = () => {
               <VStack gap={4} align="stretch">
                 <Field.Root required>
                   <Field.Label>Group Name</Field.Label>
-                  <Input value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} placeholder="Enter group name" disabled={isLoading} />
+                  <Input value={createForm.name} onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Enter group name" disabled={isLoading} />
                 </Field.Root>
 
                 <Field.Root required>
@@ -102,7 +102,7 @@ export const Login = () => {
                   <Input
                     type="password"
                     value={createForm.password}
-                    onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
                     placeholder="Create a password"
                     disabled={isLoading}
                   />
@@ -114,8 +114,8 @@ export const Login = () => {
                   </Text>
                 )}
 
-                <Button type="submit" colorScheme="green" width="full" disabled={isLoading}>
-                  Create Group
+                <Button type="submit" colorScheme="green" width="full" loading={isLoading}>
+                  {isLoading ? 'Creating...' : 'Create Group'}
                 </Button>
               </VStack>
             </form>

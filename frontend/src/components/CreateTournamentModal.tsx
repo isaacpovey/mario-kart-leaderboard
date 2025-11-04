@@ -8,17 +8,21 @@ export const CreateTournamentModal = (dependencies: { open: boolean; onOpenChang
   const { open, onOpenChange } = dependencies
   const [form, setForm] = useState({ startDate: '', endDate: '' })
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const [, executeMutation] = useMutation(createTournamentMutation)
   const client = useClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setIsLoading(true)
 
     const result = await executeMutation({
       startDate: form.startDate || undefined,
       endDate: form.endDate || undefined,
     })
+
+    setIsLoading(false)
 
     if (result.error) {
       setError(result.error.message)
@@ -53,12 +57,12 @@ export const CreateTournamentModal = (dependencies: { open: boolean; onOpenChang
                 <VStack gap={4} align="stretch">
                   <Field.Root>
                     <Field.Label>Start Date</Field.Label>
-                    <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+                    <Input type="date" value={form.startDate} onChange={(e) => setForm((prev) => ({ ...prev, startDate: e.target.value }))} disabled={isLoading} />
                   </Field.Root>
 
                   <Field.Root>
                     <Field.Label>End Date</Field.Label>
-                    <Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+                    <Input type="date" value={form.endDate} onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))} disabled={isLoading} />
                   </Field.Root>
 
                   {error && (
@@ -68,10 +72,10 @@ export const CreateTournamentModal = (dependencies: { open: boolean; onOpenChang
                   )}
 
                   <VStack gap={2}>
-                    <Button type="submit" colorScheme="blue" width="full">
-                      Create Tournament
+                    <Button type="submit" colorScheme="blue" width="full" loading={isLoading}>
+                      {isLoading ? 'Creating...' : 'Create Tournament'}
                     </Button>
-                    <Button type="button" variant="outline" width="full" onClick={handleClose}>
+                    <Button type="button" variant="outline" width="full" onClick={handleClose} disabled={isLoading}>
                       Cancel
                     </Button>
                   </VStack>
