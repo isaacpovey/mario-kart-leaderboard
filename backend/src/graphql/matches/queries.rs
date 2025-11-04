@@ -17,8 +17,7 @@ impl MatchesQuery {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
         let group_id = gql_ctx.authenticated_group_id()?;
 
-        let match_uuid = Uuid::parse_str(&match_id)
-            .map_err(|_| Error::new("Invalid match ID"))?;
+        let match_uuid = Uuid::parse_str(&match_id).map_err(|_| Error::new("Invalid match ID"))?;
 
         let match_record = models::Match::find_by_id(&gql_ctx.pool, match_uuid)
             .await?
@@ -39,8 +38,8 @@ impl MatchesQuery {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
         let group_id = gql_ctx.authenticated_group_id()?;
 
-        let tournament_uuid = Uuid::parse_str(&tournament_id)
-            .map_err(|_| Error::new("Invalid tournament ID"))?;
+        let tournament_uuid =
+            Uuid::parse_str(&tournament_id).map_err(|_| Error::new("Invalid tournament ID"))?;
 
         let tournament = models::Tournament::find_by_id(&gql_ctx.pool, tournament_uuid)
             .await?

@@ -27,5 +27,8 @@ pub struct Mutation(
 pub type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;
 
 pub fn build_schema() -> Schema {
-    Schema::build(Query::default(), Mutation::default(), EmptySubscription).finish()
+    Schema::build(Query::default(), Mutation::default(), EmptySubscription)
+        .limit_depth(10)
+        .limit_complexity(100)
+        .finish()
 }

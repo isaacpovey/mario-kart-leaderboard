@@ -1,7 +1,7 @@
 [package]
 name = "mario-kart-leaderboard-backend"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 tokio = { version = "1.45.0", features = ["full"] }
@@ -17,7 +17,7 @@ async-graphql-axum = "7.0"
 # Web framework
 axum = { version = "0.8", features = ["macros"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["cors"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
 
 # Authentication
 jsonwebtoken = { version = "10.0", features = ["rust_crypto"] }
@@ -32,8 +32,10 @@ uuid = { version = "1.10", features = ["serde", "v4"] }
 thiserror = "2.0"
 async-trait = "0.1"
 rand = "0.9"
-shuttle-runtime = "0.57.0"
-shuttle-axum = "0.57.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 testcontainers = "0.25"

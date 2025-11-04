@@ -2,7 +2,7 @@ use crate::auth::{create_jwt, hash_password};
 use crate::config::Config;
 use crate::graphql::context::GraphQLContext;
 use crate::models;
-use crate::validation::{validate_name, validate_password};
+use crate::services::validation::{validate_name, validate_password};
 use async_graphql::*;
 
 #[derive(Default)]

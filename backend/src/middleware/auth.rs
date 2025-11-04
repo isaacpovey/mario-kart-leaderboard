@@ -2,7 +2,7 @@ use crate::auth::verify_jwt;
 use crate::config::Config;
 use axum::{
     extract::Request,
-    http::{header::AUTHORIZATION, StatusCode},
+    http::{StatusCode, header::AUTHORIZATION},
     middleware::Next,
     response::Response,
 };

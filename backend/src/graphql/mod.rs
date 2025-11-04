@@ -10,4 +10,4 @@ pub mod tournaments;
 pub mod tracks;
 
 pub use context::GraphQLContext;
-pub use schema::{build_schema, Mutation, Query, Schema};
+pub use schema::{Mutation, Query, Schema, build_schema};

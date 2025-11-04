@@ -1,6 +1,6 @@
 mod common;
 
-use async_graphql::{value, Request, Variables};
+use async_graphql::{Request, Variables, value};
 use common::{fixtures, setup};
 use mario_kart_leaderboard_backend::{auth::verify_jwt, graphql::context::GraphQLContext};
 

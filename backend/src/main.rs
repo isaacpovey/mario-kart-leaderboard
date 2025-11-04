@@ -1,8 +1,8 @@
 use axum::{
-    middleware,
+    Extension, Router, middleware,
     routing::{get, post},
-    Extension, Router,
 };
+use mario_kart_leaderboard_backend::error::AppError;
 use mario_kart_leaderboard_backend::{
     config::Config,
     db::create_pool,
@@ -11,15 +11,24 @@ use mario_kart_leaderboard_backend::{
     middleware::auth::auth_middleware,
 };
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use mario_kart_leaderboard_backend::error::AppError;
+use tower_http::trace::TraceLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
-async fn main(
-) -> Result<(), AppError> {
-    let config = Config::from_env()?;
-    let pool = create_pool(&config.database_url).await?;
+async fn main() -> Result<(), AppError> {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "mario_kart_leaderboard_backend=info,tower_http=info,axum=info".into()
+            }),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
-    eprintln!("Connected to database");
+    let config = Config::from_env()?;
+    let pool = create_pool(&config.database_url, config.database_max_connections).await?;
+
+    tracing::info!("Connected to database");
 
     let schema = build_schema();
 
@@ -52,13 +61,14 @@ async fn main(
         .layer(Extension(schema))
         .layer(Extension(pool))
         .layer(Extension(config.clone()))
+        .layer(TraceLayer::new_for_http())
         .layer(cors);
 
     let addr = config.server_addr();
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 
-    eprintln!("GraphQL server running at http://{addr}/graphql");
-    eprintln!("GraphQL Playground available at http://{addr}/");
+    tracing::info!("GraphQL server running at http://{}/graphql", addr);
+    tracing::info!("GraphQL Playground available at http://{}/", addr);
 
     axum::serve(listener, app).await?;
 

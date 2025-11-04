@@ -1,7 +1,7 @@
 use crate::graphql::context::GraphQLContext;
 use crate::graphql::players::types::Player;
 use crate::models;
-use crate::validation::validate_name;
+use crate::services::validation::validate_name;
 use async_graphql::*;
 
 #[derive(Default)]

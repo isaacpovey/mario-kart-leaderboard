@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use chrono::{NaiveDate, Utc};
 use mario_kart_leaderboard_backend::{
     auth::hash_password,
@@ -16,20 +18,6 @@ pub async fn create_test_group(
     Group::create(pool, name, &password_hash).await
 }
 
-/// Create multiple test groups
-pub async fn create_test_groups(pool: &PgPool, count: usize) -> Result<Vec<Group>, sqlx::Error> {
-    let group_data: Vec<(String, String)> = (0..count)
-        .map(|i| (
-            format!("Test Group {}", i + 1),
-            format!("password{}", i + 1),
-        ))
-        .collect();
-
-    futures::future::try_join_all(
-        group_data.iter().map(|(name, password)| create_test_group(pool, name, password))
-    ).await
-}
-
 /// Create a test player
 pub async fn create_test_player(
     pool: &PgPool,
@@ -45,13 +33,14 @@ pub async fn create_test_players(
     group_id: Uuid,
     count: usize,
 ) -> Result<Vec<Player>, sqlx::Error> {
-    let player_names: Vec<String> = (0..count)
-        .map(|i| format!("Player {}", i + 1))
-        .collect();
+    let player_names: Vec<String> = (0..count).map(|i| format!("Player {}", i + 1)).collect();
 
     futures::future::try_join_all(
-        player_names.iter().map(|name| create_test_player(pool, group_id, name))
-    ).await
+        player_names
+            .iter()
+            .map(|name| create_test_player(pool, group_id, name)),
+    )
+    .await
 }
 
 /// Create a test tournament
@@ -70,13 +59,12 @@ pub async fn create_test_tournaments(
     group_id: Uuid,
     count: usize,
 ) -> Result<Vec<Tournament>, sqlx::Error> {
-    futures::future::try_join_all(
-        (0..count).map(|i| {
-            let start_date = NaiveDate::from_ymd_opt(2024, 1, i as u32 + 1);
-            let end_date = NaiveDate::from_ymd_opt(2024, 1, i as u32 + 7);
-            create_test_tournament(pool, group_id, start_date, end_date)
-        })
-    ).await
+    futures::future::try_join_all((0..count).map(|i| {
+        let start_date = NaiveDate::from_ymd_opt(2024, 1, i as u32 + 1);
+        let end_date = NaiveDate::from_ymd_opt(2024, 1, i as u32 + 7);
+        create_test_tournament(pool, group_id, start_date, end_date)
+    }))
+    .await
 }
 
 /// Create a test match via direct DB insert
@@ -127,8 +115,9 @@ pub async fn create_test_teams(
     count: i32,
 ) -> Result<Vec<Team>, sqlx::Error> {
     futures::future::try_join_all(
-        (0..count).map(|i| create_test_team(pool, group_id, match_id, i + 1))
-    ).await
+        (0..count).map(|i| create_test_team(pool, group_id, match_id, i + 1)),
+    )
+    .await
 }
 
 /// Create a test round for a match
@@ -162,8 +151,9 @@ pub async fn create_test_rounds(
         .await?;
 
     futures::future::try_join_all(
-        (0..count).map(|i| create_test_round(pool, match_id, i + 1, track_id))
-    ).await
+        (0..count).map(|i| create_test_round(pool, match_id, i + 1, track_id)),
+    )
+    .await
 }
 
 /// Add players to a round

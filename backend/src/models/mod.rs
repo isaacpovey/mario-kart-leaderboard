@@ -10,10 +10,10 @@ pub mod tournament;
 pub mod track;
 
 pub use group::Group;
+pub use r#match::Match;
 pub use player::Player;
 pub use player_match_score::PlayerMatchScore;
 pub use player_race_score::PlayerRaceScore;
-pub use r#match::Match;
 pub use round::Round;
 pub use team::Team;
 pub use team_match_score::TeamMatchScore;

@@ -23,10 +23,7 @@ impl Loader<Uuid> for TrackLoader {
             .await
             .map_err(std::sync::Arc::new)?;
 
-        let mapped = tracks
-            .into_iter()
-            .map(|track| (track.id, track))
-            .collect();
+        let mapped = tracks.into_iter().map(|track| (track.id, track)).collect();
 
         Ok(mapped)
     }

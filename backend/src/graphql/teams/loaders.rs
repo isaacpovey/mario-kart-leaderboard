@@ -53,12 +53,13 @@ impl Loader<Uuid> for PlayersByTeamLoader {
             .await
             .map_err(std::sync::Arc::new)?;
 
-        let grouped = player_teams
-            .into_iter()
-            .fold(HashMap::<Uuid, Vec<Player>>::new(), |mut acc, (team_id, player)| {
+        let grouped = player_teams.into_iter().fold(
+            HashMap::<Uuid, Vec<Player>>::new(),
+            |mut acc, (team_id, player)| {
                 acc.entry(team_id).or_default().push(player);
                 acc
-            });
+            },
+        );
 
         Ok(grouped)
     }

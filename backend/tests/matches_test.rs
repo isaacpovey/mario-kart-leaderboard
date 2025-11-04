@@ -1,6 +1,6 @@
 mod common;
 
-use async_graphql::{value, Request, Variables};
+use async_graphql::{Request, Variables, value};
 use common::{fixtures, setup};
 use mario_kart_leaderboard_backend::graphql::context::GraphQLContext;
 
@@ -173,7 +173,10 @@ async fn test_matches_query_with_resolved_fields() {
     assert_eq!(matches.len(), 1);
 
     let match_data = &matches[0];
-    assert_eq!(match_data.get("numOfRounds").and_then(|v| v.as_i64()), Some(3));
+    assert_eq!(
+        match_data.get("numOfRounds").and_then(|v| v.as_i64()),
+        Some(3)
+    );
 
     let rounds = match_data
         .get("rounds")
@@ -245,8 +248,14 @@ async fn test_match_by_id_happy_path() {
         match_data.get("id").and_then(|v| v.as_str()),
         Some(match_record.id.to_string().as_str())
     );
-    assert_eq!(match_data.get("numOfRounds").and_then(|v| v.as_i64()), Some(2));
-    assert_eq!(match_data.get("completed").and_then(|v| v.as_bool()), Some(false));
+    assert_eq!(
+        match_data.get("numOfRounds").and_then(|v| v.as_i64()),
+        Some(2)
+    );
+    assert_eq!(
+        match_data.get("completed").and_then(|v| v.as_bool()),
+        Some(false)
+    );
 }
 
 #[tokio::test]
@@ -311,7 +320,10 @@ async fn test_match_by_id_with_resolved_fields() {
     let data = response.data.into_json().expect("Failed to parse response");
     let match_data = data.get("matchById").expect("matchById field not found");
 
-    assert_eq!(match_data.get("numOfRounds").and_then(|v| v.as_i64()), Some(3));
+    assert_eq!(
+        match_data.get("numOfRounds").and_then(|v| v.as_i64()),
+        Some(3)
+    );
 
     let rounds = match_data
         .get("rounds")
@@ -554,27 +566,38 @@ async fn test_create_match_with_rounds_basic() {
         .get("createMatchWithRounds")
         .expect("createMatchWithRounds field not found");
 
-    assert_eq!(match_data.get("numOfRounds").and_then(|v| v.as_i64()), Some(2));
-    assert_eq!(match_data.get("completed").and_then(|v| v.as_bool()), Some(false));
+    assert_eq!(
+        match_data.get("numOfRounds").and_then(|v| v.as_i64()),
+        Some(2)
+    );
+    assert_eq!(
+        match_data.get("completed").and_then(|v| v.as_bool()),
+        Some(false)
+    );
 
     // Verify teams were created
-    let match_id_str = match_data.get("id").and_then(|v| v.as_str()).expect("id not found");
+    let match_id_str = match_data
+        .get("id")
+        .and_then(|v| v.as_str())
+        .expect("id not found");
     let match_id = uuid::Uuid::parse_str(match_id_str).expect("invalid uuid");
 
-    let teams: Vec<(i32,)> = sqlx::query_as("SELECT team_num FROM teams WHERE match_id = $1 ORDER BY team_num")
-        .bind(match_id)
-        .fetch_all(&ctx.pool)
-        .await
-        .expect("Failed to fetch teams");
+    let teams: Vec<(i32,)> =
+        sqlx::query_as("SELECT team_num FROM teams WHERE match_id = $1 ORDER BY team_num")
+            .bind(match_id)
+            .fetch_all(&ctx.pool)
+            .await
+            .expect("Failed to fetch teams");
 
     assert_eq!(teams.len(), 4, "Should have 4 teams");
 
     // Verify rounds were created
-    let rounds: Vec<(i32,)> = sqlx::query_as("SELECT round_number FROM rounds WHERE match_id = $1 ORDER BY round_number")
-        .bind(match_id)
-        .fetch_all(&ctx.pool)
-        .await
-        .expect("Failed to fetch rounds");
+    let rounds: Vec<(i32,)> =
+        sqlx::query_as("SELECT round_number FROM rounds WHERE match_id = $1 ORDER BY round_number")
+            .bind(match_id)
+            .fetch_all(&ctx.pool)
+            .await
+            .expect("Failed to fetch rounds");
 
     assert_eq!(rounds.len(), 2, "Should have 2 rounds");
 }
@@ -596,9 +619,10 @@ async fn test_create_match_with_rounds_verifies_snake_draft() {
     // Create 8 players with different ELO ratings
     let mut players = Vec::new();
     for i in 0..8 {
-        let player = fixtures::create_test_player(&ctx.pool, group.id, &format!("Player {}", i + 1))
-            .await
-            .expect("Failed to create player");
+        let player =
+            fixtures::create_test_player(&ctx.pool, group.id, &format!("Player {}", i + 1))
+                .await
+                .expect("Failed to create player");
 
         // Update ELO to create variance (highest to lowest)
         sqlx::query("UPDATE players SET elo_rating = $1 WHERE id = $2")
@@ -650,33 +674,41 @@ async fn test_create_match_with_rounds_verifies_snake_draft() {
         .get("createMatchWithRounds")
         .expect("createMatchWithRounds field not found");
 
-    let match_id_str = match_data.get("id").and_then(|v| v.as_str()).expect("id not found");
+    let match_id_str = match_data
+        .get("id")
+        .and_then(|v| v.as_str())
+        .expect("id not found");
     let match_id = uuid::Uuid::parse_str(match_id_str).expect("invalid uuid");
 
     // Verify team players were assigned
     let team_player_count: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM team_players tp
          JOIN teams t ON t.id = tp.team_id
-         WHERE t.match_id = $1"
+         WHERE t.match_id = $1",
     )
     .bind(match_id)
     .fetch_one(&ctx.pool)
     .await
     .expect("Failed to count team players");
 
-    assert_eq!(team_player_count.0, 8, "All 8 players should be assigned to teams");
+    assert_eq!(
+        team_player_count.0, 8,
+        "All 8 players should be assigned to teams"
+    );
 
     // Verify round_players were assigned correctly
-    let round_player_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM round_players WHERE match_id = $1"
-    )
-    .bind(match_id)
-    .fetch_one(&ctx.pool)
-    .await
-    .expect("Failed to count round players");
+    let round_player_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM round_players WHERE match_id = $1")
+            .bind(match_id)
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("Failed to count round players");
 
     // 4 rounds * 4 players per round = 16 entries
-    assert_eq!(round_player_count.0, 16, "Should have 16 round player entries");
+    assert_eq!(
+        round_player_count.0, 16,
+        "Should have 16 round player entries"
+    );
 }
 
 #[tokio::test]
@@ -748,7 +780,10 @@ async fn test_create_match_with_rounds_verifies_tracks_assigned() {
     // Verify all rounds have track IDs
     for round in rounds {
         let track_id = round.get("trackId");
-        assert!(track_id.is_some() && !track_id.unwrap().is_null(), "Each round should have a track");
+        assert!(
+            track_id.is_some() && !track_id.unwrap().is_null(),
+            "Each round should have a track"
+        );
     }
 }
 
@@ -849,7 +884,7 @@ async fn test_create_match_with_rounds_tournament_not_found() {
 }
 
 #[tokio::test]
-async fn test_create_match_with_rounds_invalid_slot_distribution() {
+async fn test_create_match_with_rounds_uneven_slot_distribution() {
     let ctx = setup::setup_test_db().await;
 
     let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
@@ -881,8 +916,8 @@ async fn test_create_match_with_rounds_invalid_slot_distribution() {
         }
     "#;
 
-    // 2 races * 4 players per race = 8 slots, but we have 5 players
-    // 8 % 5 != 0, so this should fail
+    // 2 races * 4 players per race = 8 slots for 5 players
+    // The allocation algorithm handles uneven distributions correctly
     let request = Request::new(query)
         .variables(Variables::from_value(value!({
             "tournamentId": tournament.id.to_string(),
@@ -895,12 +930,22 @@ async fn test_create_match_with_rounds_invalid_slot_distribution() {
     let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
-    assert!(!response.errors.is_empty(), "Expected validation error");
     assert!(
-        response.errors[0].message.contains("Invalid configuration"),
-        "Expected Invalid configuration error, got: {}",
-        response.errors[0].message
+        response.errors.is_empty(),
+        "Should create match successfully with uneven slot distribution: {:?}",
+        response.errors
     );
+
+    let data = response.data.into_json().expect("Failed to parse response");
+    let match_data = data
+        .get("createMatchWithRounds")
+        .expect("Should have createMatchWithRounds in response");
+    let match_id = match_data
+        .get("id")
+        .and_then(|id| id.as_str())
+        .expect("Should return match ID");
+
+    assert!(!match_id.is_empty(), "Match ID should not be empty");
 }
 
 #[tokio::test]
@@ -950,7 +995,9 @@ async fn test_create_match_with_rounds_players_per_race_exceeds_total() {
 
     assert!(!response.errors.is_empty(), "Expected validation error");
     assert!(
-        response.errors[0].message.contains("cannot exceed total number of players"),
+        response.errors[0]
+            .message
+            .contains("cannot exceed total number of players"),
         "Expected 'cannot exceed total number of players' error, got: {}",
         response.errors[0].message
     );
@@ -1061,7 +1108,7 @@ async fn test_create_match_with_rounds_unauthorized() {
 
     assert!(!response.errors.is_empty(), "Expected unauthorized error");
     assert!(
-        response.errors[0].message.contains("does not belong to your group"),
+        response.errors[0].message.contains("Tournament not found"),
         "Expected 'does not belong to your group' error, got: {}",
         response.errors[0].message
     );

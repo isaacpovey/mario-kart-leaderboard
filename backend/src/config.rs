@@ -1,10 +1,10 @@
-use std::env;
 use crate::error::{AppError, Result};
-use shuttle_runtime::SecretStore;
+use std::env;
 
 #[derive(Clone, Debug)]
 pub struct Config {
     pub database_url: String,
+    pub database_max_connections: u32,
     pub jwt_secret: String,
     pub server_host: String,
     pub server_port: u16,
@@ -15,7 +15,7 @@ pub struct Config {
 impl Config {
     pub fn from_env() -> Result<Self> {
         dotenv::dotenv().ok();
-        
+
         // JWT_SECRET is mandatory for security - fail fast if not set
         let jwt_secret =
             env::var("JWT_SECRET").map_err(|_| AppError::EnvVar(std::env::VarError::NotPresent))?;
@@ -39,10 +39,18 @@ impl Config {
             .filter(|s| !s.is_empty())
             .collect();
 
+        let database_max_connections = env::var("DATABASE_MAX_CONNECTIONS")
+            .unwrap_or_else(|_| "10".to_string())
+            .parse()
+            .map_err(|_| {
+                AppError::InvalidInput("DATABASE_MAX_CONNECTIONS must be a valid u32".to_string())
+            })?;
+
         Ok(Self {
             database_url: env::var("DATABASE_URL").unwrap_or_else(|_| {
                 "postgresql://postgres:password@localhost/mario_kart".to_string()
             }),
+            database_max_connections,
             jwt_secret,
             server_host: env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
             server_port,

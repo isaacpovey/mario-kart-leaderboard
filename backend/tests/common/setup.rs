@@ -1,10 +1,10 @@
 use mario_kart_leaderboard_backend::{
     config::Config,
-    graphql::schema::{build_schema, Schema},
+    graphql::schema::{Schema, build_schema},
 };
-use sqlx::{postgres::PgPoolOptions, PgPool};
-use testcontainers::runners::AsyncRunner;
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use testcontainers::ContainerAsync;
+use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
 
 pub struct TestContext {
@@ -52,6 +52,7 @@ pub async fn setup_test_db() -> TestContext {
     // Create test config
     let config = Config {
         database_url,
+        database_max_connections: 5,
         jwt_secret: "test_secret_key_for_testing_only_at_least_32_chars".to_string(),
         server_host: "127.0.0.1".to_string(),
         server_port: 8080,

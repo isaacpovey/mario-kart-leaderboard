@@ -5,7 +5,7 @@ use crate::graphql::rounds::{PlayersByRoundLoader, RoundsByMatchLoader};
 use crate::graphql::teams::{PlayersByTeamLoader, TeamsByMatchLoader};
 use crate::graphql::tournaments::TournamentLoader;
 use crate::graphql::tracks::TrackLoader;
-use async_graphql::dataloader::DataLoader;
+use async_graphql::dataloader::{DataLoader, HashMapCache};
 use sqlx::PgPool;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -13,66 +13,76 @@ use uuid::Uuid;
 pub struct GraphQLContext {
     pub pool: PgPool,
     pub group_id: Option<Uuid>,
-    pub group_loader: Arc<DataLoader<GroupLoader>>,
-    pub player_loader: Arc<DataLoader<PlayerLoader>>,
-    pub players_by_group_loader: Arc<DataLoader<PlayersByGroupLoader>>,
-    pub tournament_loader: Arc<DataLoader<TournamentLoader>>,
-    pub match_loader: Arc<DataLoader<MatchLoader>>,
-    pub matches_by_tournament_loader: Arc<DataLoader<MatchesByTournamentLoader>>,
-    pub rounds_by_match_loader: Arc<DataLoader<RoundsByMatchLoader>>,
-    pub players_by_round_loader: Arc<DataLoader<PlayersByRoundLoader>>,
-    pub teams_by_match_loader: Arc<DataLoader<TeamsByMatchLoader>>,
-    pub players_by_team_loader: Arc<DataLoader<PlayersByTeamLoader>>,
-    pub track_loader: Arc<DataLoader<TrackLoader>>,
+    pub group_loader: Arc<DataLoader<GroupLoader, HashMapCache>>,
+    pub player_loader: Arc<DataLoader<PlayerLoader, HashMapCache>>,
+    pub players_by_group_loader: Arc<DataLoader<PlayersByGroupLoader, HashMapCache>>,
+    pub tournament_loader: Arc<DataLoader<TournamentLoader, HashMapCache>>,
+    pub match_loader: Arc<DataLoader<MatchLoader, HashMapCache>>,
+    pub matches_by_tournament_loader: Arc<DataLoader<MatchesByTournamentLoader, HashMapCache>>,
+    pub rounds_by_match_loader: Arc<DataLoader<RoundsByMatchLoader, HashMapCache>>,
+    pub players_by_round_loader: Arc<DataLoader<PlayersByRoundLoader, HashMapCache>>,
+    pub teams_by_match_loader: Arc<DataLoader<TeamsByMatchLoader, HashMapCache>>,
+    pub players_by_team_loader: Arc<DataLoader<PlayersByTeamLoader, HashMapCache>>,
+    pub track_loader: Arc<DataLoader<TrackLoader, HashMapCache>>,
 }
 
 impl GraphQLContext {
     pub fn new(pool: PgPool, group_id: Option<Uuid>) -> Self {
-        // Note: PgPool cloning is cheap (Arc-based), so these clones are acceptable
         Self {
-            group_loader: Arc::new(DataLoader::new(
+            group_loader: Arc::new(DataLoader::with_cache(
                 GroupLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
-            player_loader: Arc::new(DataLoader::new(
+            player_loader: Arc::new(DataLoader::with_cache(
                 PlayerLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
-            players_by_group_loader: Arc::new(DataLoader::new(
+            players_by_group_loader: Arc::new(DataLoader::with_cache(
                 PlayersByGroupLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
-            tournament_loader: Arc::new(DataLoader::new(
+            tournament_loader: Arc::new(DataLoader::with_cache(
                 TournamentLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
-            match_loader: Arc::new(DataLoader::new(
+            match_loader: Arc::new(DataLoader::with_cache(
                 MatchLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
-            matches_by_tournament_loader: Arc::new(DataLoader::new(
+            matches_by_tournament_loader: Arc::new(DataLoader::with_cache(
                 MatchesByTournamentLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
-            rounds_by_match_loader: Arc::new(DataLoader::new(
+            rounds_by_match_loader: Arc::new(DataLoader::with_cache(
                 RoundsByMatchLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
-            players_by_round_loader: Arc::new(DataLoader::new(
+            players_by_round_loader: Arc::new(DataLoader::with_cache(
                 PlayersByRoundLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
-            teams_by_match_loader: Arc::new(DataLoader::new(
+            teams_by_match_loader: Arc::new(DataLoader::with_cache(
                 TeamsByMatchLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
-            players_by_team_loader: Arc::new(DataLoader::new(
+            players_by_team_loader: Arc::new(DataLoader::with_cache(
                 PlayersByTeamLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
-            track_loader: Arc::new(DataLoader::new(
+            track_loader: Arc::new(DataLoader::with_cache(
                 TrackLoader::new(pool.clone()),
                 tokio::spawn,
+                HashMapCache::default(),
             )),
             pool,
             group_id,

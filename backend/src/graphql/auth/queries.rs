@@ -19,8 +19,7 @@ impl AuthQuery {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
         let config = ctx.data::<Config>()?;
 
-        let group_uuid =
-            Uuid::parse_str(&group_id).map_err(|_| Error::new("Invalid group ID"))?;
+        let group_uuid = Uuid::parse_str(&group_id).map_err(|_| Error::new("Invalid group ID"))?;
 
         let group = models::Group::find_by_id(&gql_ctx.pool, group_uuid)
             .await?
