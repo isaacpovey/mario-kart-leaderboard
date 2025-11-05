@@ -55,6 +55,7 @@
 //!
 //! ## Constants
 
+use tracing::instrument;
 use uuid::Uuid;
 
 /// K-factor determines the maximum rating change per race
@@ -109,6 +110,7 @@ pub struct EloChange {
 /// // changes[0] will have a positive elo_change (1st place)
 /// // changes[1] will have a smaller positive or negative change (10th place)
 /// ```
+#[instrument(level = "info", fields(player_count = results.len()))]
 pub fn calculate_elo_changes(results: &[PlayerResult]) -> Vec<EloChange> {
     let full_field = create_full_field(results);
 
@@ -131,6 +133,7 @@ pub fn calculate_elo_changes(results: &[PlayerResult]) -> Vec<EloChange> {
 
 /// Internal function: Creates a full 24-player field by filling empty positions with CPU opponents.
 /// Exposed for testing purposes.
+#[instrument(level = "debug", fields(human_count = human_results.len()))]
 pub fn create_full_field(human_results: &[PlayerResult]) -> Vec<PlayerResult> {
     let mut full_field = Vec::with_capacity(TOTAL_RACE_SIZE);
 
@@ -152,6 +155,7 @@ pub fn create_full_field(human_results: &[PlayerResult]) -> Vec<PlayerResult> {
     full_field
 }
 
+#[instrument(level = "debug", skip(all_results), fields(opponent_count = all_results.len().saturating_sub(1), player_elo = player.current_elo))]
 fn calculate_expected_score(player: &PlayerResult, all_results: &[PlayerResult]) -> f64 {
     let opponent_count = all_results.len().saturating_sub(1);
     if opponent_count == 0 {

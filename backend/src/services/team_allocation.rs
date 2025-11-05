@@ -14,6 +14,7 @@
 //!    that still has capacity
 
 use crate::models;
+use tracing::instrument;
 
 /// Represents a team with its players and total ELO rating
 #[derive(Debug, Clone)]
@@ -49,6 +50,7 @@ pub struct Team {
 /// let sizes = calculate_team_sizes(12, 4);
 /// assert_eq!(sizes, vec![3, 3, 3, 3]);
 /// ```
+#[instrument(level = "debug")]
 pub fn calculate_team_sizes(num_players: usize, num_teams: usize) -> Vec<usize> {
     let base_size = num_players / num_teams;
     let remainder = num_players % num_teams;
@@ -98,6 +100,7 @@ pub fn calculate_team_sizes(num_players: usize, num_teams: usize) -> Vec<usize> 
 /// // Team 1: Alice (1400), Team 2: Bob (1200), Team 1: Charlie (1000)
 /// // Results in balanced teams: Team 1 (2400), Team 2 (1200)
 /// ```
+#[instrument(level = "info", skip(players), fields(num_players = players.len(), players_per_race = *players_per_race))]
 pub fn allocate_teams(players: &[models::Player], players_per_race: &i32) -> Vec<Team> {
     let mut sorted_players = players.to_vec();
     sorted_players.sort_by(|a, b| b.elo_rating.cmp(&a.elo_rating));

@@ -2,6 +2,7 @@ use crate::models::Track;
 use async_graphql::dataloader::*;
 use sqlx::PgPool;
 use std::collections::HashMap;
+use tracing::instrument;
 use uuid::Uuid;
 
 pub struct TrackLoader {
@@ -18,6 +19,7 @@ impl Loader<Uuid> for TrackLoader {
     type Value = Track;
     type Error = std::sync::Arc<sqlx::Error>;
 
+    #[instrument(level = "debug", skip(self), fields(batch_size = keys.len()))]
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
         let tracks = Track::find_by_ids(&self.pool, keys)
             .await

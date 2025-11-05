@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use tracing::instrument;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, FromRow)]
@@ -10,6 +11,7 @@ pub struct Player {
 }
 
 impl Player {
+    #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_id(pool: &sqlx::PgPool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
             "SELECT id, group_id, name, elo_rating FROM players WHERE id = $1",
@@ -19,6 +21,7 @@ impl Player {
         .await
     }
 
+    #[instrument(level = "debug", skip(pool), fields(batch_size = ids.len()))]
     pub async fn find_by_ids(pool: &sqlx::PgPool, ids: &[Uuid]) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
             "SELECT id, group_id, name, elo_rating FROM players WHERE id = ANY($1)",
@@ -28,6 +31,7 @@ impl Player {
         .await
     }
 
+    #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_group_id(
         pool: &sqlx::PgPool,
         group_id: Uuid,
@@ -40,6 +44,7 @@ impl Player {
         .await
     }
 
+    #[instrument(level = "debug", skip(pool), fields(batch_size = group_ids.len()))]
     pub async fn find_by_group_ids(
         pool: &sqlx::PgPool,
         group_ids: &[Uuid],
@@ -52,6 +57,7 @@ impl Player {
         .await
     }
 
+    #[instrument(level = "debug", skip(pool))]
     pub async fn create(
         pool: &sqlx::PgPool,
         group_id: Uuid,
@@ -66,6 +72,7 @@ impl Player {
         .await
     }
 
+    #[instrument(level = "debug", skip(pool), fields(batch_size = team_ids.len()))]
     pub async fn find_by_team_ids(
         pool: &sqlx::PgPool,
         team_ids: &[Uuid],
@@ -97,6 +104,7 @@ impl Player {
             .collect())
     }
 
+    #[instrument(level = "debug", skip(pool), fields(batch_size = round_keys.len()))]
     pub async fn find_by_round_keys(
         pool: &sqlx::PgPool,
         round_keys: &[(Uuid, i32)],

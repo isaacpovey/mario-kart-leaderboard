@@ -2,6 +2,7 @@ use crate::models::{Player, Team};
 use async_graphql::dataloader::*;
 use sqlx::PgPool;
 use std::collections::HashMap;
+use tracing::instrument;
 use uuid::Uuid;
 
 pub struct TeamsByMatchLoader {
@@ -18,6 +19,7 @@ impl Loader<Uuid> for TeamsByMatchLoader {
     type Value = Vec<Team>;
     type Error = std::sync::Arc<sqlx::Error>;
 
+    #[instrument(level = "debug", skip(self), fields(batch_size = keys.len()))]
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
         let teams = Team::find_by_match_ids(&self.pool, keys)
             .await
@@ -48,6 +50,7 @@ impl Loader<Uuid> for PlayersByTeamLoader {
     type Value = Vec<Player>;
     type Error = std::sync::Arc<sqlx::Error>;
 
+    #[instrument(level = "debug", skip(self), fields(batch_size = keys.len()))]
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
         let player_teams = Player::find_by_team_ids(&self.pool, keys)
             .await

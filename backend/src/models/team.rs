@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use tracing::instrument;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, FromRow)]
@@ -11,6 +12,7 @@ pub struct Team {
 }
 
 impl Team {
+    #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_match_id(
         pool: &sqlx::PgPool,
         match_id: Uuid,
@@ -26,6 +28,7 @@ impl Team {
         .await
     }
 
+    #[instrument(level = "debug", skip(pool), fields(batch_size = match_ids.len()))]
     pub async fn find_by_match_ids(
         pool: &sqlx::PgPool,
         match_ids: &[Uuid],

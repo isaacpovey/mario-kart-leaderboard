@@ -2,6 +2,7 @@ use crate::models::Tournament;
 use async_graphql::dataloader::*;
 use sqlx::PgPool;
 use std::collections::HashMap;
+use tracing::instrument;
 use uuid::Uuid;
 
 pub struct TournamentLoader {
@@ -18,6 +19,7 @@ impl Loader<Uuid> for TournamentLoader {
     type Value = Tournament;
     type Error = std::sync::Arc<sqlx::Error>;
 
+    #[instrument(level = "debug", skip(self), fields(batch_size = keys.len()))]
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
         let tournaments = Tournament::find_by_ids(&self.pool, keys)
             .await
