@@ -12,6 +12,7 @@ WORKDIR /usr/src/app
 # Cache dependencies: copy manifest first and build a dummy to populate cargo cache
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
+COPY migrations ./migrations
 
 RUN cargo build --release --locked
 
