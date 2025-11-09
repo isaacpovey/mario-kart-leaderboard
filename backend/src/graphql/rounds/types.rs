@@ -1,5 +1,6 @@
 use crate::graphql::context::GraphQLContext;
 use crate::graphql::players::types::Player;
+use crate::graphql::results::types::PlayerRaceResult;
 use crate::graphql::tracks::types::Track;
 use async_graphql::*;
 use uuid::Uuid;
@@ -66,5 +67,20 @@ impl Round {
             .collect();
 
         Ok(players)
+    }
+
+    async fn results(&self, ctx: &Context<'_>) -> Result<Vec<PlayerRaceResult>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+
+        let results = gql_ctx
+            .player_race_scores_by_round_loader
+            .load_one((self.match_id, self.round_number))
+            .await?
+            .unwrap_or_default()
+            .into_iter()
+            .map(PlayerRaceResult::from)
+            .collect();
+
+        Ok(results)
     }
 }

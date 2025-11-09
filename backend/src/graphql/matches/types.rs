@@ -2,6 +2,8 @@ use async_graphql::*;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
+use crate::graphql::results::types::PlayerMatchResult;
+
 #[derive(Clone)]
 pub struct Match {
     pub id: Uuid,
@@ -65,5 +67,15 @@ impl Match {
 
     async fn completed(&self) -> bool {
         self.completed
+    }
+
+    async fn player_results(&self, ctx: &Context<'_>) -> Result<Vec<PlayerMatchResult>> {
+        let context = ctx.data_unchecked::<crate::graphql::GraphQLContext>();
+        let results = context
+            .player_match_scores_by_match_loader
+            .load_one(self.id)
+            .await?
+            .unwrap_or_default();
+        Ok(results.into_iter().map(|r| r.into()).collect())
     }
 }

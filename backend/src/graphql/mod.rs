@@ -3,6 +3,7 @@ pub mod context;
 pub mod groups;
 pub mod matches;
 pub mod players;
+pub mod results;
 pub mod rounds;
 pub mod schema;
 pub mod teams;

@@ -55,6 +55,7 @@
 //!
 //! ## Constants
 
+use std::cmp::max;
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -64,8 +65,9 @@ const K_FACTOR: f64 = 100.0;
 /// Total number of racers in a Mario Kart race (including CPUs)
 const TOTAL_RACE_SIZE: usize = 24;
 
-/// Default ELO rating for CPU opponents
-const CPU_ELO: i32 = 800;
+const MAX_CPU_ELO: i32 = 1400;
+const MIN_CPU_ELO: i32 = 600;
+const CPU_ELO_DECREASE: i32 = 100;
 
 /// Represents a player's result in a single race
 #[derive(Debug, Clone)]
@@ -144,10 +146,11 @@ pub fn create_full_field(human_results: &[PlayerResult]) -> Vec<PlayerResult> {
 
     for position in 1..=TOTAL_RACE_SIZE as i32 {
         if !human_positions.contains(&position) {
+            let cpu_elo = max(MIN_CPU_ELO, MAX_CPU_ELO - ((position - 1) * CPU_ELO_DECREASE));
             full_field.push(PlayerResult {
                 player_id: Uuid::nil(),
                 position,
-                current_elo: CPU_ELO,
+                current_elo: cpu_elo,
             });
         }
     }
