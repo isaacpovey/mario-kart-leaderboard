@@ -111,4 +111,17 @@ impl PlayerMatchResult {
     async fn tournament_elo_change(&self) -> i32 {
         self.tournament_elo_change
     }
+
+    async fn teammate_contribution(&self, ctx: &Context<'_>) -> Result<i32> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+
+        let contribution = crate::models::PlayerTeammateEloContribution::get_match_total_for_player(
+            &gql_ctx.pool,
+            self.match_id,
+            self.player_id,
+        )
+        .await?;
+
+        Ok(contribution)
+    }
 }

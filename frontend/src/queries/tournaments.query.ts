@@ -12,6 +12,7 @@ export const tournamentsQuery = graphql(`
                 playerName
                 totalScore
                 eloRating
+                allTimeElo
             }
             matches {
                 id

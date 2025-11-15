@@ -75,4 +75,22 @@ impl PlayerTeammateEloContribution {
             .map(|(player_id, sum)| (player_id, sum as i32))
             .collect())
     }
+
+    pub async fn get_match_total_for_player(
+        pool: &sqlx::PgPool,
+        match_id: Uuid,
+        player_id: Uuid,
+    ) -> Result<i32, sqlx::Error> {
+        let result = sqlx::query_as::<_, (i64,)>(
+            "SELECT COALESCE(SUM(contribution_amount), 0)::bigint
+             FROM player_teammate_elo_contributions
+             WHERE match_id = $1 AND beneficiary_player_id = $2",
+        )
+        .bind(match_id)
+        .bind(player_id)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(result.0 as i32)
+    }
 }

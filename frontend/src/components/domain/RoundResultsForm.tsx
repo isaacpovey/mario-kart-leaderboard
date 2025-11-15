@@ -46,12 +46,7 @@ export const RoundResultsForm = ({ round, positions, onPositionChange, onSubmit,
               <Field.Label fontSize={{ base: 'sm', md: 'md' }} fontWeight="medium" mb={2}>
                 <HStack gap={2}>
                   <Avatar name={player.name} size="sm" />
-                  <Text>
-                    {player.name}{' '}
-                    <Text as="span" color="gray.600" fontSize="sm">
-                      (ELO: {player.eloRating})
-                    </Text>
-                  </Text>
+                  <Text>{player.name}</Text>
                 </HStack>
               </Field.Label>
               <Input

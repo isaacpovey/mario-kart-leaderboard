@@ -30,6 +30,17 @@ export const matchQuery = graphql(`
           eloRating
         }
       }
+      playerResults {
+        player {
+          id
+          name
+          eloRating
+        }
+        position
+        eloChange
+        tournamentEloChange
+        teammateContribution
+      }
     }
   }
 `)

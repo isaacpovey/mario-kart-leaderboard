@@ -111,7 +111,7 @@ const Match = () => {
             </Heading>
             <VStack gap={{ base: 3, md: 4 }} align="stretch">
               {match.teams.map((team) => (
-                <TeamCard key={team.id} team={team} />
+                <TeamCard key={team.id} team={team} playerResults={match.playerResults} />
               ))}
             </VStack>
           </VStack>

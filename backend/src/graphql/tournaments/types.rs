@@ -65,10 +65,11 @@ impl Tournament {
 
         Ok(entries
             .into_iter()
-            .map(|(player_id, player_name, elo_rating)| LeaderboardEntry {
+            .map(|(player_id, player_name, elo_rating, all_time_elo)| LeaderboardEntry {
                 player_id,
                 player_name,
                 elo_rating,
+                all_time_elo,
                 total_score: elo_rating,
             })
             .collect())
@@ -80,6 +81,7 @@ pub struct LeaderboardEntry {
     pub player_id: Uuid,
     pub player_name: String,
     pub elo_rating: i32,
+    pub all_time_elo: i32,
     pub total_score: i32,
 }
 
@@ -95,6 +97,10 @@ impl LeaderboardEntry {
 
     async fn elo_rating(&self) -> i32 {
         self.elo_rating
+    }
+
+    async fn all_time_elo(&self) -> i32 {
+        self.all_time_elo
     }
 
     async fn total_score(&self) -> i32 {

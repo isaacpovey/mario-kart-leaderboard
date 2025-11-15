@@ -120,9 +120,9 @@ impl PlayerTournamentScore {
     pub async fn get_tournament_leaderboard(
         pool: &sqlx::PgPool,
         tournament_id: Uuid,
-    ) -> Result<Vec<(Uuid, String, i32)>, sqlx::Error> {
-        sqlx::query_as::<_, (Uuid, String, i32)>(
-            "SELECT p.id, p.name, pts.elo_rating
+    ) -> Result<Vec<(Uuid, String, i32, i32)>, sqlx::Error> {
+        sqlx::query_as::<_, (Uuid, String, i32, i32)>(
+            "SELECT p.id, p.name, pts.elo_rating, p.elo_rating
              FROM player_tournament_scores pts
              JOIN players p ON p.id = pts.player_id
              WHERE pts.tournament_id = $1

@@ -14,11 +14,29 @@ type Team = {
   players: Player[]
 }
 
-type TeamCardProps = {
-  team: Team
+type PlayerResult = {
+  player: {
+    id: string
+    name: string
+    eloRating: number
+  }
+  tournamentEloChange: number
+  teammateContribution: number
 }
 
-export const TeamCard = ({ team }: TeamCardProps) => (
+type TeamCardProps = {
+  team: Team
+  playerResults?: PlayerResult[]
+}
+
+const getPlayerResult = (playerId: string, playerResults?: PlayerResult[]) => playerResults?.find((result) => result.player.id === playerId)
+
+const formatEloChange = (change: number): string => {
+  if (change > 0) return `+${change}`
+  return String(change)
+}
+
+export const TeamCard = ({ team, playerResults }: TeamCardProps) => (
   <Box
     p={{ base: 4, md: 5 }}
     bg="bg.panel"
@@ -30,34 +48,49 @@ export const TeamCard = ({ team }: TeamCardProps) => (
     transition="all 0.2s"
   >
     <VStack align="stretch" gap={{ base: 3, md: 4 }}>
-      <HStack justify="space-between" gap={4} pb={{ base: 2, md: 3 }} borderBottomWidth="1px" borderBottomColor="gray.200">
-        <Text fontWeight="bold" fontSize={{ base: 'lg', md: 'xl' }} color="gray.900" flex={1} truncate>
-          {team.name}
-        </Text>
-        <VStack align="end" gap={0}>
-          <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600" fontWeight="medium">
-            Score
-          </Text>
-          <Text fontWeight="bold" fontSize={{ base: 'xl', md: '2xl' }} color="brand.600">
-            {team.score ?? 0}
-          </Text>
-        </VStack>
-      </HStack>
+      <Text fontWeight="bold" fontSize={{ base: 'lg', md: 'xl' }} color="gray.900" pb={{ base: 2, md: 3 }} borderBottomWidth="1px" borderBottomColor="gray.200">
+        {team.name}
+      </Text>
 
       <VStack align="stretch" gap={{ base: 2, md: 3 }}>
-        {team.players.map((player) => (
-          <HStack key={player.id} gap={{ base: 3, md: 4 }} justify="space-between">
-            <HStack gap={{ base: 2, md: 3 }} flex={1} minW={0}>
-              <Avatar name={player.name} size="sm" />
-              <Text fontSize={{ base: 'sm', md: 'md' }} fontWeight="medium" truncate>
-                {player.name}
-              </Text>
+        {team.players.map((player) => {
+          const result = getPlayerResult(player.id, playerResults)
+          const ownContribution = result ? result.tournamentEloChange - result.teammateContribution : 0
+          const teammateContribution = result?.teammateContribution ?? 0
+          const totalChange = result?.tournamentEloChange ?? 0
+
+          return (
+            <HStack key={player.id} gap={{ base: 3, md: 4 }} justify="space-between">
+              <HStack gap={{ base: 2, md: 3 }} flex={1} minW={0}>
+                <Avatar name={player.name} size="sm" />
+                <VStack align="start" gap={0} flex={1} minW={0}>
+                  <Text fontSize={{ base: 'sm', md: 'md' }} fontWeight="medium" truncate>
+                    {player.name}
+                  </Text>
+                  {result && (
+                    <HStack gap={2} fontSize={{ base: 'xs', md: 'sm' }}>
+                      <Text color="gray.600">{player.eloRating}</Text>
+                      <Text color={ownContribution >= 0 ? 'green.600' : 'red.600'} fontWeight="medium">
+                        🏁 {formatEloChange(ownContribution)}
+                      </Text>
+                      <Text color={teammateContribution >= 0 ? 'green.600' : 'red.600'} fontWeight="medium">
+                        🤝 {formatEloChange(teammateContribution)}
+                      </Text>
+                      <Text color={totalChange >= 0 ? 'green.600' : 'red.600'} fontWeight="bold">
+                        = {formatEloChange(totalChange)}
+                      </Text>
+                    </HStack>
+                  )}
+                  {!result && (
+                    <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">
+                      {player.eloRating}
+                    </Text>
+                  )}
+                </VStack>
+              </HStack>
             </HStack>
-            <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600" flexShrink={0}>
-              ELO: {player.eloRating}
-            </Text>
-          </HStack>
-        ))}
+          )
+        })}
       </VStack>
     </VStack>
   </Box>

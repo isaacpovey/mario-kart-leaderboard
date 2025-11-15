@@ -59,7 +59,8 @@ impl Group {
             .map(|(player_id, player_name, elo_rating)| LeaderboardEntry {
                 player_id,
                 player_name,
-                elo_rating,
+                elo_rating: elo_rating,
+                all_time_elo: elo_rating,
                 total_score: elo_rating,
             })
             .collect())

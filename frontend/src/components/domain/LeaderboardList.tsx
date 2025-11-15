@@ -6,6 +6,7 @@ type LeaderboardEntry = {
   playerName: string
   totalScore: number
   eloRating: number
+  allTimeElo: number
 }
 
 type LeaderboardListProps = {
@@ -49,7 +50,7 @@ const LeaderboardEntryCard = ({ entry, index }: LeaderboardEntryCardProps) => (
             {entry.playerName}
           </Text>
           <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">
-            ELO: {entry.eloRating}
+            All Time: {entry.allTimeElo}
           </Text>
         </VStack>
       </HStack>
