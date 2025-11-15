@@ -1,0 +1,15 @@
+# Bacon configuration for Mario Kart Leaderboard Backend
+# Run with: bacon
+
+[jobs.run]
+command = ["cargo", "run", "--bin", "mario-kart-leaderboard-backend"]
+need_stdout = true
+watch = ["src", "Cargo.toml"]
+
+[jobs.check]
+command = ["cargo", "check", "--color", "always"]
+need_stdout = false
+
+[jobs.test]
+command = ["cargo", "test", "--color", "always"]
+need_stdout = true

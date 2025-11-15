@@ -1,5 +1,5 @@
-import { useCallback } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
+import { useCallback } from 'react'
 import { useClient } from 'urql'
 import { createGroupMutation } from '../queries/createGroup.mutation'
 import { loginQuery } from '../queries/login.query'
@@ -10,39 +10,45 @@ export const useAuth = () => {
   const isAuthenticated = useAtomValue(isAuthenticatedAtom)
   const client = useClient()
 
-  const login = useCallback(async (dependencies: { groupId: string; password: string }): Promise<{ success: boolean; error?: string }> => {
-    const { groupId, password } = dependencies
+  const login = useCallback(
+    async (dependencies: { groupId: string; password: string }): Promise<{ success: boolean; error?: string }> => {
+      const { groupId, password } = dependencies
 
-    const result = await client.query(loginQuery, { groupId, password }).toPromise()
+      const result = await client.query(loginQuery, { groupId, password }).toPromise()
 
-    if (result.error) {
-      return { success: false, error: result.error.message }
-    }
+      if (result.error) {
+        return { success: false, error: result.error.message }
+      }
 
-    if (result.data?.login) {
-      setToken(result.data.login)
-      return { success: true }
-    }
+      if (result.data?.login) {
+        setToken(result.data.login)
+        return { success: true }
+      }
 
-    return { success: false, error: 'Login failed' }
-  }, [client, setToken])
+      return { success: false, error: 'Login failed' }
+    },
+    [client, setToken]
+  )
 
-  const createGroup = useCallback(async (dependencies: { name: string; password: string }): Promise<{ success: boolean; error?: string }> => {
-    const { name, password } = dependencies
+  const createGroup = useCallback(
+    async (dependencies: { name: string; password: string }): Promise<{ success: boolean; error?: string }> => {
+      const { name, password } = dependencies
 
-    const result = await client.mutation(createGroupMutation, { name, password }).toPromise()
+      const result = await client.mutation(createGroupMutation, { name, password }).toPromise()
 
-    if (result.error) {
-      return { success: false, error: result.error.message }
-    }
+      if (result.error) {
+        return { success: false, error: result.error.message }
+      }
 
-    if (result.data?.createGroup) {
-      setToken(result.data.createGroup)
-      return { success: true }
-    }
+      if (result.data?.createGroup) {
+        setToken(result.data.createGroup)
+        return { success: true }
+      }
 
-    return { success: false, error: 'Group creation failed' }
-  }, [client, setToken])
+      return { success: false, error: 'Group creation failed' }
+    },
+    [client, setToken]
+  )
 
   const logout = useCallback(() => {
     setToken(null)

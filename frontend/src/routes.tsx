@@ -1,10 +1,10 @@
+import { Center, Spinner } from '@chakra-ui/react'
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router'
-import { Spinner, Center } from '@chakra-ui/react'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
 const Home = lazy(() => import('./pages/Home'))
-const Login = lazy(() => import('./pages/Login').then(module => ({ default: module.Login })))
+const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })))
 const Match = lazy(() => import('./pages/Match'))
 
 const LoadingFallback = () => (

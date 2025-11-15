@@ -1,15 +1,19 @@
-import { Button, Center, Container, Heading, HStack, Spinner, Text, VStack, Stack } from '@chakra-ui/react'
+import { Button, Container, Heading, Stack, Text, VStack } from '@chakra-ui/react'
+import { useAtomValue } from 'jotai'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
-import { useQuery } from 'urql'
-import { CreateTournamentModal } from '../components/CreateTournamentModal'
 import { CreateMatchModal } from '../components/CreateMatchModal'
+import { CreateTournamentModal } from '../components/CreateTournamentModal'
+import { ErrorState } from '../components/common/ErrorState'
+import { LeaderboardList } from '../components/domain/LeaderboardList'
+import { MatchList } from '../components/domain/MatchList'
 import { useAuth } from '../hooks/useAuth'
-import { tournamentsQuery } from '../queries/tournaments.query'
+import { currentTournamentAtom } from '../store/derived'
+import { tournamentsQueryAtom } from '../store/queries'
 
 const Home = () => {
   const { logout } = useAuth()
-  const [result] = useQuery({ query: tournamentsQuery })
+  const tournamentsResult = useAtomValue(tournamentsQueryAtom)
+  const currentTournament = useAtomValue(currentTournamentAtom)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
 
@@ -17,30 +21,9 @@ const Home = () => {
     document.title = 'Mario Kart Leaderboard'
   }, [])
 
-  const { data, fetching, error } = result
-
-  if (fetching) {
-    return (
-      <Center h="100vh">
-        <Spinner size="xl" />
-      </Center>
-    )
+  if (tournamentsResult.error) {
+    return <ErrorState message={`Error loading tournament data: ${tournamentsResult.error.message}`} />
   }
-
-  if (error) {
-    return (
-      <Container maxW="4xl" py={8}>
-        <Text color="red.500">Error loading tournament data: {error.message}</Text>
-      </Container>
-    )
-  }
-
-  const currentTournament = data?.tournaments
-    .filter((tournament) => tournament.startDate && typeof tournament.startDate === 'string')
-    .sort((a, b) => {
-      if (!a.startDate || !b.startDate) return 0
-      return b.startDate.localeCompare(a.startDate)
-    })[0]
 
   return (
     <Container maxW="4xl" py={8}>
@@ -72,63 +55,12 @@ const Home = () => {
 
             <VStack gap={4} align="stretch">
               <Heading size="lg">Leaderboard</Heading>
-              {currentTournament.leaderboard.length > 0 ? (
-                currentTournament.leaderboard.map((entry, index) => (
-                  <HStack
-                    key={entry.playerId}
-                    p={4}
-                    bg={index === 0 ? 'yellow.50' : 'bg.panel'}
-                    borderRadius="md"
-                    borderWidth="1px"
-                    borderColor={index === 0 ? 'yellow.300' : 'border'}
-                    justify="space-between"
-                  >
-                    <HStack gap={4} flex={1} minW={0}>
-                      <Text fontWeight="bold" fontSize={{ base: 'lg', md: 'xl' }} minW="8">
-                        #{index + 1}
-                      </Text>
-                      <VStack align="start" gap={0} flex={1} minW={0}>
-                        <Text fontWeight="semibold" fontSize={{ base: 'md', md: 'lg' }} truncate>
-                          {entry.playerName}
-                        </Text>
-                        <Text fontSize="sm" color="fg.subtle">
-                          ELO: {entry.eloRating}
-                        </Text>
-                      </VStack>
-                    </HStack>
-                    <Text fontWeight="bold" fontSize={{ base: 'lg', md: 'xl' }} flexShrink={0}>
-                      {entry.totalScore} pts
-                    </Text>
-                  </HStack>
-                ))
-              ) : (
-                <Text color="fg.subtle">No players yet</Text>
-              )}
+              <LeaderboardList entries={currentTournament.leaderboard} />
             </VStack>
 
             <VStack gap={2} align="start">
               <Heading size="lg">Matches</Heading>
-              {currentTournament.matches.length > 0 ? (
-                currentTournament.matches.map((match) => (
-                  <Link key={match.id} to={`/match/${match.id}`} style={{ width: '100%', textDecoration: 'none' }}>
-                    <HStack p={4} bg="bg.panel" borderRadius="md" borderWidth="1px" justify="space-between" width="full" cursor="pointer" _hover={{ bg: 'bg.subtle' }}>
-                      <VStack align="start" gap={0}>
-                        <Text fontWeight="semibold">{new Date(match.time).toLocaleString()}</Text>
-                      </VStack>
-                      <HStack gap={1}>
-                        <Text fontSize="sm" fontWeight="semibold" color={match.completed ? 'green.500' : 'orange.500'}>
-                          {match.completed ? '✓' : '○'}
-                        </Text>
-                        <Text fontSize="sm" fontWeight="semibold" color={match.completed ? 'green.500' : 'orange.500'}>
-                          {match.completed ? 'Completed' : 'In Progress'}
-                        </Text>
-                      </HStack>
-                    </HStack>
-                  </Link>
-                ))
-              ) : (
-                <Text color="fg.subtle">No matches yet</Text>
-              )}
+              <MatchList matches={currentTournament.matches} />
             </VStack>
           </>
         ) : (
@@ -136,13 +68,7 @@ const Home = () => {
         )}
       </VStack>
       <CreateTournamentModal open={isModalOpen} onOpenChange={setIsModalOpen} />
-      {currentTournament && (
-        <CreateMatchModal
-          open={isMatchModalOpen}
-          onOpenChange={setIsMatchModalOpen}
-          tournamentId={currentTournament.id}
-        />
-      )}
+      {currentTournament && <CreateMatchModal open={isMatchModalOpen} onOpenChange={setIsMatchModalOpen} tournamentId={currentTournament.id} />}
     </Container>
   )
 }

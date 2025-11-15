@@ -62,7 +62,12 @@ export const Login = () => {
               <VStack gap={4} align="stretch">
                 <Field.Root required>
                   <Field.Label>Group ID</Field.Label>
-                  <Input value={loginForm.groupId} onChange={(e) => setLoginForm((prev) => ({ ...prev, groupId: e.target.value }))} placeholder="Enter group ID" disabled={isLoading} />
+                  <Input
+                    value={loginForm.groupId}
+                    onChange={(e) => setLoginForm((prev) => ({ ...prev, groupId: e.target.value }))}
+                    placeholder="Enter group ID"
+                    disabled={isLoading}
+                  />
                 </Field.Root>
 
                 <Field.Root required>
@@ -94,7 +99,12 @@ export const Login = () => {
               <VStack gap={4} align="stretch">
                 <Field.Root required>
                   <Field.Label>Group Name</Field.Label>
-                  <Input value={createForm.name} onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Enter group name" disabled={isLoading} />
+                  <Input
+                    value={createForm.name}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter group name"
+                    disabled={isLoading}
+                  />
                 </Field.Root>
 
                 <Field.Root required>
