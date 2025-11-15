@@ -1,10 +1,10 @@
-import { Button, Container, Heading, HStack, Text, VStack } from '@chakra-ui/react'
+import { Badge, Box, Button, Container, Heading, HStack, Text, VStack } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ErrorState } from '../components/common/ErrorState'
+import { RaceList } from '../components/domain/RaceList'
 import { RoundResultsForm } from '../components/domain/RoundResultsForm'
-import { RoundSelector } from '../components/domain/RoundSelector'
 import { TeamCard } from '../components/domain/TeamCard'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
 import { matchQueryAtom } from '../store/queries'
@@ -80,55 +80,80 @@ const Match = () => {
   const selectedRoundData = match.rounds.find((r: { roundNumber: number }) => r.roundNumber === selectedRound)
 
   return (
-    <Container maxW="4xl" py={8}>
-      <VStack gap={6} align="stretch">
-        <HStack justify="space-between" flexWrap={{ base: 'wrap', sm: 'nowrap' }} gap={4}>
-          <VStack align="start" gap={1}>
-            <Heading size={{ base: 'xl', md: '2xl', lg: '3xl' }}>Match Details</Heading>
-            <Text color="fg.subtle" fontSize={{ base: 'sm', md: 'md' }}>
-              {new Date(match.time).toLocaleString()}
-            </Text>
+    <Box minH="100vh" bg="bg.canvas">
+      <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
+        <VStack gap={{ base: 6, md: 8 }} align="stretch">
+          <HStack justify="space-between" flexWrap="wrap" gap={{ base: 3, md: 4 }}>
+            <VStack align="start" gap={1} flex={1}>
+              <Heading size={{ base: 'lg', md: 'xl', lg: '2xl' }} color="gray.900">
+                Match Details
+              </Heading>
+              <Text color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>
+                {new Date(match.time).toLocaleString()}
+              </Text>
+            </VStack>
+            <Button
+              onClick={() => navigate('/')}
+              variant="outline"
+              size={{ base: 'sm', md: 'md' }}
+              borderRadius="button"
+              borderWidth="2px"
+              flexShrink={0}
+              _hover={{ bg: 'gray.50' }}
+            >
+              ← Back to Home
+            </Button>
+          </HStack>
+
+          <VStack gap={{ base: 3, md: 4 }} align="stretch">
+            <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
+              Teams
+            </Heading>
+            <VStack gap={{ base: 3, md: 4 }} align="stretch">
+              {match.teams.map((team) => (
+                <TeamCard key={team.id} team={team} />
+              ))}
+            </VStack>
           </VStack>
-          <Button onClick={() => navigate('/')} flexShrink={0}>
-            Back to Home
-          </Button>
-        </HStack>
 
-        <VStack gap={4} align="stretch">
-          <Heading size="lg">Teams</Heading>
-          {match.teams.map((team) => (
-            <TeamCard key={team.id} team={team} />
-          ))}
+          <Box h="1px" bg="gray.200" />
+
+          <VStack gap={{ base: 3, md: 4 }} align="stretch">
+            <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
+              Races
+            </Heading>
+            <RaceList
+              rounds={match.rounds}
+              selectedRound={selectedRound}
+              onSelectRound={handleSelectRound}
+              renderFormForRound={(roundNumber) => {
+                const roundData = match.rounds.find((r: { roundNumber: number }) => r.roundNumber === roundNumber)
+                if (!roundData || roundData.completed) return null
+
+                return (
+                  <RoundResultsForm
+                    round={roundData}
+                    positions={positions}
+                    onPositionChange={handlePositionChange}
+                    onSubmit={handleSubmit}
+                    error={error}
+                    submitting={isRecordingResults}
+                  />
+                )
+              }}
+            />
+          </VStack>
+
+          {match.completed && (
+            <Box p={6} bg="green.50" borderRadius="card" borderWidth="2px" borderColor="green.400" textAlign="center">
+              <Badge colorScheme="green" fontSize={{ base: 'md', md: 'lg' }} px={4} py={2}>
+                ✓ Match Completed!
+              </Badge>
+            </Box>
+          )}
         </VStack>
-
-        <VStack gap={4} align="stretch">
-          <Heading size="lg">Races</Heading>
-          <RoundSelector rounds={match.rounds} selectedRound={selectedRound} onSelectRound={handleSelectRound} />
-        </VStack>
-
-        {selectedRound !== null && selectedRoundData && !selectedRoundData.completed && (
-          <RoundResultsForm
-            round={selectedRoundData}
-            positions={positions}
-            onPositionChange={handlePositionChange}
-            onSubmit={handleSubmit}
-            onCancel={() => {
-              setSelectedRound(null)
-              setPositions({})
-              setError('')
-            }}
-            error={error}
-            submitting={isRecordingResults}
-          />
-        )}
-
-        {match.completed && (
-          <Text fontSize="lg" fontWeight="semibold" color="green.500" textAlign="center">
-            Match Completed!
-          </Text>
-        )}
-      </VStack>
-    </Container>
+      </Container>
+    </Box>
   )
 }
 

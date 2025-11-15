@@ -15,7 +15,23 @@ type FormFieldProps = {
 
 export const FormField = ({ label, value, onChange, type = 'text', min, max, placeholder, disabled, children }: FormFieldProps) => (
   <Field.Root>
-    <Field.Label>{label}</Field.Label>
-    {children || <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} min={min} max={max} placeholder={placeholder} disabled={disabled} />}
+    <Field.Label fontSize={{ base: 'sm', md: 'md' }} fontWeight="medium" mb={2}>
+      {label}
+    </Field.Label>
+    {children || (
+      <Input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        min={min}
+        max={max}
+        placeholder={placeholder}
+        disabled={disabled}
+        size={{ base: 'md', md: 'lg' }}
+        borderRadius="button"
+        borderWidth="2px"
+        _focus={{ borderColor: 'brand.400', boxShadow: '0 0 0 1px var(--chakra-colors-brand-400)' }}
+      />
+    )}
   </Field.Root>
 )

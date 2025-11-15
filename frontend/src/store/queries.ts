@@ -6,22 +6,22 @@ import { tournamentsQuery } from '../queries/tournaments.query'
 
 export const playersQueryAtom = atomWithQuery({
   query: playersQuery,
-  getContext: () => ({ requestPolicy: 'cache-and-network' }),
+  getContext: () => ({ requestPolicy: 'cache-first' }),
 })
 
 export const tournamentsQueryAtom = atomWithQuery({
   query: tournamentsQuery,
-  getContext: () => ({ requestPolicy: 'cache-and-network' }),
+  getContext: () => ({ requestPolicy: 'cache-first' }),
 })
 
 export const matchQueryAtom = (matchId: string) =>
   atomWithQuery({
     query: matchQuery,
     getVariables: () => ({ matchId }),
-    getContext: () => ({ requestPolicy: 'cache-and-network' }),
+    getContext: () => ({ requestPolicy: 'cache-first' }),
   })
 
 export const currentGroupQueryAtom = atomWithQuery({
   query: currentGroupQuery,
-  getContext: () => ({ requestPolicy: 'cache-and-network' }),
+  getContext: () => ({ requestPolicy: 'cache-first' }),
 })

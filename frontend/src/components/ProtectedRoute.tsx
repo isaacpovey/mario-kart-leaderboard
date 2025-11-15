@@ -1,4 +1,4 @@
-import { Center, Spinner } from '@chakra-ui/react'
+import { Box, Center, Spinner } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router'
 import { useAuth } from '../hooks/useAuth'
@@ -35,9 +35,11 @@ export const ProtectedRoute = (dependencies: { children: React.ReactNode }) => {
 
   if (isCheckingAuth) {
     return (
-      <Center h="100vh">
-        <Spinner size="xl" />
-      </Center>
+      <Box minH="100vh" bg="bg.canvas">
+        <Center h="100vh">
+          <Spinner size="xl" color="brand.500" />
+        </Center>
+      </Box>
     )
   }
 

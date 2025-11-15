@@ -1,4 +1,5 @@
-import { HStack, Text, VStack } from '@chakra-ui/react'
+import { Badge, Box, HStack, Text, VStack } from '@chakra-ui/react'
+import { Avatar } from '../common/Avatar'
 
 type LeaderboardEntry = {
   playerId: string
@@ -11,41 +12,70 @@ type LeaderboardListProps = {
   entries: LeaderboardEntry[]
 }
 
+type LeaderboardEntryCardProps = {
+  entry: LeaderboardEntry
+  index: number
+}
+
+const LeaderboardEntryCard = ({ entry, index }: LeaderboardEntryCardProps) => (
+  <Box
+    key={entry.playerId}
+    p={{ base: 4, md: 5 }}
+    bg={index === 0 ? 'brand.50' : 'bg.panel'}
+    borderRadius="card"
+    borderWidth={index === 0 ? '2px' : '1px'}
+    borderColor={index === 0 ? 'brand.400' : 'gray.200'}
+    boxShadow="card"
+    _hover={{ boxShadow: 'card-hover', transform: 'translateY(-2px)' }}
+    transition="all 0.2s"
+  >
+    <HStack justify="space-between" gap={{ base: 3, md: 4 }}>
+      <HStack gap={{ base: 3, md: 4 }} flex={1} minW={0}>
+        <Badge
+          colorScheme={index === 0 ? 'yellow' : index === 1 ? 'gray' : index === 2 ? 'orange' : 'gray'}
+          fontSize={{ base: 'lg', md: 'xl' }}
+          px={{ base: 3, md: 4 }}
+          py={{ base: 1, md: 2 }}
+          borderRadius="md"
+          fontWeight="bold"
+        >
+          #{index + 1}
+        </Badge>
+
+        <Avatar name={entry.playerName} size="md" />
+
+        <VStack align="start" gap={0} flex={1} minW={0}>
+          <Text fontWeight="bold" fontSize={{ base: 'md', md: 'lg' }} truncate>
+            {entry.playerName}
+          </Text>
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">
+            ELO: {entry.eloRating}
+          </Text>
+        </VStack>
+      </HStack>
+
+      <VStack align="end" gap={0}>
+        <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600" fontWeight="medium">
+          Score
+        </Text>
+        <Text fontSize={{ base: 'xl', md: '2xl' }} fontWeight="bold" color={index === 0 ? 'brand.600' : 'gray.900'}>
+          {entry.totalScore}
+        </Text>
+      </VStack>
+    </HStack>
+  </Box>
+)
+
 export const LeaderboardList = ({ entries }: LeaderboardListProps) => {
   if (entries.length === 0) {
     return <Text color="fg.subtle">No players yet</Text>
   }
 
   return (
-    <>
+    <VStack gap={{ base: 3, md: 4 }} align="stretch">
       {entries.map((entry, index) => (
-        <HStack
-          key={entry.playerId}
-          p={4}
-          bg={index === 0 ? 'yellow.50' : 'bg.panel'}
-          borderRadius="md"
-          borderWidth="1px"
-          borderColor={index === 0 ? 'yellow.300' : 'border'}
-          justify="space-between"
-        >
-          <HStack gap={4} flex={1} minW={0}>
-            <Text fontWeight="bold" fontSize={{ base: 'lg', md: 'xl' }} minW="8">
-              #{index + 1}
-            </Text>
-            <VStack align="start" gap={0} flex={1} minW={0}>
-              <Text fontWeight="semibold" fontSize={{ base: 'md', md: 'lg' }} truncate>
-                {entry.playerName}
-              </Text>
-              <Text fontSize="sm" color="fg.subtle">
-                ELO: {entry.eloRating}
-              </Text>
-            </VStack>
-          </HStack>
-          <Text fontWeight="bold" fontSize={{ base: 'lg', md: 'xl' }} flexShrink={0}>
-            {entry.totalScore} pts
-          </Text>
-        </HStack>
+        <LeaderboardEntryCard key={entry.playerId} entry={entry} index={index} />
       ))}
-    </>
+    </VStack>
   )
 }

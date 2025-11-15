@@ -1,4 +1,4 @@
-import { Center, ChakraProvider, defaultSystem, Spinner } from '@chakra-ui/react'
+import { Box, Center, ChakraProvider, Spinner } from '@chakra-ui/react'
 import { Provider } from 'jotai'
 import { useHydrateAtoms } from 'jotai/react/utils'
 import { clientAtom } from 'jotai-urql'
@@ -7,6 +7,7 @@ import { RouterProvider } from 'react-router'
 import { Provider as UrqlProvider } from 'urql'
 import { urqlClient } from './lib/urql'
 import { router } from './routes'
+import { system } from './theme/theme'
 
 const HydrateAtoms = ({ children }: { children: React.ReactNode }) => {
   useHydrateAtoms([[clientAtom, urqlClient]])
@@ -17,12 +18,14 @@ const App = () => (
   <UrqlProvider value={urqlClient}>
     <Provider>
       <HydrateAtoms>
-        <ChakraProvider value={defaultSystem}>
+        <ChakraProvider value={system}>
           <Suspense
             fallback={
-              <Center h="100vh">
-                <Spinner size="xl" />
-              </Center>
+              <Box minH="100vh" bg="bg.canvas">
+                <Center h="100vh">
+                  <Spinner size="xl" color="brand.500" />
+                </Center>
+              </Box>
             }
           >
             <RouterProvider router={router} />

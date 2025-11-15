@@ -1,45 +1,28 @@
-import { Center, Spinner } from '@chakra-ui/react'
-import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router'
 import { ProtectedRoute } from './components/ProtectedRoute'
-
-const Home = lazy(() => import('./pages/Home'))
-const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })))
-const Match = lazy(() => import('./pages/Match'))
-
-const LoadingFallback = () => (
-  <Center height="100vh">
-    <Spinner size="xl" />
-  </Center>
-)
+import Home from './pages/Home'
+import { Login } from './pages/Login'
+import Match from './pages/Match'
 
 export const router = createBrowserRouter([
   {
     path: '/',
     element: (
-      <Suspense fallback={<LoadingFallback />}>
-        <ProtectedRoute>
-          <Home />
-        </ProtectedRoute>
-      </Suspense>
+      <ProtectedRoute>
+        <Home />
+      </ProtectedRoute>
     ),
   },
   {
     path: '/match/:matchId',
     element: (
-      <Suspense fallback={<LoadingFallback />}>
-        <ProtectedRoute>
-          <Match />
-        </ProtectedRoute>
-      </Suspense>
+      <ProtectedRoute>
+        <Match />
+      </ProtectedRoute>
     ),
   },
   {
     path: '/login',
-    element: (
-      <Suspense fallback={<LoadingFallback />}>
-        <Login />
-      </Suspense>
-    ),
+    element: <Login />,
   },
 ])
