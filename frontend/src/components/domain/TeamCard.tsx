@@ -1,4 +1,5 @@
 import { Box, HStack, Text, VStack } from '@chakra-ui/react'
+import { LuFlag, LuUsers } from 'react-icons/lu'
 import { Avatar } from '../common/Avatar'
 
 type Player = {
@@ -70,12 +71,14 @@ export const TeamCard = ({ team, playerResults }: TeamCardProps) => (
                   {result && (
                     <HStack gap={2} fontSize={{ base: 'xs', md: 'sm' }}>
                       <Text color="gray.600">{player.eloRating}</Text>
-                      <Text color={ownContribution >= 0 ? 'green.600' : 'red.600'} fontWeight="medium">
-                        🏁 {formatEloChange(ownContribution)}
-                      </Text>
-                      <Text color={teammateContribution >= 0 ? 'green.600' : 'red.600'} fontWeight="medium">
-                        🤝 {formatEloChange(teammateContribution)}
-                      </Text>
+                      <HStack gap={1} color={ownContribution >= 0 ? 'green.600' : 'red.600'} fontWeight="medium">
+                        <LuFlag size={12} />
+                        <Text>{formatEloChange(ownContribution)}</Text>
+                      </HStack>
+                      <HStack gap={1} color={teammateContribution >= 0 ? 'green.600' : 'red.600'} fontWeight="medium">
+                        <LuUsers size={12} />
+                        <Text>{formatEloChange(teammateContribution)}</Text>
+                      </HStack>
                       <Text color={totalChange >= 0 ? 'green.600' : 'red.600'} fontWeight="bold">
                         = {formatEloChange(totalChange)}
                       </Text>

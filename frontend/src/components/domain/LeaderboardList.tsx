@@ -1,4 +1,5 @@
 import { Badge, Box, HStack, Text, VStack } from '@chakra-ui/react'
+import { LuCrown } from 'react-icons/lu'
 import { Avatar } from '../common/Avatar'
 
 type LeaderboardEntry = {
@@ -16,6 +17,13 @@ type LeaderboardListProps = {
 type LeaderboardEntryCardProps = {
   entry: LeaderboardEntry
   index: number
+}
+
+const getCrownColor = (position: number): string => {
+  if (position === 1) return 'yellow.500'
+  if (position === 2) return 'gray.500'
+  if (position === 3) return 'orange.500'
+  return 'gray.500'
 }
 
 const LeaderboardEntryCard = ({ entry, index }: LeaderboardEntryCardProps) => (
@@ -39,8 +47,17 @@ const LeaderboardEntryCard = ({ entry, index }: LeaderboardEntryCardProps) => (
           py={{ base: 1, md: 2 }}
           borderRadius="md"
           fontWeight="bold"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
         >
-          #{index + 1}
+          {index < 3 ? (
+            <Box color={getCrownColor(index + 1)}>
+              <LuCrown size={24} fill="currentColor" />
+            </Box>
+          ) : (
+            `#${index + 1}`
+          )}
         </Badge>
 
         <Avatar name={entry.playerName} size="md" />

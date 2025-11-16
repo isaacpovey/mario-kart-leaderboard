@@ -1,9 +1,11 @@
 import { Badge, Box, Button, Container, Heading, HStack, Text, VStack } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
 import { useEffect, useMemo, useState } from 'react'
+import { LuCheck } from 'react-icons/lu'
 import { useNavigate, useParams } from 'react-router'
 import { ErrorState } from '../components/common/ErrorState'
 import { RaceList } from '../components/domain/RaceList'
+import { RaceResultsDisplay } from '../components/domain/RaceResultsDisplay'
 import { RoundResultsForm } from '../components/domain/RoundResultsForm'
 import { TeamCard } from '../components/domain/TeamCard'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
@@ -17,6 +19,7 @@ const Match = () => {
   const { recordResults, isRecordingResults } = useMatchManagement()
 
   const [selectedRound, setSelectedRound] = useState<number | null>(null)
+  const [expandedCompletedRound, setExpandedCompletedRound] = useState<number | null>(null)
   const [positions, setPositions] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
 
@@ -32,8 +35,14 @@ const Match = () => {
 
   const handleSelectRound = (roundNumber: number) => {
     setSelectedRound(roundNumber)
+    setExpandedCompletedRound(null)
     setPositions({})
     setError('')
+  }
+
+  const handleToggleExpanded = (roundNumber: number) => {
+    setExpandedCompletedRound((prev) => (prev === roundNumber ? null : roundNumber))
+    setSelectedRound(null)
   }
 
   const handlePositionChange = (playerId: string, position: string) => {
@@ -125,10 +134,16 @@ const Match = () => {
             <RaceList
               rounds={match.rounds}
               selectedRound={selectedRound}
+              expandedCompletedRound={expandedCompletedRound}
               onSelectRound={handleSelectRound}
+              onToggleExpanded={handleToggleExpanded}
               renderFormForRound={(roundNumber) => {
                 const roundData = match.rounds.find((r: { roundNumber: number }) => r.roundNumber === roundNumber)
-                if (!roundData || roundData.completed) return null
+                if (!roundData) return null
+
+                if (roundData.completed && roundData.results) {
+                  return <RaceResultsDisplay results={roundData.results} trackName={roundData.track?.name} />
+                }
 
                 return (
                   <RoundResultsForm
@@ -146,8 +161,9 @@ const Match = () => {
 
           {match.completed && (
             <Box p={6} bg="green.50" borderRadius="card" borderWidth="2px" borderColor="green.400" textAlign="center">
-              <Badge colorScheme="green" fontSize={{ base: 'md', md: 'lg' }} px={4} py={2}>
-                ✓ Match Completed!
+              <Badge colorScheme="green" fontSize={{ base: 'md', md: 'lg' }} px={4} py={2} display="inline-flex" alignItems="center" gap={2}>
+                <LuCheck size={18} />
+                Match Completed!
               </Badge>
             </Box>
           )}

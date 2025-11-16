@@ -1,4 +1,5 @@
 import { Button, HStack, Text, VStack } from '@chakra-ui/react'
+import { LuCheck } from 'react-icons/lu'
 
 type Round = {
   roundNumber: number
@@ -57,9 +58,10 @@ const RoundButton = ({ round, selectedRound, onSelectRound }: RoundButtonProps) 
           </Text>
         )}
         {round.completed && (
-          <Text fontSize={{ base: 'xs', md: 'sm' }} fontWeight="semibold">
-            ✓ Done
-          </Text>
+          <HStack gap={1} fontSize={{ base: 'xs', md: 'sm' }} fontWeight="semibold">
+            <LuCheck size={14} />
+            <Text>Done</Text>
+          </HStack>
         )}
       </VStack>
     </Button>
