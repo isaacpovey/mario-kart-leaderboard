@@ -268,6 +268,39 @@ async fn create_match_in_transaction(
         .await?;
     }
 
+    let all_player_ids: Vec<Uuid> = teams
+        .iter()
+        .flat_map(|team| team.players.iter().map(|p| p.id))
+        .collect();
+
+    if !all_player_ids.is_empty() {
+        let group_ids_for_scores: Vec<Uuid> = vec![group_id; all_player_ids.len()];
+        let match_ids_for_scores: Vec<Uuid> = vec![match_record.id; all_player_ids.len()];
+        let zeros: Vec<i32> = vec![0; all_player_ids.len()];
+
+        sqlx::query(
+            "INSERT INTO player_match_scores (
+                group_id, match_id, player_id, position,
+                elo_change, tournament_elo_change,
+                tournament_elo_from_races, tournament_elo_from_contributions
+             )
+             SELECT * FROM UNNEST(
+                $1::uuid[], $2::uuid[], $3::uuid[], $4::int[],
+                $5::int[], $6::int[], $7::int[], $8::int[]
+             )",
+        )
+        .bind(&group_ids_for_scores)
+        .bind(&match_ids_for_scores)
+        .bind(&all_player_ids)
+        .bind(&zeros)
+        .bind(&zeros)
+        .bind(&zeros)
+        .bind(&zeros)
+        .bind(&zeros)
+        .execute(&mut *tx)
+        .await?;
+    }
+
     let player_team_map: HashMap<Uuid, Uuid> = teams
         .iter()
         .flat_map(|team| {

@@ -22,6 +22,8 @@ type PlayerResult = {
     eloRating: number
   }
   tournamentEloChange: number
+  tournamentEloFromRaces: number
+  tournamentEloFromContributions: number
   teammateContribution: number
 }
 
@@ -56,8 +58,8 @@ export const TeamCard = ({ team, playerResults }: TeamCardProps) => (
       <VStack align="stretch" gap={{ base: 2, md: 3 }}>
         {team.players.map((player) => {
           const result = getPlayerResult(player.id, playerResults)
-          const ownContribution = result ? result.tournamentEloChange - result.teammateContribution : 0
-          const teammateContribution = result?.teammateContribution ?? 0
+          const ownContribution = result?.tournamentEloFromRaces ?? 0
+          const teammateContribution = result?.tournamentEloFromContributions ?? 0
           const totalChange = result?.tournamentEloChange ?? 0
 
           return (

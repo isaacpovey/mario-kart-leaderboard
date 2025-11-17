@@ -72,6 +72,8 @@ pub struct PlayerMatchResult {
     pub position: i32,
     pub elo_change: i32,
     pub tournament_elo_change: i32,
+    pub tournament_elo_from_races: i32,
+    pub tournament_elo_from_contributions: i32,
 }
 
 impl From<crate::models::PlayerMatchScore> for PlayerMatchResult {
@@ -82,6 +84,8 @@ impl From<crate::models::PlayerMatchScore> for PlayerMatchResult {
             position: model.position,
             elo_change: model.elo_change,
             tournament_elo_change: model.tournament_elo_change,
+            tournament_elo_from_races: model.tournament_elo_from_races,
+            tournament_elo_from_contributions: model.tournament_elo_from_contributions,
         }
     }
 }
@@ -110,6 +114,14 @@ impl PlayerMatchResult {
 
     async fn tournament_elo_change(&self) -> i32 {
         self.tournament_elo_change
+    }
+
+    async fn tournament_elo_from_races(&self) -> i32 {
+        self.tournament_elo_from_races
+    }
+
+    async fn tournament_elo_from_contributions(&self) -> i32 {
+        self.tournament_elo_from_contributions
     }
 
     async fn teammate_contribution(&self, ctx: &Context<'_>) -> Result<i32> {

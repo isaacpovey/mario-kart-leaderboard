@@ -466,23 +466,32 @@ pub async fn record_results_in_transaction(
     )
     .await?;
 
-    for (player_id, avg_position, all_time_total_change, tournament_total_change) in
-        player_match_updates
+    for (
+        player_id,
+        avg_position,
+        all_time_total_change,
+        tournament_change_from_races,
+        tournament_change_from_contributions,
+    ) in player_match_updates
     {
+        let tournament_total_change =
+            tournament_change_from_races + tournament_change_from_contributions;
+
         sqlx::query(
-            "INSERT INTO player_match_scores (group_id, match_id, player_id, position, elo_change, tournament_elo_change)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (match_id, player_id)
-             DO UPDATE SET
-                position = $4,
-                elo_change = player_match_scores.elo_change + $5,
-                tournament_elo_change = player_match_scores.tournament_elo_change + $6",
+            "UPDATE player_match_scores
+             SET position = $3,
+                 elo_change = elo_change + $4,
+                 tournament_elo_from_races = tournament_elo_from_races + $5,
+                 tournament_elo_from_contributions = tournament_elo_from_contributions + $6,
+                 tournament_elo_change = tournament_elo_change + $7
+             WHERE match_id = $1 AND player_id = $2",
         )
-        .bind(group_id)
         .bind(match_id)
         .bind(player_id)
         .bind(avg_position)
         .bind(all_time_total_change)
+        .bind(tournament_change_from_races)
+        .bind(tournament_change_from_contributions)
         .bind(tournament_total_change)
         .execute(&mut *tx)
         .await?;

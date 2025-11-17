@@ -48,6 +48,8 @@ export const matchQuery = graphql(`
         position
         eloChange
         tournamentEloChange
+        tournamentEloFromRaces
+        tournamentEloFromContributions
         teammateContribution
       }
     }

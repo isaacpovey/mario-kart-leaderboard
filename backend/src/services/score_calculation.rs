@@ -25,7 +25,8 @@ use uuid::Uuid;
 /// This function computes:
 /// - Average position for each player across all races
 /// - Total all-time ELO change from the current round
-/// - Total tournament ELO change from the current round (including only current round's teammate contributions)
+/// - Total tournament ELO change from races in the current round
+/// - Total teammate contributions received in the current round
 ///
 /// # Arguments
 ///
@@ -37,7 +38,7 @@ use uuid::Uuid;
 ///
 /// # Returns
 ///
-/// Result containing a vector of tuples: (player_id, avg_position, all_time_elo_change, tournament_elo_change)
+/// Result containing a vector of tuples: (player_id, avg_position, all_time_elo_change, tournament_elo_from_races, tournament_elo_from_contributions)
 ///
 /// # Errors
 ///
@@ -48,7 +49,7 @@ pub async fn calculate_player_match_aggregates(
     round_number: i32,
     current_round_all_time_elo_changes: &[elo::EloChange],
     current_round_tournament_elo_changes: &[elo::EloChange],
-) -> Result<Vec<(Uuid, i32, i32, i32)>> {
+) -> Result<Vec<(Uuid, i32, i32, i32, i32)>> {
     let all_race_scores: Vec<models::PlayerRaceScore> = sqlx::query_as(
         "SELECT group_id, match_id, round_number, player_id, position,
                 all_time_elo_change, all_time_elo_after,
@@ -79,27 +80,42 @@ pub async fn calculate_player_match_aggregates(
         .map(|change| (change.player_id, change.elo_change))
         .collect();
 
-    let all_player_ids: Vec<Uuid> = player_positions.keys().copied().collect();
-    let teammate_contributions =
-        models::PlayerTeammateEloContribution::get_round_total_for_players(
+    let racing_player_ids: Vec<Uuid> = player_positions.keys().copied().collect();
+
+    let all_contributions =
+        models::PlayerTeammateEloContribution::get_all_beneficiaries_for_round(
             tx,
             match_id,
             round_number,
-            &all_player_ids,
         )
         .await?;
 
-    let aggregates = player_positions
+    let all_affected_player_ids: std::collections::HashSet<Uuid> = racing_player_ids
+        .iter()
+        .copied()
+        .chain(all_contributions.keys().copied())
+        .collect();
+
+    let aggregates = all_affected_player_ids
         .into_iter()
-        .map(|(player_id, positions)| {
-            let avg_position =
-                (positions.iter().sum::<i32>() as f64 / positions.len() as f64).round() as i32;
+        .map(|player_id| {
+            let avg_position = player_positions
+                .get(&player_id)
+                .map(|positions| {
+                    (positions.iter().sum::<i32>() as f64 / positions.len() as f64).round() as i32
+                })
+                .unwrap_or(0);
             let all_time_elo_change = all_time_elo_change_map.get(&player_id).copied().unwrap_or(0);
-            let tournament_elo_change_from_races =
+            let tournament_elo_from_races =
                 tournament_elo_change_map.get(&player_id).copied().unwrap_or(0);
-            let teammate_contribution = teammate_contributions.get(&player_id).copied().unwrap_or(0);
-            let tournament_elo_change = tournament_elo_change_from_races + teammate_contribution;
-            (player_id, avg_position, all_time_elo_change, tournament_elo_change)
+            let tournament_elo_from_contributions = all_contributions.get(&player_id).copied().unwrap_or(0);
+            (
+                player_id,
+                avg_position,
+                all_time_elo_change,
+                tournament_elo_from_races,
+                tournament_elo_from_contributions,
+            )
         })
         .collect();
 
