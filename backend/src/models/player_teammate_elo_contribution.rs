@@ -76,6 +76,30 @@ impl PlayerTeammateEloContribution {
             .collect())
     }
 
+    pub async fn get_round_total_for_players(
+        tx: &mut Transaction<'_, Postgres>,
+        match_id: Uuid,
+        round_number: i32,
+        player_ids: &[Uuid],
+    ) -> Result<HashMap<Uuid, i32>, sqlx::Error> {
+        let results = sqlx::query_as::<_, (Uuid, i64)>(
+            "SELECT beneficiary_player_id, SUM(contribution_amount)::bigint
+             FROM player_teammate_elo_contributions
+             WHERE match_id = $1 AND round_number = $2 AND beneficiary_player_id = ANY($3)
+             GROUP BY beneficiary_player_id",
+        )
+        .bind(match_id)
+        .bind(round_number)
+        .bind(player_ids)
+        .fetch_all(&mut **tx)
+        .await?;
+
+        Ok(results
+            .into_iter()
+            .map(|(player_id, sum)| (player_id, sum as i32))
+            .collect())
+    }
+
     pub async fn get_match_total_for_player(
         pool: &sqlx::PgPool,
         match_id: Uuid,

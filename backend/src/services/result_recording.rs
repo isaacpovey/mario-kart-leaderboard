@@ -460,6 +460,7 @@ pub async fn record_results_in_transaction(
     let player_match_updates = score_calculation::calculate_player_match_aggregates(
         &mut tx,
         match_id,
+        round_number,
         all_time_elo_changes,
         tournament_elo_changes,
     )

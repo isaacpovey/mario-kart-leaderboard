@@ -25,12 +25,13 @@ use uuid::Uuid;
 /// This function computes:
 /// - Average position for each player across all races
 /// - Total all-time ELO change from the current round
-/// - Total tournament ELO change from the current round
+/// - Total tournament ELO change from the current round (including only current round's teammate contributions)
 ///
 /// # Arguments
 ///
 /// * `tx` - Active database transaction
 /// * `match_id` - UUID of the match
+/// * `round_number` - The current round number being processed
 /// * `current_round_all_time_elo_changes` - All-time ELO changes from the current round
 /// * `current_round_tournament_elo_changes` - Tournament ELO changes from the current round
 ///
@@ -44,6 +45,7 @@ use uuid::Uuid;
 pub async fn calculate_player_match_aggregates(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
+    round_number: i32,
     current_round_all_time_elo_changes: &[elo::EloChange],
     current_round_tournament_elo_changes: &[elo::EloChange],
 ) -> Result<Vec<(Uuid, i32, i32, i32)>> {
@@ -79,9 +81,10 @@ pub async fn calculate_player_match_aggregates(
 
     let all_player_ids: Vec<Uuid> = player_positions.keys().copied().collect();
     let teammate_contributions =
-        models::PlayerTeammateEloContribution::get_match_total_for_players(
+        models::PlayerTeammateEloContribution::get_round_total_for_players(
             tx,
             match_id,
+            round_number,
             &all_player_ids,
         )
         .await?;
