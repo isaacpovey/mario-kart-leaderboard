@@ -47,12 +47,24 @@ impl Match {
 
     async fn rounds(&self, ctx: &Context<'_>) -> Result<Vec<crate::graphql::rounds::Round>> {
         let context = ctx.data_unchecked::<crate::graphql::GraphQLContext>();
-        let rounds = context
-            .rounds_by_match_loader
-            .load_one(self.id)
-            .await?
-            .unwrap_or_default();
-        Ok(rounds.into_iter().map(|r| r.into()).collect())
+
+        let rounds_with_data = crate::models::Round::get_by_match_with_tracks_and_results(
+            &context.pool,
+            self.id,
+        )
+        .await?;
+
+        Ok(rounds_with_data
+            .into_iter()
+            .map(|round_data| {
+                crate::graphql::rounds::Round::from_with_tracks_and_results(
+                    round_data.round,
+                    round_data.track,
+                    round_data.result_player_ids,
+                    round_data.results,
+                )
+            })
+            .collect())
     }
 
     async fn teams(&self, ctx: &Context<'_>) -> Result<Vec<crate::graphql::teams::Team>> {
@@ -72,11 +84,27 @@ impl Match {
 
     async fn player_results(&self, ctx: &Context<'_>) -> Result<Vec<PlayerMatchResult>> {
         let context = ctx.data_unchecked::<crate::graphql::GraphQLContext>();
-        let results = context
+
+        let match_scores = context
             .player_match_scores_by_match_loader
             .load_one(self.id)
             .await?
             .unwrap_or_default();
-        Ok(results.into_iter().map(|r| r.into()).collect())
+
+        let player_ids: Vec<uuid::Uuid> = match_scores.iter().map(|s| s.player_id).collect();
+
+        let players_map = context
+            .player_loader
+            .load_many(player_ids)
+            .await?;
+
+        Ok(match_scores
+            .into_iter()
+            .filter_map(|score| {
+                players_map.get(&score.player_id).map(|player| {
+                    PlayerMatchResult::from_with_player(score, player.clone())
+                })
+            })
+            .collect())
     }
 }

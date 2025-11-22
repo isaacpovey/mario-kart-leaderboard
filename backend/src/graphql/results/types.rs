@@ -13,6 +13,7 @@ pub struct PlayerRaceResult {
     pub all_time_elo_after: Option<i32>,
     pub tournament_elo_change: Option<i32>,
     pub tournament_elo_after: Option<i32>,
+    pub cached_player: Option<crate::models::Player>,
 }
 
 impl From<crate::models::PlayerRaceScore> for PlayerRaceResult {
@@ -26,6 +27,26 @@ impl From<crate::models::PlayerRaceScore> for PlayerRaceResult {
             all_time_elo_after: model.all_time_elo_after,
             tournament_elo_change: model.tournament_elo_change,
             tournament_elo_after: model.tournament_elo_after,
+            cached_player: None,
+        }
+    }
+}
+
+impl PlayerRaceResult {
+    pub fn from_with_player(
+        score: crate::models::PlayerRaceScore,
+        player: crate::models::Player,
+    ) -> Self {
+        Self {
+            match_id: score.match_id,
+            round_number: score.round_number,
+            player_id: score.player_id,
+            position: score.position,
+            all_time_elo_change: score.all_time_elo_change,
+            all_time_elo_after: score.all_time_elo_after,
+            tournament_elo_change: score.tournament_elo_change,
+            tournament_elo_after: score.tournament_elo_after,
+            cached_player: Some(player),
         }
     }
 }
@@ -33,6 +54,10 @@ impl From<crate::models::PlayerRaceScore> for PlayerRaceResult {
 #[Object]
 impl PlayerRaceResult {
     async fn player(&self, ctx: &Context<'_>) -> Result<Player> {
+        if let Some(cached) = &self.cached_player {
+            return Ok(Player::from(cached.clone()));
+        }
+
         let gql_ctx = ctx.data::<GraphQLContext>()?;
 
         let player = gql_ctx
@@ -74,6 +99,7 @@ pub struct PlayerMatchResult {
     pub tournament_elo_change: i32,
     pub tournament_elo_from_races: i32,
     pub tournament_elo_from_contributions: i32,
+    pub cached_player: Option<crate::models::Player>,
 }
 
 impl From<crate::models::PlayerMatchScore> for PlayerMatchResult {
@@ -86,6 +112,25 @@ impl From<crate::models::PlayerMatchScore> for PlayerMatchResult {
             tournament_elo_change: model.tournament_elo_change,
             tournament_elo_from_races: model.tournament_elo_from_races,
             tournament_elo_from_contributions: model.tournament_elo_from_contributions,
+            cached_player: None,
+        }
+    }
+}
+
+impl PlayerMatchResult {
+    pub fn from_with_player(
+        score: crate::models::PlayerMatchScore,
+        player: crate::models::Player,
+    ) -> Self {
+        Self {
+            match_id: score.match_id,
+            player_id: score.player_id,
+            position: score.position,
+            elo_change: score.elo_change,
+            tournament_elo_change: score.tournament_elo_change,
+            tournament_elo_from_races: score.tournament_elo_from_races,
+            tournament_elo_from_contributions: score.tournament_elo_from_contributions,
+            cached_player: Some(player),
         }
     }
 }
@@ -93,6 +138,10 @@ impl From<crate::models::PlayerMatchScore> for PlayerMatchResult {
 #[Object]
 impl PlayerMatchResult {
     async fn player(&self, ctx: &Context<'_>) -> Result<Player> {
+        if let Some(cached) = &self.cached_player {
+            return Ok(Player::from(cached.clone()));
+        }
+
         let gql_ctx = ctx.data::<GraphQLContext>()?;
 
         let player = gql_ctx
