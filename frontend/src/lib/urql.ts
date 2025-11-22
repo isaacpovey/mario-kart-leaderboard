@@ -21,7 +21,7 @@ export const urqlClient = createClient({
             // Invalidate all relevant queries to force refetch
             cache
               .inspectFields('Query')
-              .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'players' || field.fieldName === 'matchById')
+              .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'activeTournament' || field.fieldName === 'players' || field.fieldName === 'matchById')
               .forEach((field) => {
                 cache.invalidate('Query', field.fieldName, field.arguments)
               })
@@ -29,7 +29,7 @@ export const urqlClient = createClient({
           createMatchWithRounds: (_result, _args, cache, _info) => {
             cache
               .inspectFields('Query')
-              .filter((field) => field.fieldName === 'tournaments')
+              .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'activeTournament')
               .forEach((field) => {
                 cache.invalidate('Query', field.fieldName, field.arguments)
               })
@@ -37,7 +37,7 @@ export const urqlClient = createClient({
           createTournament: (_result, _args, cache, _info) => {
             cache
               .inspectFields('Query')
-              .filter((field) => field.fieldName === 'tournaments')
+              .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'activeTournament')
               .forEach((field) => {
                 cache.invalidate('Query', field.fieldName, field.arguments)
               })

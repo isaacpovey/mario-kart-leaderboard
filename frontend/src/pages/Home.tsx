@@ -1,35 +1,21 @@
 import { Box, Button, Container, Heading, HStack, Stack, Text, VStack } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CreateMatchModal } from '../components/CreateMatchModal'
 import { CreateTournamentModal } from '../components/CreateTournamentModal'
 import { HeroBanner } from '../components/domain/HeroBanner'
 import { LeaderboardList } from '../components/domain/LeaderboardList'
 import { MatchList } from '../components/domain/MatchList'
 import { useAuth } from '../hooks/useAuth'
-import { tournamentsQueryAtom } from '../store/queries'
+import { activeTournamentQueryAtom } from '../store/queries'
 
 const Home = () => {
   const { logout } = useAuth()
-  const tournamentsResult = useAtomValue(tournamentsQueryAtom)
+  const activeTournamentResult = useAtomValue(activeTournamentQueryAtom)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
 
-  // Derive current tournament directly from query result
-  const currentTournament = useMemo(() => {
-    if (!tournamentsResult?.data?.tournaments) {
-      return null
-    }
-
-    const tournaments = tournamentsResult.data.tournaments
-      .filter((tournament) => tournament.startDate != null)
-      .sort((a, b) => {
-        if (!a.startDate || !b.startDate) return 0
-        return b.startDate.localeCompare(a.startDate)
-      })
-
-    return tournaments[0] || null
-  }, [tournamentsResult])
+  const currentTournament = activeTournamentResult?.data?.activeTournament ?? null
 
   useEffect(() => {
     document.title = 'Mario Kart Leaderboard'

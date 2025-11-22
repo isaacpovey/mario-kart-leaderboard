@@ -37,6 +37,9 @@ pub enum AppError {
 
     #[error("Internal server error: {0}")]
     Internal(String),
+
+    #[error("Telemetry error: {0}")]
+    Telemetry(String),
 }
 
 pub trait IntoGraphQLError {

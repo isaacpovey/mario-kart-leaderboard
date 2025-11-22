@@ -1,3 +1,4 @@
+
 //! Result Recording Service
 //!
 //! This module provides orchestration for recording race results, updating ELO ratings,
@@ -22,6 +23,7 @@
 //!    - Mark round as completed
 //!    - If all rounds complete: calculate and store team scores, mark match complete
 
+use crate::db::DbPool;
 use crate::error::{AppError, Result};
 use crate::models;
 use crate::services::elo::{self, PlayerResult};
@@ -103,7 +105,7 @@ pub struct PlayerResultData {
 ///
 /// Returns an error if database query fails
 pub async fn get_round_players(
-    pool: &sqlx::PgPool,
+    pool: &DbPool,
     match_id: Uuid,
     round_number: i32,
 ) -> Result<Vec<Uuid>> {
@@ -222,7 +224,7 @@ pub fn create_player_results(
 ///
 /// Returns an error if any operation fails
 pub async fn record_race_results(
-    pool: &sqlx::PgPool,
+    pool: &DbPool,
     group_id: Uuid,
     match_id: Uuid,
     round_number: i32,
@@ -298,7 +300,7 @@ pub async fn record_race_results(
 ///
 /// Returns an error if any database operation fails (transaction will be rolled back)
 pub async fn record_results_in_transaction(
-    pool: &sqlx::PgPool,
+    pool: &DbPool,
     group_id: Uuid,
     match_id: Uuid,
     round_number: i32,
@@ -341,7 +343,7 @@ pub async fn record_results_in_transaction(
         .bind(all_time_change.new_elo)
         .bind(tournament_change.elo_change)
         .bind(tournament_change.new_elo)
-        .execute(&mut *tx)
+        .execute(tx.as_mut())
         .await
         .map_err(|e| AppError::Internal(format!("Failed to insert player race score: {e}")))?;
     }
@@ -353,7 +355,7 @@ pub async fn record_results_in_transaction(
          WHERE t.match_id = $1",
     )
     .bind(match_id)
-    .fetch_all(&mut *tx)
+    .fetch_all(tx.as_mut())
     .await
     .map_err(|e| AppError::Internal(format!("Failed to fetch player teams: {e}")))?;
 
@@ -442,7 +444,7 @@ pub async fn record_results_in_transaction(
         )
         .bind(change.new_elo)
         .bind(change.player_id)
-        .execute(&mut *tx)
+        .execute(tx.as_mut())
         .await
         .map_err(|e| AppError::Internal(format!("Failed to update player ELO rating: {e}")))?;
     }
@@ -493,7 +495,7 @@ pub async fn record_results_in_transaction(
         .bind(tournament_change_from_races)
         .bind(tournament_change_from_contributions)
         .bind(tournament_total_change)
-        .execute(&mut *tx)
+        .execute(tx.as_mut())
         .await?;
     }
 
@@ -504,7 +506,7 @@ pub async fn record_results_in_transaction(
     )
     .bind(match_id)
     .bind(round_number)
-    .execute(&mut *tx)
+    .execute(tx.as_mut())
     .await?;
 
     let all_rounds_completed =
@@ -520,7 +522,7 @@ pub async fn record_results_in_transaction(
              RETURNING id, group_id, tournament_id, time, rounds, completed",
         )
         .bind(match_id)
-        .fetch_one(&mut *tx)
+        .fetch_one(tx.as_mut())
         .await?
     } else {
         match_record.clone()

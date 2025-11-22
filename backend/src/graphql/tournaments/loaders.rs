@@ -1,16 +1,17 @@
+
+use crate::db::DbPool;
 use crate::models::Tournament;
 use async_graphql::dataloader::*;
-use sqlx::PgPool;
 use std::collections::HashMap;
 use tracing::instrument;
 use uuid::Uuid;
 
 pub struct TournamentLoader {
-    pool: PgPool,
+    pool: DbPool,
 }
 
 impl TournamentLoader {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 }
@@ -33,11 +34,11 @@ impl Loader<Uuid> for TournamentLoader {
 }
 
 pub struct ActiveTournamentLoader {
-    pool: PgPool,
+    pool: DbPool,
 }
 
 impl ActiveTournamentLoader {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 }
@@ -64,11 +65,11 @@ impl Loader<Uuid> for ActiveTournamentLoader {
 }
 
 pub struct PlayerTournamentEloLoader {
-    pool: PgPool,
+    pool: DbPool,
 }
 
 impl PlayerTournamentEloLoader {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 }

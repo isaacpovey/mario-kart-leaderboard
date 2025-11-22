@@ -6,4 +6,4 @@ pub mod types;
 pub use loaders::{ActiveTournamentLoader, PlayerTournamentEloLoader, TournamentLoader};
 pub use mutations::TournamentsMutation;
 pub use queries::TournamentsQuery;
-pub use types::{LeaderboardEntry, Tournament};
+pub use types::{ActiveTournamentWithLeaderboard, LeaderboardEntry, Tournament};

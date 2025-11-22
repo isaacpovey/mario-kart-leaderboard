@@ -11,7 +11,7 @@ dotenv = "0.15"
 clap = { version = "4.0", features = ["derive"] }
 
 # GraphQL
-async-graphql = { version = "7.0", features = ["dataloader", "uuid", "chrono"] }
+async-graphql = { version = "7.0", features = ["dataloader", "uuid", "chrono", "opentelemetry"] }
 async-graphql-axum = "7.0"
 
 # Web framework
@@ -36,6 +36,13 @@ rand = "0.9"
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# OpenTelemetry
+opentelemetry = "0.27"
+opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.27", features = ["grpc-tonic", "trace"] }
+opentelemetry-semantic-conventions = "0.27"
+tracing-opentelemetry = "0.28"
 
 [dev-dependencies]
 testcontainers = "0.25"

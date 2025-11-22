@@ -1,3 +1,4 @@
+
 //! ELO Rating System for Mario Kart Races
 //!
 //! This module implements an ELO rating system adapted for 24-player Mario Kart races.

@@ -1,11 +1,14 @@
 use crate::error::Result;
-use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::PgPool;
 
-pub async fn create_pool(database_url: &str, max_connections: u32) -> Result<PgPool> {
-    PgPoolOptions::new()
+pub type DbPool = PgPool;
+
+pub async fn create_pool(database_url: &str, max_connections: u32) -> Result<DbPool> {
+    let pool = PgPoolOptions::new()
         .max_connections(max_connections)
         .connect(database_url)
-        .await
-        .map_err(Into::into)
+        .await?;
+
+    Ok(pool)
 }

@@ -113,3 +113,44 @@ impl LeaderboardEntry {
         self.avatar_filename.as_deref()
     }
 }
+
+#[derive(Clone)]
+pub struct ActiveTournamentWithLeaderboard {
+    pub tournament: Tournament,
+    pub leaderboard: Vec<LeaderboardEntry>,
+}
+
+#[Object]
+impl ActiveTournamentWithLeaderboard {
+    async fn id(&self) -> ID {
+        ID(self.tournament.id.to_string())
+    }
+
+    async fn start_date(&self) -> Option<String> {
+        self.tournament.start_date.map(|d| d.to_string())
+    }
+
+    async fn end_date(&self) -> Option<String> {
+        self.tournament.end_date.map(|d| d.to_string())
+    }
+
+    async fn winner_id(&self) -> Option<ID> {
+        self.tournament.winner.map(|id| ID(id.to_string()))
+    }
+
+    async fn leaderboard(&self) -> &[LeaderboardEntry] {
+        &self.leaderboard
+    }
+
+    async fn matches(&self, ctx: &Context<'_>) -> Result<Vec<Match>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+
+        let matches = gql_ctx
+            .matches_by_tournament_loader
+            .load_one(self.tournament.id)
+            .await?
+            .unwrap_or_default();
+
+        Ok(matches.into_iter().map(Match::from).collect())
+    }
+}

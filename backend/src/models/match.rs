@@ -1,3 +1,4 @@
+use crate::db::DbPool;
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use tracing::instrument;
@@ -16,7 +17,7 @@ pub struct Match {
 
 impl Match {
     #[instrument(level = "debug", skip(pool))]
-    pub async fn find_by_id(pool: &sqlx::PgPool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
+    pub async fn find_by_id(pool: &DbPool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
             "SELECT id, group_id, tournament_id, time, rounds, completed
              FROM matches
@@ -28,7 +29,7 @@ impl Match {
     }
 
     #[instrument(level = "debug", skip(pool), fields(batch_size = ids.len()))]
-    pub async fn find_by_ids(pool: &sqlx::PgPool, ids: &[Uuid]) -> Result<Vec<Self>, sqlx::Error> {
+    pub async fn find_by_ids(pool: &DbPool, ids: &[Uuid]) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
             "SELECT id, group_id, tournament_id, time, rounds, completed
              FROM matches
@@ -41,7 +42,7 @@ impl Match {
 
     #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_tournament_id(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         tournament_id: Uuid,
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
@@ -57,7 +58,7 @@ impl Match {
 
     #[instrument(level = "debug", skip(pool), fields(batch_size = tournament_ids.len()))]
     pub async fn find_by_tournament_ids(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         tournament_ids: &[Uuid],
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(

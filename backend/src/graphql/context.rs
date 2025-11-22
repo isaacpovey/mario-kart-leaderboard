@@ -1,22 +1,24 @@
+use crate::db::DbPool;
 use crate::graphql::groups::GroupLoader;
 use crate::graphql::matches::{MatchLoader, MatchesByTournamentLoader};
-use crate::graphql::players::{PlayerLoader, PlayersByGroupLoader};
-use crate::graphql::results::{PlayerMatchScoresByMatchLoader, PlayerRaceScoresByRoundLoader};
+use crate::graphql::players::{PlayerActiveTournamentEloLoader, PlayerLoader, PlayersByGroupLoader};
+use crate::graphql::results::{PlayerMatchScoresByMatchLoader, PlayerRaceScoresByRoundLoader, PlayerTeammateContributionLoader};
 use crate::graphql::rounds::{PlayersByRoundLoader, RoundsByMatchLoader};
 use crate::graphql::teams::{PlayersByTeamLoader, TeamsByMatchLoader};
 use crate::graphql::tournaments::{ActiveTournamentLoader, PlayerTournamentEloLoader, TournamentLoader};
 use crate::graphql::tracks::TrackLoader;
 use async_graphql::dataloader::{DataLoader, HashMapCache};
-use sqlx::PgPool;
 use std::sync::Arc;
 use uuid::Uuid;
 
 pub struct GraphQLContext {
-    pub pool: PgPool,
+    pub pool: DbPool,
     pub group_id: Option<Uuid>,
     pub group_loader: Arc<DataLoader<GroupLoader, HashMapCache>>,
     pub player_loader: Arc<DataLoader<PlayerLoader, HashMapCache>>,
     pub players_by_group_loader: Arc<DataLoader<PlayersByGroupLoader, HashMapCache>>,
+    pub player_active_tournament_elo_loader:
+        Arc<DataLoader<PlayerActiveTournamentEloLoader, HashMapCache>>,
     pub tournament_loader: Arc<DataLoader<TournamentLoader, HashMapCache>>,
     pub active_tournament_loader: Arc<DataLoader<ActiveTournamentLoader, HashMapCache>>,
     pub player_tournament_elo_loader: Arc<DataLoader<PlayerTournamentEloLoader, HashMapCache>>,
@@ -31,10 +33,12 @@ pub struct GraphQLContext {
         Arc<DataLoader<PlayerRaceScoresByRoundLoader, HashMapCache>>,
     pub player_match_scores_by_match_loader:
         Arc<DataLoader<PlayerMatchScoresByMatchLoader, HashMapCache>>,
+    pub player_teammate_contribution_loader:
+        Arc<DataLoader<PlayerTeammateContributionLoader, HashMapCache>>,
 }
 
 impl GraphQLContext {
-    pub fn new(pool: PgPool, group_id: Option<Uuid>) -> Self {
+    pub fn new(pool: DbPool, group_id: Option<Uuid>) -> Self {
         Self {
             group_loader: Arc::new(DataLoader::with_cache(
                 GroupLoader::new(pool.clone()),
@@ -48,6 +52,11 @@ impl GraphQLContext {
             )),
             players_by_group_loader: Arc::new(DataLoader::with_cache(
                 PlayersByGroupLoader::new(pool.clone()),
+                tokio::spawn,
+                HashMapCache::default(),
+            )),
+            player_active_tournament_elo_loader: Arc::new(DataLoader::with_cache(
+                PlayerActiveTournamentEloLoader::new(pool.clone()),
                 tokio::spawn,
                 HashMapCache::default(),
             )),
@@ -108,6 +117,11 @@ impl GraphQLContext {
             )),
             player_match_scores_by_match_loader: Arc::new(DataLoader::with_cache(
                 PlayerMatchScoresByMatchLoader::new(pool.clone()),
+                tokio::spawn,
+                HashMapCache::default(),
+            )),
+            player_teammate_contribution_loader: Arc::new(DataLoader::with_cache(
+                PlayerTeammateContributionLoader::new(pool.clone()),
                 tokio::spawn,
                 HashMapCache::default(),
             )),

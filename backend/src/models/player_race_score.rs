@@ -1,3 +1,4 @@
+use crate::db::DbPool;
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use tracing::instrument;
@@ -20,7 +21,7 @@ pub struct PlayerRaceScore {
 impl PlayerRaceScore {
     #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_match_id(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         match_id: Uuid,
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
@@ -38,7 +39,7 @@ impl PlayerRaceScore {
 
     #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_match_and_round(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         match_id: Uuid,
         round_number: i32,
     ) -> Result<Vec<Self>, sqlx::Error> {
@@ -58,7 +59,7 @@ impl PlayerRaceScore {
 
     #[instrument(level = "debug", skip(pool), fields(batch_size = rounds.len()))]
     pub async fn find_by_rounds(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         rounds: &[(Uuid, i32)],
     ) -> Result<Vec<Self>, sqlx::Error> {
         let match_ids: Vec<Uuid> = rounds.iter().map(|(match_id, _)| *match_id).collect();

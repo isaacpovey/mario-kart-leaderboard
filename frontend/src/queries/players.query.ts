@@ -5,7 +5,6 @@ export const playersQuery = graphql(`
     players {
       id
       name
-      currentTournamentElo
       avatarFilename
     }
   }

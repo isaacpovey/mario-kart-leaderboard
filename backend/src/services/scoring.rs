@@ -1,3 +1,4 @@
+
 pub const fn position_to_points(position: i32) -> i32 {
     match position {
         1 => 15,

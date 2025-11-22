@@ -1,4 +1,5 @@
 import { atomWithQuery } from 'jotai-urql'
+import { activeTournamentQuery } from '../queries/activeTournament.query'
 import { currentGroupQuery } from '../queries/currentGroup.query'
 import { matchQuery } from '../queries/match.query'
 import { playersQuery } from '../queries/players.query'
@@ -11,6 +12,11 @@ export const playersQueryAtom = atomWithQuery({
 
 export const tournamentsQueryAtom = atomWithQuery({
   query: tournamentsQuery,
+  getContext: () => ({ requestPolicy: 'cache-first' }),
+})
+
+export const activeTournamentQueryAtom = atomWithQuery({
+  query: activeTournamentQuery,
   getContext: () => ({ requestPolicy: 'cache-first' }),
 })
 

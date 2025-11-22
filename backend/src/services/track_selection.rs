@@ -1,3 +1,4 @@
+
 //! Track Selection Service
 //!
 //! This module provides track selection algorithms that avoid recently used tracks
@@ -14,6 +15,7 @@
 //! 4. If enough available tracks exist, use only those; otherwise mix both pools
 //! 5. Shuffle and select the required number of tracks
 
+use crate::db::DbPool;
 use crate::error::Result;
 use crate::models;
 use rand::seq::SliceRandom;
@@ -54,7 +56,7 @@ use uuid::Uuid;
 /// assert_eq!(tracks.len(), 4);
 /// ```
 pub async fn select_tracks(
-    pool: &sqlx::PgPool,
+    pool: &DbPool,
     tournament_id: Uuid,
     num_races: i32,
 ) -> Result<Vec<models::Track>> {

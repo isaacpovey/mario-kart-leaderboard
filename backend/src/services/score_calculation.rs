@@ -1,3 +1,4 @@
+
 //! Score Calculation Service
 //!
 //! This module provides functions for calculating aggregate scores for players and teams.

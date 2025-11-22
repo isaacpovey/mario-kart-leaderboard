@@ -1,16 +1,17 @@
+
+use crate::db::DbPool;
 use crate::models::Group;
 use async_graphql::dataloader::*;
-use sqlx::PgPool;
 use std::collections::HashMap;
 use tracing::instrument;
 use uuid::Uuid;
 
 pub struct GroupLoader {
-    pool: PgPool,
+    pool: DbPool,
 }
 
 impl GroupLoader {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 }

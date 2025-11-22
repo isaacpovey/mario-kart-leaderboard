@@ -1,0 +1,14 @@
+services:
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    container_name: aspire-dashboard
+    environment:
+      # Disables authentication so you don't need to check logs for a token
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+    ports:
+      # The Web UI port
+      - "18888:18888"
+      # The OTLP receiver port (gRPC)
+      # Maps host 4317 -> container 18889
+      - "4317:18889"
+    restart: unless-stopped

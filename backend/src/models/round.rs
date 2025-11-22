@@ -1,3 +1,4 @@
+use crate::db::DbPool;
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -11,7 +12,7 @@ pub struct Round {
 
 impl Round {
     pub async fn find_one(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         match_id: Uuid,
         round_number: i32,
     ) -> Result<Option<Self>, sqlx::Error> {
@@ -27,7 +28,7 @@ impl Round {
     }
 
     pub async fn find_by_match_id(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         match_id: Uuid,
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
@@ -42,7 +43,7 @@ impl Round {
     }
 
     pub async fn find_by_match_ids(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         match_ids: &[Uuid],
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(

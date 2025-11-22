@@ -1,3 +1,4 @@
+use crate::db::DbPool;
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -9,14 +10,14 @@ pub struct Group {
 }
 
 impl Group {
-    pub async fn find_by_id(pool: &sqlx::PgPool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
+    pub async fn find_by_id(pool: &DbPool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>("SELECT id, name, password FROM groups WHERE id = $1")
             .bind(id)
             .fetch_optional(pool)
             .await
     }
 
-    pub async fn find_by_ids(pool: &sqlx::PgPool, ids: &[Uuid]) -> Result<Vec<Self>, sqlx::Error> {
+    pub async fn find_by_ids(pool: &DbPool, ids: &[Uuid]) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>("SELECT id, name, password FROM groups WHERE id = ANY($1)")
             .bind(ids)
             .fetch_all(pool)
@@ -24,7 +25,7 @@ impl Group {
     }
 
     pub async fn find_by_name(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         name: &str,
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>("SELECT id, name, password FROM groups WHERE name = $1")
@@ -34,7 +35,7 @@ impl Group {
     }
 
     pub async fn create(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         name: &str,
         password_hash: &str,
     ) -> Result<Self, sqlx::Error> {

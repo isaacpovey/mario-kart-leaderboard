@@ -45,22 +45,12 @@ impl Player {
     async fn current_tournament_elo(&self, ctx: &Context<'_>) -> Result<Option<i32>> {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
 
-        let active_tournament_id = gql_ctx
-            .active_tournament_loader
-            .load_one(self.group_id)
+        let tournament_elo = gql_ctx
+            .player_active_tournament_elo_loader
+            .load_one((self.id, self.group_id))
             .await?;
 
-        match active_tournament_id {
-            Some(tournament_id) => {
-                let tournament_elo = gql_ctx
-                    .player_tournament_elo_loader
-                    .load_one((self.id, tournament_id))
-                    .await?;
-
-                Ok(tournament_elo)
-            }
-            None => Ok(None),
-        }
+        Ok(tournament_elo)
     }
 
     async fn group(&self, ctx: &Context<'_>) -> Result<Option<Group>> {

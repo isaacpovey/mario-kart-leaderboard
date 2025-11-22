@@ -1,3 +1,4 @@
+use crate::db::DbPool;
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, Postgres, Transaction};
 use std::collections::HashMap;
@@ -123,7 +124,7 @@ impl PlayerTeammateEloContribution {
     }
 
     pub async fn get_match_total_for_player(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         match_id: Uuid,
         player_id: Uuid,
     ) -> Result<i32, sqlx::Error> {

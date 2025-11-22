@@ -1,3 +1,4 @@
+use crate::db::DbPool;
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, Postgres, Transaction};
 use std::collections::HashMap;
@@ -118,7 +119,7 @@ impl PlayerTournamentScore {
     }
 
     pub async fn get_tournament_leaderboard(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         tournament_id: Uuid,
     ) -> Result<Vec<(Uuid, String, i32, i32, Option<String>)>, sqlx::Error> {
         sqlx::query_as::<_, (Uuid, String, i32, i32, Option<String>)>(

@@ -10,6 +10,7 @@ pub struct Team {
     pub match_id: Uuid,
     pub team_num: i32,
     pub score: Option<i32>,
+    pub cached_players: Option<Vec<crate::models::Player>>,
 }
 
 impl From<crate::models::Team> for Team {
@@ -20,6 +21,20 @@ impl From<crate::models::Team> for Team {
             match_id: model.match_id,
             team_num: model.team_num,
             score: model.score,
+            cached_players: None,
+        }
+    }
+}
+
+impl Team {
+    pub fn from_with_players(model: crate::models::Team, players: Vec<crate::models::Player>) -> Self {
+        Self {
+            id: model.id,
+            group_id: model.group_id,
+            match_id: model.match_id,
+            team_num: model.team_num,
+            score: model.score,
+            cached_players: Some(players),
         }
     }
 }
@@ -43,6 +58,10 @@ impl Team {
     }
 
     async fn players(&self, ctx: &Context<'_>) -> Result<Vec<Player>> {
+        if let Some(cached) = &self.cached_players {
+            return Ok(cached.iter().map(|p| Player::from(p.clone())).collect());
+        }
+
         let gql_ctx = ctx.data::<GraphQLContext>()?;
 
         let players = gql_ctx

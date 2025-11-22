@@ -1,3 +1,4 @@
+
 use crate::error::{AppError, Result};
 
 const MIN_NAME_LENGTH: usize = 1;

@@ -10,6 +10,8 @@ pub struct Config {
     pub server_port: u16,
     pub enable_playground: bool,
     pub cors_origins: Vec<String>,
+    pub otlp_endpoint: Option<String>,
+    pub service_name: String,
 }
 
 impl Config {
@@ -58,6 +60,9 @@ impl Config {
                 .unwrap_or_else(|_| "false".to_string())
                 == "true",
             cors_origins,
+            otlp_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok(),
+            service_name: env::var("OTEL_SERVICE_NAME")
+                .unwrap_or_else(|_| "mario-kart-leaderboard".to_string()),
         })
     }
 

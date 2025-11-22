@@ -1,16 +1,17 @@
+
+use crate::db::DbPool;
 use crate::models::{Player, Round};
 use async_graphql::dataloader::*;
-use sqlx::PgPool;
 use std::collections::HashMap;
 use tracing::instrument;
 use uuid::Uuid;
 
 pub struct RoundsByMatchLoader {
-    pool: PgPool,
+    pool: DbPool,
 }
 
 impl RoundsByMatchLoader {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 }
@@ -37,11 +38,11 @@ impl Loader<Uuid> for RoundsByMatchLoader {
 }
 
 pub struct PlayersByRoundLoader {
-    pool: PgPool,
+    pool: DbPool,
 }
 
 impl PlayersByRoundLoader {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 }

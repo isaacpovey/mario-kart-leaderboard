@@ -6,4 +6,6 @@ pub mod graphql;
 pub mod handlers;
 pub mod middleware;
 pub mod models;
+pub mod observability;
 pub mod services;
+pub mod telemetry;

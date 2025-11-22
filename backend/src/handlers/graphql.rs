@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::db::DbPool;
 use crate::graphql::{GraphQLContext, Schema};
 use async_graphql::http::{GraphQLPlaygroundConfig, playground_source};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
@@ -6,12 +7,11 @@ use axum::{
     extract::Extension as AxumExtension,
     response::{Html, IntoResponse},
 };
-use sqlx::PgPool;
 use uuid::Uuid;
 
 pub async fn graphql_handler(
     AxumExtension(schema): AxumExtension<Schema>,
-    AxumExtension(pool): AxumExtension<PgPool>,
+    AxumExtension(pool): AxumExtension<DbPool>,
     AxumExtension(config): AxumExtension<Config>,
     AxumExtension(group_id): AxumExtension<Option<Uuid>>,
     req: GraphQLRequest,

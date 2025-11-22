@@ -57,12 +57,13 @@ impl Match {
 
     async fn teams(&self, ctx: &Context<'_>) -> Result<Vec<crate::graphql::teams::Team>> {
         let context = ctx.data_unchecked::<crate::graphql::GraphQLContext>();
-        let teams = context
-            .teams_by_match_loader
-            .load_one(self.id)
-            .await?
-            .unwrap_or_default();
-        Ok(teams.into_iter().map(|t| t.into()).collect())
+
+        let teams_with_players = crate::models::Team::get_by_match_with_players(&context.pool, self.id).await?;
+
+        Ok(teams_with_players
+            .into_iter()
+            .map(|(team, players)| crate::graphql::teams::Team::from_with_players(team, players))
+            .collect())
     }
 
     async fn completed(&self) -> bool {

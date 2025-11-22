@@ -1,3 +1,4 @@
+
 //! Match Service
 //!
 //! This module provides high-level match creation orchestration, coordinating
@@ -17,6 +18,7 @@
 //!    - Create rounds with tracks
 //!    - Create round player assignments
 
+use crate::db::DbPool;
 use crate::error::{AppError, Result};
 use crate::models;
 use crate::services::{race_allocation, team_allocation, track_selection};
@@ -121,7 +123,7 @@ pub fn validate_create_match_inputs(
 /// - Team/race allocation algorithms fail
 /// - Track selection fails
 pub async fn create_match_with_rounds(
-    pool: &sqlx::PgPool,
+    pool: &DbPool,
     group_id: Uuid,
     tournament_id: Uuid,
     player_ids: &[Uuid],
@@ -182,7 +184,7 @@ pub async fn create_match_with_rounds(
 ///
 /// Returns an error if any database operation fails (transaction will be rolled back)
 async fn create_match_in_transaction(
-    pool: &sqlx::PgPool,
+    pool: &DbPool,
     group_id: Uuid,
     tournament_id: Uuid,
     num_races: i32,
@@ -205,7 +207,7 @@ async fn create_match_in_transaction(
     .bind(Utc::now())
     .bind(num_races)
     .bind(false)
-    .fetch_one(&mut *tx)
+    .fetch_one(tx.as_mut())
     .await
     .map_err(|e| AppError::Internal(format!("Failed to create match record: {e}")))?;
 
@@ -220,7 +222,7 @@ async fn create_match_in_transaction(
             .bind(group_id)
             .bind(match_record.id)
             .bind(team.team_num)
-            .fetch_one(&mut *tx)
+            .fetch_one(tx.as_mut())
             .await?;
 
             pairs.push((team.team_num, team_id));
@@ -264,7 +266,7 @@ async fn create_match_in_transaction(
         .bind(&team_ids)
         .bind(&player_ids)
         .bind(&ranks)
-        .execute(&mut *tx)
+        .execute(tx.as_mut())
         .await?;
     }
 
@@ -297,7 +299,7 @@ async fn create_match_in_transaction(
         .bind(&zeros)
         .bind(&zeros)
         .bind(&zeros)
-        .execute(&mut *tx)
+        .execute(tx.as_mut())
         .await?;
     }
 
@@ -324,7 +326,7 @@ async fn create_match_in_transaction(
         .bind(match_record.id)
         .bind((idx + 1) as i32)
         .bind(track.id)
-        .execute(&mut *tx)
+        .execute(tx.as_mut())
         .await?;
     }
 
@@ -400,7 +402,7 @@ async fn create_match_in_transaction(
         .bind(&player_ids)
         .bind(&team_ids)
         .bind(&positions)
-        .execute(&mut *tx)
+        .execute(tx.as_mut())
         .await?;
     }
 

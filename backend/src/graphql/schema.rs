@@ -1,4 +1,5 @@
 use async_graphql::*;
+use async_graphql::extensions::OpenTelemetry;
 
 // Import all feature modules
 use crate::graphql::{auth, groups, matches, players, rounds, tournaments, tracks};
@@ -27,7 +28,10 @@ pub struct Mutation(
 pub type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;
 
 pub fn build_schema() -> Schema {
+    let tracer = opentelemetry::global::tracer("graphql");
+
     Schema::build(Query::default(), Mutation::default(), EmptySubscription)
+        .extension(OpenTelemetry::new(tracer))
         .limit_depth(20)
         .limit_complexity(1000)
         .finish()

@@ -9,21 +9,23 @@ use mario_kart_leaderboard_backend::{
     graphql::build_schema,
     handlers::{graphql_handler, graphql_playground},
     middleware::auth::auth_middleware,
+    observability::{init_telemetry, shutdown_telemetry},
 };
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use tower_http::trace::TraceLayer;
-use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt};
+use tower_http::trace::{TraceLayer, DefaultMakeSpan, DefaultOnResponse};
+use tower_http::LatencyUnit;
+use tracing;
 
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_span_events(FmtSpan::CLOSE),
-        )
-        .init();
-
     let config = Config::from_env()?;
+
+    init_telemetry(&config.service_name, config.otlp_endpoint.as_deref())?;
+
+    tracing::info_span!("app_startup").in_scope(|| {
+        tracing::info!("Application starting up");
+    });
+
     let pool = create_pool(&config.database_url, config.database_max_connections).await?;
     
     let schema = build_schema();
@@ -57,7 +59,11 @@ async fn main() -> Result<(), AppError> {
         .layer(Extension(schema))
         .layer(Extension(pool))
         .layer(Extension(config.clone()))
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(tracing::Level::INFO))
+                .on_response(DefaultOnResponse::new().level(tracing::Level::INFO).latency_unit(LatencyUnit::Millis))
+        )
         .layer(cors);
 
     let addr = config.server_addr();
@@ -67,6 +73,8 @@ async fn main() -> Result<(), AppError> {
     tracing::info!("GraphQL Playground available at http://{}/", addr);
 
     axum::serve(listener, app).await?;
+
+    shutdown_telemetry();
 
     Ok(())
 }

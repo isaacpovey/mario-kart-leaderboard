@@ -1,3 +1,4 @@
+use crate::db::DbPool;
 use sqlx::FromRow;
 use tracing::instrument;
 use uuid::Uuid;
@@ -13,7 +14,7 @@ pub struct Player {
 
 impl Player {
     #[instrument(level = "debug", skip(pool))]
-    pub async fn find_by_id(pool: &sqlx::PgPool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
+    pub async fn find_by_id(pool: &DbPool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
             "SELECT id, group_id, name, elo_rating, avatar_filename FROM players WHERE id = $1",
         )
@@ -23,7 +24,7 @@ impl Player {
     }
 
     #[instrument(level = "debug", skip(pool), fields(batch_size = ids.len()))]
-    pub async fn find_by_ids(pool: &sqlx::PgPool, ids: &[Uuid]) -> Result<Vec<Self>, sqlx::Error> {
+    pub async fn find_by_ids(pool: &DbPool, ids: &[Uuid]) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
             "SELECT id, group_id, name, elo_rating, avatar_filename FROM players WHERE id = ANY($1)",
         )
@@ -34,7 +35,7 @@ impl Player {
 
     #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_group_id(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         group_id: Uuid,
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
@@ -47,7 +48,7 @@ impl Player {
 
     #[instrument(level = "debug", skip(pool), fields(batch_size = group_ids.len()))]
     pub async fn find_by_group_ids(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         group_ids: &[Uuid],
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
@@ -60,7 +61,7 @@ impl Player {
 
     #[instrument(level = "debug", skip(pool))]
     pub async fn create(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         group_id: Uuid,
         name: &str,
     ) -> Result<Self, sqlx::Error> {
@@ -75,7 +76,7 @@ impl Player {
 
     #[instrument(level = "debug", skip(pool), fields(batch_size = team_ids.len()))]
     pub async fn find_by_team_ids(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         team_ids: &[Uuid],
     ) -> Result<Vec<(Uuid, Self)>, sqlx::Error> {
         let rows = sqlx::query_as::<_, (Uuid, Uuid, Uuid, String, i32, Option<String>)>(
@@ -108,7 +109,7 @@ impl Player {
 
     #[instrument(level = "debug", skip(pool), fields(batch_size = round_keys.len()))]
     pub async fn find_by_round_keys(
-        pool: &sqlx::PgPool,
+        pool: &DbPool,
         round_keys: &[(Uuid, i32)],
     ) -> Result<Vec<((Uuid, i32), Self)>, sqlx::Error> {
         let match_ids: Vec<Uuid> = round_keys.iter().map(|(match_id, _)| *match_id).collect();
