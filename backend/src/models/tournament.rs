@@ -67,4 +67,21 @@ impl Tournament {
         .fetch_one(pool)
         .await
     }
+
+    #[instrument(level = "debug", skip(pool))]
+    pub async fn get_active_tournament(
+        pool: &sqlx::PgPool,
+        group_id: Uuid,
+    ) -> Result<Option<Uuid>, sqlx::Error> {
+        sqlx::query_scalar::<_, Uuid>(
+            "SELECT id
+             FROM tournaments
+             WHERE group_id = $1
+             ORDER BY start_date DESC NULLS LAST
+             LIMIT 1",
+        )
+        .bind(group_id)
+        .fetch_optional(pool)
+        .await
+    }
 }

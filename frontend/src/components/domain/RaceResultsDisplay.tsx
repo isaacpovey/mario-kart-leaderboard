@@ -6,7 +6,7 @@ type RaceResult = {
   player: {
     id: string
     name: string
-    eloRating: number
+    currentTournamentElo: number | null
   }
   position: number
   tournamentEloChange: number | null

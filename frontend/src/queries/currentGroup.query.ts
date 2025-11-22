@@ -8,7 +8,7 @@ export const currentGroupQuery = graphql(`
             players {
                 id
                 name
-                eloRating
+                currentTournamentElo
             }
         }
     }

@@ -14,7 +14,7 @@ export const matchQuery = graphql(`
         players {
           id
           name
-          eloRating
+          currentTournamentElo
         }
       }
       rounds {
@@ -27,13 +27,13 @@ export const matchQuery = graphql(`
         players {
           id
           name
-          eloRating
+          currentTournamentElo
         }
         results {
           player {
             id
             name
-            eloRating
+            currentTournamentElo
           }
           position
           tournamentEloChange
@@ -43,7 +43,7 @@ export const matchQuery = graphql(`
         player {
           id
           name
-          eloRating
+          currentTournamentElo
         }
         position
         eloChange

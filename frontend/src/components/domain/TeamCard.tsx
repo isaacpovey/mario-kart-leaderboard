@@ -5,7 +5,7 @@ import { Avatar } from '../common/Avatar'
 type Player = {
   id: string
   name: string
-  eloRating: number
+  currentTournamentElo: number | null
 }
 
 type Team = {
@@ -19,7 +19,7 @@ type PlayerResult = {
   player: {
     id: string
     name: string
-    eloRating: number
+    currentTournamentElo: number | null
   }
   tournamentEloChange: number
   tournamentEloFromRaces: number
@@ -72,7 +72,7 @@ export const TeamCard = ({ team, playerResults }: TeamCardProps) => (
                   </Text>
                   {result && (
                     <HStack gap={2} fontSize={{ base: 'xs', md: 'sm' }}>
-                      <Text color="gray.600">{player.eloRating}</Text>
+                      <Text color="gray.600">{player.currentTournamentElo ?? 1200}</Text>
                       <HStack gap={1} color={ownContribution >= 0 ? 'green.600' : 'red.600'} fontWeight="medium">
                         <LuFlag size={12} />
                         <Text>{formatEloChange(ownContribution)}</Text>
@@ -88,7 +88,7 @@ export const TeamCard = ({ team, playerResults }: TeamCardProps) => (
                   )}
                   {!result && (
                     <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">
-                      {player.eloRating}
+                      {player.currentTournamentElo ?? 1200}
                     </Text>
                   )}
                 </VStack>

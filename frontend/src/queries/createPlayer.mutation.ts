@@ -5,7 +5,7 @@ export const createPlayerMutation = graphql(`
     createPlayer(name: $name) {
       id
       name
-      eloRating
+      currentTournamentElo
     }
   }
 `)

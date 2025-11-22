@@ -4,7 +4,7 @@ use crate::graphql::players::{PlayerLoader, PlayersByGroupLoader};
 use crate::graphql::results::{PlayerMatchScoresByMatchLoader, PlayerRaceScoresByRoundLoader};
 use crate::graphql::rounds::{PlayersByRoundLoader, RoundsByMatchLoader};
 use crate::graphql::teams::{PlayersByTeamLoader, TeamsByMatchLoader};
-use crate::graphql::tournaments::TournamentLoader;
+use crate::graphql::tournaments::{ActiveTournamentLoader, PlayerTournamentEloLoader, TournamentLoader};
 use crate::graphql::tracks::TrackLoader;
 use async_graphql::dataloader::{DataLoader, HashMapCache};
 use sqlx::PgPool;
@@ -18,6 +18,8 @@ pub struct GraphQLContext {
     pub player_loader: Arc<DataLoader<PlayerLoader, HashMapCache>>,
     pub players_by_group_loader: Arc<DataLoader<PlayersByGroupLoader, HashMapCache>>,
     pub tournament_loader: Arc<DataLoader<TournamentLoader, HashMapCache>>,
+    pub active_tournament_loader: Arc<DataLoader<ActiveTournamentLoader, HashMapCache>>,
+    pub player_tournament_elo_loader: Arc<DataLoader<PlayerTournamentEloLoader, HashMapCache>>,
     pub match_loader: Arc<DataLoader<MatchLoader, HashMapCache>>,
     pub matches_by_tournament_loader: Arc<DataLoader<MatchesByTournamentLoader, HashMapCache>>,
     pub rounds_by_match_loader: Arc<DataLoader<RoundsByMatchLoader, HashMapCache>>,
@@ -51,6 +53,16 @@ impl GraphQLContext {
             )),
             tournament_loader: Arc::new(DataLoader::with_cache(
                 TournamentLoader::new(pool.clone()),
+                tokio::spawn,
+                HashMapCache::default(),
+            )),
+            active_tournament_loader: Arc::new(DataLoader::with_cache(
+                ActiveTournamentLoader::new(pool.clone()),
+                tokio::spawn,
+                HashMapCache::default(),
+            )),
+            player_tournament_elo_loader: Arc::new(DataLoader::with_cache(
+                PlayerTournamentEloLoader::new(pool.clone()),
                 tokio::spawn,
                 HashMapCache::default(),
             )),

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 type Player = {
   id: string
   name: string
-  eloRating: number
+  currentTournamentElo: number | null
 }
 
 type PlayerSearchDropdownProps = {
@@ -105,7 +105,7 @@ export const PlayerSearchDropdown = (props: PlayerSearchDropdownProps) => {
                   <Checkbox.HiddenInput />
                   <Checkbox.Control />
                   <Checkbox.Label>
-                    {player.name} (ELO: {player.eloRating})
+                    {player.name} (ELO: {player.currentTournamentElo ?? 1200})
                   </Checkbox.Label>
                 </Checkbox.Root>
               </Box>

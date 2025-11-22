@@ -3,7 +3,7 @@ pub mod mutations;
 pub mod queries;
 pub mod types;
 
-pub use loaders::TournamentLoader;
+pub use loaders::{ActiveTournamentLoader, PlayerTournamentEloLoader, TournamentLoader};
 pub use mutations::TournamentsMutation;
 pub use queries::TournamentsQuery;
 pub use types::{LeaderboardEntry, Tournament};

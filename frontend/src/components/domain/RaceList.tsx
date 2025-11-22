@@ -6,7 +6,7 @@ import { Avatar } from '../common/Avatar'
 type Player = {
   id: string
   name: string
-  eloRating: number
+  currentTournamentElo: number | null
 }
 
 type RaceResult = {

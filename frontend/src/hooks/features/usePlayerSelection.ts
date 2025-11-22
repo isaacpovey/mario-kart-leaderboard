@@ -7,7 +7,7 @@ import { useMutationWithRefresh } from '../patterns/useMutationWithRefresh'
 type Player = {
   id: string
   name: string
-  eloRating: number
+  currentTournamentElo: number | null
 }
 
 export const usePlayerSelection = () => {
