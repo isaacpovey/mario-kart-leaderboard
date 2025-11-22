@@ -18,7 +18,7 @@ export const usePlayerSelection = () => {
 
   const { execute: createPlayer, isLoading: isCreatingPlayer, error: createPlayerError } = useMutationWithRefresh(createPlayerMutation)
 
-  const players = (playersResult.data?.players || []) as Player[]
+  const players = (playersResult.data?.players || []) as unknown as Player[]
   const selectedPlayers = useMemo(() => players.filter((player: Player) => selectedPlayerIds.includes(player.id)), [players, selectedPlayerIds])
 
   const filteredPlayers = useMemo(

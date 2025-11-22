@@ -55,20 +55,20 @@ const Match = () => {
 
     setError('')
 
-    const roundPlayers = selectedRoundData.players
+    const roundPlayers = selectedRoundData.players as unknown as { id: string }[]
     const results = roundPlayers
-      .map((player: { id: string }) => ({
+      .map((player) => ({
         playerId: player.id,
         position: Number.parseInt(positions[player.id] || '0', 10),
       }))
-      .filter((result: { position: number }) => result.position > 0)
+      .filter((result) => result.position > 0)
 
     if (results.length === 0) {
       setError('Please enter at least one position')
       return
     }
 
-    const positionSet = new Set(results.map((r: { position: number }) => r.position))
+    const positionSet = new Set(results.map((r) => r.position))
     if (positionSet.size !== results.length) {
       setError('Each position must be unique')
       return
@@ -86,7 +86,7 @@ const Match = () => {
     }
   }
 
-  const selectedRoundData = match.rounds.find((r: { roundNumber: number }) => r.roundNumber === selectedRound)
+  const selectedRoundData = match.rounds.find((r) => r.roundNumber === selectedRound)
 
   return (
     <Box minH="100vh" bg="bg.canvas">
@@ -120,7 +120,7 @@ const Match = () => {
             </Heading>
             <VStack gap={{ base: 3, md: 4 }} align="stretch">
               {match.teams.map((team) => (
-                <TeamCard key={team.id} team={team} playerResults={match.playerResults} />
+                <TeamCard key={team.id} team={team as unknown as Parameters<typeof TeamCard>[0]['team']} playerResults={match.playerResults as unknown as Parameters<typeof TeamCard>[0]['playerResults']} />
               ))}
             </VStack>
           </VStack>
@@ -132,22 +132,22 @@ const Match = () => {
               Races
             </Heading>
             <RaceList
-              rounds={match.rounds}
+              rounds={match.rounds as unknown as Parameters<typeof RaceList>[0]['rounds']}
               selectedRound={selectedRound}
               expandedCompletedRound={expandedCompletedRound}
               onSelectRound={handleSelectRound}
               onToggleExpanded={handleToggleExpanded}
               renderFormForRound={(roundNumber) => {
-                const roundData = match.rounds.find((r: { roundNumber: number }) => r.roundNumber === roundNumber)
+                const roundData = match.rounds.find((r) => r.roundNumber === roundNumber)
                 if (!roundData) return null
 
                 if (roundData.completed && roundData.results) {
-                  return <RaceResultsDisplay results={roundData.results} trackName={roundData.track?.name} />
+                  return <RaceResultsDisplay results={roundData.results as unknown as Parameters<typeof RaceResultsDisplay>[0]['results']} trackName={roundData.track?.name} />
                 }
 
                 return (
                   <RoundResultsForm
-                    round={roundData}
+                    round={roundData as unknown as Parameters<typeof RoundResultsForm>[0]['round']}
                     positions={positions}
                     onPositionChange={handlePositionChange}
                     onSubmit={handleSubmit}
