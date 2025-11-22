@@ -7,6 +7,7 @@ type RaceResult = {
     id: string
     name: string
     currentTournamentElo: number | null
+    avatarFilename?: string | null
   }
   position: number
   tournamentEloChange: number | null
@@ -86,7 +87,7 @@ export const RaceResultsDisplay = ({ results, trackName }: RaceResultsDisplayPro
                   )}
                 </Badge>
 
-                <Avatar name={result.player.name} size="sm" />
+                <Avatar name={result.player.name} avatarFilename={result.player.avatarFilename} size="sm" />
 
                 <Text fontSize={{ base: 'sm', md: 'md' }} fontWeight="medium" truncate>
                   {result.player.name}

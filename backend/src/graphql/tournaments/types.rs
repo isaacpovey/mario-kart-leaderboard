@@ -65,12 +65,13 @@ impl Tournament {
 
         Ok(entries
             .into_iter()
-            .map(|(player_id, player_name, elo_rating, all_time_elo)| LeaderboardEntry {
+            .map(|(player_id, player_name, elo_rating, all_time_elo, avatar_filename)| LeaderboardEntry {
                 player_id,
                 player_name,
                 elo_rating,
                 all_time_elo,
                 total_score: elo_rating,
+                avatar_filename,
             })
             .collect())
     }
@@ -83,6 +84,7 @@ pub struct LeaderboardEntry {
     pub elo_rating: i32,
     pub all_time_elo: i32,
     pub total_score: i32,
+    pub avatar_filename: Option<String>,
 }
 
 #[Object]
@@ -105,5 +107,9 @@ impl LeaderboardEntry {
 
     async fn total_score(&self) -> i32 {
         self.total_score
+    }
+
+    async fn avatar_filename(&self) -> Option<&str> {
+        self.avatar_filename.as_deref()
     }
 }

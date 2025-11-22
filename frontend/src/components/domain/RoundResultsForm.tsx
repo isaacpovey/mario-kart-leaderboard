@@ -6,6 +6,7 @@ type Player = {
   id: string
   name: string
   currentTournamentElo: number | null
+  avatarFilename?: string | null
 }
 
 type Round = {
@@ -45,7 +46,7 @@ export const RoundResultsForm = ({ round, positions, onPositionChange, onSubmit,
             <Field.Root key={player.id}>
               <Field.Label fontSize={{ base: 'sm', md: 'md' }} fontWeight="medium" mb={2}>
                 <HStack gap={2}>
-                  <Avatar name={player.name} size="sm" />
+                  <Avatar name={player.name} avatarFilename={player.avatarFilename} size="sm" />
                   <Text>{player.name}</Text>
                 </HStack>
               </Field.Label>

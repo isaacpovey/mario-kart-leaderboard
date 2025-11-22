@@ -13,6 +13,7 @@ export const tournamentsQuery = graphql(`
                 totalScore
                 eloRating
                 allTimeElo
+                avatarFilename
             }
             matches {
                 id

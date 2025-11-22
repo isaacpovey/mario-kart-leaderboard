@@ -7,6 +7,7 @@ type Player = {
   id: string
   name: string
   currentTournamentElo: number | null
+  avatarFilename?: string | null
 }
 
 type RaceResult = {
@@ -59,7 +60,7 @@ const getBadgeColorScheme = (completed: boolean, isSelected: boolean): string =>
 const PendingRacePlayers = ({ players }: { players: Player[] }) => (
   <HStack gap={1}>
     {players.map((player) => (
-      <Avatar key={player.id} name={player.name} size="sm" />
+      <Avatar key={player.id} name={player.name} avatarFilename={player.avatarFilename} size="sm" />
     ))}
   </HStack>
 )
@@ -92,7 +93,7 @@ const CompletedRaceTopFinisher = ({ finisher }: { finisher: RaceResult }) => {
   return (
     <Box position="relative">
       <Box borderWidth="2px" borderColor={borderColor} borderRadius="full" p="10px" position="relative">
-        <Avatar name={finisher.player.name} size="sm" />
+        <Avatar name={finisher.player.name} avatarFilename={finisher.player.avatarFilename} size="sm" />
         {isNumberPosition ? (
           <Box
             position="absolute"

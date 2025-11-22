@@ -9,6 +9,7 @@ pub struct Player {
     pub group_id: Uuid,
     pub name: String,
     pub elo_rating: i32,
+    pub avatar_filename: Option<String>,
 }
 
 impl From<crate::models::Player> for Player {
@@ -18,6 +19,7 @@ impl From<crate::models::Player> for Player {
             group_id: model.group_id,
             name: model.name,
             elo_rating: model.elo_rating,
+            avatar_filename: model.avatar_filename,
         }
     }
 }
@@ -34,6 +36,10 @@ impl Player {
 
     async fn elo_rating(&self) -> i32 {
         self.elo_rating
+    }
+
+    async fn avatar_filename(&self) -> Option<&str> {
+        self.avatar_filename.as_deref()
     }
 
     async fn current_tournament_elo(&self, ctx: &Context<'_>) -> Result<Option<i32>> {

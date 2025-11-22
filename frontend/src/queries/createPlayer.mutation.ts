@@ -6,6 +6,7 @@ export const createPlayerMutation = graphql(`
       id
       name
       currentTournamentElo
+      avatarFilename
     }
   }
 `)

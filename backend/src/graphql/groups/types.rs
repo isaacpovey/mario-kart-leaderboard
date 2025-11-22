@@ -44,8 +44,8 @@ impl Group {
     async fn all_time_leaderboard(&self, ctx: &Context<'_>) -> Result<Vec<LeaderboardEntry>> {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
 
-        let entries = sqlx::query_as::<_, (Uuid, String, i32)>(
-            "SELECT id, name, elo_rating
+        let entries = sqlx::query_as::<_, (Uuid, String, i32, Option<String>)>(
+            "SELECT id, name, elo_rating, avatar_filename
              FROM players
              WHERE group_id = $1
              ORDER BY elo_rating DESC",
@@ -56,9 +56,10 @@ impl Group {
 
         Ok(entries
             .into_iter()
-            .map(|(player_id, player_name, elo_rating)| LeaderboardEntry {
+            .map(|(player_id, player_name, elo_rating, avatar_filename)| LeaderboardEntry {
                 player_id,
                 player_name,
+                avatar_filename,
                 elo_rating: elo_rating,
                 all_time_elo: elo_rating,
                 total_score: elo_rating,

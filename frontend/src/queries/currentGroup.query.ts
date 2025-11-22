@@ -9,6 +9,7 @@ export const currentGroupQuery = graphql(`
                 id
                 name
                 currentTournamentElo
+                avatarFilename
             }
         }
     }

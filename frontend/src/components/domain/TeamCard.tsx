@@ -6,6 +6,7 @@ type Player = {
   id: string
   name: string
   currentTournamentElo: number | null
+  avatarFilename?: string | null
 }
 
 type Team = {
@@ -20,6 +21,7 @@ type PlayerResult = {
     id: string
     name: string
     currentTournamentElo: number | null
+    avatarFilename?: string | null
   }
   tournamentEloChange: number
   tournamentEloFromRaces: number
@@ -65,7 +67,7 @@ export const TeamCard = ({ team, playerResults }: TeamCardProps) => (
           return (
             <HStack key={player.id} gap={{ base: 3, md: 4 }} justify="space-between">
               <HStack gap={{ base: 2, md: 3 }} flex={1} minW={0}>
-                <Avatar name={player.name} size="sm" />
+                <Avatar name={player.name} avatarFilename={player.avatarFilename} size="sm" />
                 <VStack align="start" gap={0} flex={1} minW={0}>
                   <Text fontSize={{ base: 'sm', md: 'md' }} fontWeight="medium" truncate>
                     {player.name}

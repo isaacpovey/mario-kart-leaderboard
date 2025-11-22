@@ -8,6 +8,7 @@ type LeaderboardEntry = {
   totalScore: number
   eloRating: number
   allTimeElo: number
+  avatarFilename?: string | null
 }
 
 type LeaderboardListProps = {
@@ -60,7 +61,7 @@ const LeaderboardEntryCard = ({ entry, index }: LeaderboardEntryCardProps) => (
           )}
         </Badge>
 
-        <Avatar name={entry.playerName} size="md" />
+        <Avatar name={entry.playerName} avatarFilename={entry.avatarFilename} size="md" />
 
         <VStack align="start" gap={0} flex={1} minW={0}>
           <Text fontWeight="bold" fontSize={{ base: 'md', md: 'lg' }} truncate>

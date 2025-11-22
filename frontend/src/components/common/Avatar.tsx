@@ -1,7 +1,9 @@
-import { Circle } from '@chakra-ui/react'
+import { Circle, Image } from '@chakra-ui/react'
+import { useState } from 'react'
 
 type AvatarProps = {
   name: string
+  avatarFilename?: string | null
   size?: 'sm' | 'md' | 'lg'
 }
 
@@ -26,14 +28,28 @@ const getColorForName = (name: string): string => {
   return colorMap[hash % colorMap.length]
 }
 
-export const Avatar = ({ name, size = 'md' }: AvatarProps) => {
+export const Avatar = ({ name, avatarFilename, size = 'md' }: AvatarProps) => {
+  const [imageError, setImageError] = useState(false)
   const initials = getInitials(name)
   const bgColor = getColorForName(name)
   const dimensions = sizeMap[size]
 
+  const shouldShowImage = avatarFilename && !imageError
+
   return (
-    <Circle size={dimensions.box} bg={bgColor} color="white" fontWeight="bold" fontSize={dimensions.text} flexShrink={0}>
-      {initials}
+    <Circle size={dimensions.box} bg={bgColor} color="white" fontWeight="bold" fontSize={dimensions.text} flexShrink={0} overflow="hidden">
+      {shouldShowImage ? (
+        <Image
+          src={`/avatars/${avatarFilename}`}
+          alt={name}
+          width="100%"
+          height="100%"
+          objectFit="cover"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        initials
+      )}
     </Circle>
   )
 }
