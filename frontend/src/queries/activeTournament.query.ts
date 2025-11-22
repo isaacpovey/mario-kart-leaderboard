@@ -10,8 +10,7 @@ export const activeTournamentQuery = graphql(`
       leaderboard {
         playerId
         playerName
-        totalScore
-        eloRating
+        allTimeEloRating
         allTimeElo
         avatarFilename
       }

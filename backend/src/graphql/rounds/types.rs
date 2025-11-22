@@ -55,10 +55,6 @@ impl Round {
         self.round_number
     }
 
-    async fn track_id(&self) -> Option<ID> {
-        self.track_id.map(|id| ID(id.to_string()))
-    }
-
     async fn completed(&self) -> bool {
         self.completed
     }

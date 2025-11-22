@@ -26,5 +26,5 @@ export const sortedPlayersAtom = atom(async (get) => {
     return []
   }
 
-  return currentTournament.leaderboard.slice().sort((a: { totalScore: number }, b: { totalScore: number }) => b.totalScore - a.totalScore)
+  return currentTournament.leaderboard.slice().sort((a: { allTimeEloRating: number }, b: { allTimeEloRating: number }) => b.allTimeEloRating - a.allTimeEloRating)
 })

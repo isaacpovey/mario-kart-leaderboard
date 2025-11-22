@@ -48,7 +48,6 @@ impl TournamentsQuery {
                             player_name,
                             elo_rating,
                             all_time_elo,
-                            total_score: elo_rating,
                             avatar_filename,
                         }
                     })

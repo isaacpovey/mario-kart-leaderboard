@@ -6,30 +6,6 @@ use std::collections::{HashMap, HashSet};
 use tracing::instrument;
 use uuid::Uuid;
 
-pub struct MatchLoader {
-    pool: DbPool,
-}
-
-impl MatchLoader {
-    pub fn new(pool: DbPool) -> Self {
-        Self { pool }
-    }
-}
-
-impl Loader<Uuid> for MatchLoader {
-    type Value = Match;
-    type Error = std::sync::Arc<sqlx::Error>;
-
-    #[instrument(level = "debug", skip(self), fields(batch_size = keys.len()))]
-    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let matches = Match::find_by_ids(&self.pool, keys)
-            .await
-            .map_err(std::sync::Arc::new)?;
-
-        Ok(matches.into_iter().map(|m| (m.id, m)).collect())
-    }
-}
-
 pub struct MatchesByTournamentLoader {
     pool: DbPool,
 }

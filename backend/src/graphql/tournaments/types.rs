@@ -70,7 +70,6 @@ impl Tournament {
                 player_name,
                 elo_rating,
                 all_time_elo,
-                total_score: elo_rating,
                 avatar_filename,
             })
             .collect())
@@ -83,7 +82,6 @@ pub struct LeaderboardEntry {
     pub player_name: String,
     pub elo_rating: i32,
     pub all_time_elo: i32,
-    pub total_score: i32,
     pub avatar_filename: Option<String>,
 }
 
@@ -97,16 +95,13 @@ impl LeaderboardEntry {
         &self.player_name
     }
 
+    #[graphql(name = "allTimeEloRating")]
     async fn elo_rating(&self) -> i32 {
         self.elo_rating
     }
 
     async fn all_time_elo(&self) -> i32 {
         self.all_time_elo
-    }
-
-    async fn total_score(&self) -> i32 {
-        self.total_score
     }
 
     async fn avatar_filename(&self) -> Option<&str> {

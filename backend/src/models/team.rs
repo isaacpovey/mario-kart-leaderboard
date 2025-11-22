@@ -32,22 +32,6 @@ impl Team {
         .await
     }
 
-    #[instrument(level = "debug", skip(pool), fields(batch_size = match_ids.len()))]
-    pub async fn find_by_match_ids(
-        pool: &DbPool,
-        match_ids: &[Uuid],
-    ) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as::<_, Self>(
-            "SELECT id, group_id, match_id, team_num, score
-             FROM teams
-             WHERE match_id = ANY($1)
-             ORDER BY match_id, team_num ASC",
-        )
-        .bind(match_ids)
-        .fetch_all(pool)
-        .await
-    }
-
     #[instrument(level = "debug", skip(pool))]
     pub async fn get_by_match_with_players(
         pool: &DbPool,

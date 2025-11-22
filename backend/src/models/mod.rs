@@ -7,7 +7,6 @@ pub mod player_teammate_elo_contribution;
 pub mod player_tournament_score;
 pub mod round;
 pub mod team;
-pub mod team_match_score;
 pub mod tournament;
 pub mod track;
 
@@ -20,6 +19,5 @@ pub use player_teammate_elo_contribution::PlayerTeammateEloContribution;
 pub use player_tournament_score::PlayerTournamentScore;
 pub use round::Round;
 pub use team::Team;
-pub use team_match_score::TeamMatchScore;
 pub use tournament::Tournament;
 pub use track::Track;

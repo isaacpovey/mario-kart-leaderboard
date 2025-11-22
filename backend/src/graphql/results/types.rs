@@ -73,20 +73,8 @@ impl PlayerRaceResult {
         self.position
     }
 
-    async fn all_time_elo_change(&self) -> Option<i32> {
-        self.all_time_elo_change
-    }
-
-    async fn all_time_elo_after(&self) -> Option<i32> {
-        self.all_time_elo_after
-    }
-
     async fn tournament_elo_change(&self) -> Option<i32> {
         self.tournament_elo_change
-    }
-
-    async fn tournament_elo_after(&self) -> Option<i32> {
-        self.tournament_elo_after
     }
 }
 

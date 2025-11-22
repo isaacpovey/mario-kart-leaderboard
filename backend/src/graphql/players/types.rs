@@ -1,5 +1,4 @@
 use crate::graphql::context::GraphQLContext;
-use crate::graphql::groups::types::Group;
 use async_graphql::*;
 use uuid::Uuid;
 
@@ -34,10 +33,6 @@ impl Player {
         &self.name
     }
 
-    async fn elo_rating(&self) -> i32 {
-        self.elo_rating
-    }
-
     async fn avatar_filename(&self) -> Option<&str> {
         self.avatar_filename.as_deref()
     }
@@ -51,17 +46,5 @@ impl Player {
             .await?;
 
         Ok(tournament_elo)
-    }
-
-    async fn group(&self, ctx: &Context<'_>) -> Result<Option<Group>> {
-        let gql_ctx = ctx.data::<GraphQLContext>()?;
-
-        let group = gql_ctx
-            .group_loader
-            .load_one(self.group_id)
-            .await?
-            .map(Group::from);
-
-        Ok(group)
     }
 }

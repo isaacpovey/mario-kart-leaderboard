@@ -5,8 +5,7 @@ import { Avatar } from '../common/Avatar'
 type LeaderboardEntry = {
   playerId: string
   playerName: string
-  totalScore: number
-  eloRating: number
+  allTimeEloRating: number
   allTimeElo: number
   avatarFilename?: string | null
 }
@@ -78,7 +77,7 @@ const LeaderboardEntryCard = ({ entry, index }: LeaderboardEntryCardProps) => (
           Score
         </Text>
         <Text fontSize={{ base: 'xl', md: '2xl' }} fontWeight="bold" color={index === 0 ? 'brand.600' : 'gray.900'}>
-          {entry.totalScore}
+          {entry.allTimeEloRating}
         </Text>
       </VStack>
     </HStack>

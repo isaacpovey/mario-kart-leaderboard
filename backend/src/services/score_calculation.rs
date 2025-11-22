@@ -158,8 +158,7 @@ pub async fn check_all_rounds_completed(
 /// This function:
 /// 1. Fetches all race scores for the match
 /// 2. Calculates average team scores using position-to-points conversion
-/// 3. Stores scores in team_match_scores table
-/// 4. Updates the teams table with the final score
+/// 3. Updates the teams table with the final score
 ///
 /// # Arguments
 ///
@@ -178,7 +177,7 @@ pub async fn check_all_rounds_completed(
 /// - Score calculation fails
 pub async fn calculate_and_store_team_scores(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    group_id: Uuid,
+    _group_id: Uuid,
     match_id: Uuid,
 ) -> Result<()> {
     let race_scores = sqlx::query_as::<_, (Uuid, i32)>(
@@ -201,19 +200,6 @@ pub async fn calculate_and_store_team_scores(
     let team_scores = calculate_team_scores_from_positions(&race_scores, num_rounds as i32);
 
     for (team_id, score) in team_scores {
-        sqlx::query(
-            "INSERT INTO team_match_scores (group_id, match_id, team_id, score)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (match_id, team_id)
-             DO UPDATE SET score = $4",
-        )
-        .bind(group_id)
-        .bind(match_id)
-        .bind(team_id)
-        .bind(score)
-        .execute(&mut **tx)
-        .await?;
-
         sqlx::query(
             "UPDATE teams
              SET score = $1
