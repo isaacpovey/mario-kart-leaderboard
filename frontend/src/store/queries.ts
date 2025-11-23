@@ -17,7 +17,7 @@ export const tournamentsQueryAtom = atomWithQuery({
 
 export const activeTournamentQueryAtom = atomWithQuery({
   query: activeTournamentQuery,
-  getContext: () => ({ requestPolicy: 'cache-first' }),
+  getContext: () => ({ requestPolicy: 'cache-and-network' }),
 })
 
 export const matchQueryAtom = (matchId: string) =>

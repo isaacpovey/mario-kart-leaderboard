@@ -1,17 +1,12 @@
 import {
   Button,
+  Dialog,
   HStack,
+  Portal,
   Text,
   VStack,
-  DialogBackdrop,
-  DialogBody,
-  DialogCloseTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogRoot,
-  DialogTitle,
 } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LuX } from "react-icons/lu";
 import { useNavigate } from "react-router";
 
@@ -31,12 +26,13 @@ export const NewMatchNotification = ({
   tournamentId,
 }: NewMatchNotificationProps) => {
   const navigate = useNavigate();
+  const isInitialMount = useRef(true);
   const [isOpen, setIsOpen] = useState(false);
   const [newMatchId, setNewMatchId] = useState<string | null>(null);
   const [lastSeenMatchCount, setLastSeenMatchCount] = useState<number>(() => {
     if (!tournamentId) return 0;
     const stored = localStorage.getItem(`lastSeenMatchCount_${tournamentId}`);
-    return stored ? Number.parseInt(stored, 10) : matches.length;
+    return stored ? Number.parseInt(stored, 10) : 0;
   });
 
   useEffect(() => {
@@ -44,11 +40,30 @@ export const NewMatchNotification = ({
 
     const currentMatchCount = matches.length;
 
+    // On initial mount, just set the count without showing modal
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      setLastSeenMatchCount(currentMatchCount);
+      if (currentMatchCount > 0) {
+        localStorage.setItem(
+          `lastSeenMatchCount_${tournamentId}`,
+          currentMatchCount.toString(),
+        );
+      }
+      return;
+    }
+
+    // Only show modal if matches increased after initial mount
     if (currentMatchCount > lastSeenMatchCount) {
       const latestMatch = matches[matches.length - 1];
       if (latestMatch) {
         setNewMatchId(latestMatch.id);
         setIsOpen(true);
+        setLastSeenMatchCount(currentMatchCount);
+        localStorage.setItem(
+          `lastSeenMatchCount_${tournamentId}`,
+          currentMatchCount.toString(),
+        );
 
         const timer = setTimeout(() => {
           setIsOpen(false);
@@ -57,12 +72,6 @@ export const NewMatchNotification = ({
         return () => clearTimeout(timer);
       }
     }
-
-    setLastSeenMatchCount(currentMatchCount);
-    localStorage.setItem(
-      `lastSeenMatchCount_${tournamentId}`,
-      currentMatchCount.toString(),
-    );
   }, [matches.length, tournamentId, lastSeenMatchCount, matches]);
 
   const handleViewMatch = () => {
@@ -77,31 +86,35 @@ export const NewMatchNotification = ({
   };
 
   return (
-    <DialogRoot open={isOpen} onOpenChange={(e) => setIsOpen(e.open)}>
-      <DialogBackdrop />
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New Race Created!</DialogTitle>
-          <DialogCloseTrigger asChild>
-            <Button variant="ghost" size="sm">
-              <LuX />
-            </Button>
-          </DialogCloseTrigger>
-        </DialogHeader>
-        <DialogBody>
-          <VStack gap={4} align="stretch">
-            <Text>A new race has been created and is ready to play!</Text>
-            <HStack gap={3} justify="flex-end">
-              <Button onClick={handleClose} variant="outline">
-                Dismiss
-              </Button>
-              <Button onClick={handleViewMatch} colorScheme="blue">
-                View Race
-              </Button>
-            </HStack>
-          </VStack>
-        </DialogBody>
-      </DialogContent>
-    </DialogRoot>
+    <Dialog.Root open={isOpen} onOpenChange={(details) => setIsOpen(details.open)}>
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content maxW={{ base: '90vw', md: '500px' }}>
+            <Dialog.Header>
+              <Dialog.Title>New Race Created!</Dialog.Title>
+              <Dialog.CloseTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <LuX />
+                </Button>
+              </Dialog.CloseTrigger>
+            </Dialog.Header>
+            <Dialog.Body>
+              <VStack gap={4} align="stretch">
+                <Text>A new race has been created and is ready to play!</Text>
+                <HStack gap={3} justify="flex-end">
+                  <Button onClick={handleClose} variant="outline">
+                    Dismiss
+                  </Button>
+                  <Button onClick={handleViewMatch} colorScheme="blue">
+                    View Race
+                  </Button>
+                </HStack>
+              </VStack>
+            </Dialog.Body>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 };

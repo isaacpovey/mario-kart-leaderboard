@@ -63,7 +63,38 @@ impl Subscription {
                                 );
 
                                 if notif.tournament_id == tournament_uuid && notif.group_id == group_id {
-                                    tracing::info!("NOTIFY STEP 3: Notification passed filters, fetching data...");
+                                    tracing::info!("NOTIFY STEP 3: Notification passed filters");
+
+                                    // Handle match creation notifications (round_number = 0) differently
+                                    if notif.round_number == 0 {
+                                        tracing::info!("NOTIFY STEP 3: Match creation notification (round=0), yielding minimal data");
+
+                                        // Fetch leaderboard to provide in the update
+                                        match fetch_tournament_leaderboard(&pool, notif.tournament_id).await {
+                                            Ok(leaderboard) => {
+                                                let update = RaceResultUpdate {
+                                                    match_id: notif.match_id,
+                                                    tournament_id: notif.tournament_id,
+                                                    round_number: 0,
+                                                    race_results: Vec::new(),
+                                                    player_aggregates: Vec::new(),
+                                                    leaderboard,
+                                                    round_completed: false,
+                                                    match_completed: false,
+                                                    teams: Vec::new(),
+                                                };
+                                                tracing::info!("NOTIFY STEP 3: Yielding match creation update to stream");
+                                                yield Ok(update)
+                                            },
+                                            Err(e) => {
+                                                tracing::error!("Failed to fetch leaderboard for match creation: {:?}", e);
+                                                yield Err(e);
+                                            }
+                                        }
+                                        continue;
+                                    }
+
+                                    tracing::info!("NOTIFY STEP 3: Race result notification, fetching full data...");
 
                                     match fetch_race_result_data(&pool, &notif).await {
                                         Ok(update) => {

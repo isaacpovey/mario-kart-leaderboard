@@ -22,6 +22,7 @@ use crate::db::DbPool;
 use crate::error::{AppError, Result};
 use crate::models;
 use crate::services::{race_allocation, team_allocation, track_selection};
+use crate::services::notification_manager::{NotificationManager, RaceResultNotification};
 use chrono::Utc;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -101,6 +102,7 @@ pub fn validate_create_match_inputs(
 /// 4. Selects tracks avoiding recent tournament usage
 /// 5. Allocates players to races fairly
 /// 6. Persists everything in a single transaction
+/// 7. Emits notification for real-time updates
 ///
 /// # Arguments
 ///
@@ -110,6 +112,7 @@ pub fn validate_create_match_inputs(
 /// * `player_ids` - Slice of player UUIDs participating
 /// * `num_races` - Number of races in the match
 /// * `players_per_race` - Maximum players per race
+/// * `notification_manager` - NotificationManager for emitting match creation events
 ///
 /// # Returns
 ///
@@ -129,6 +132,7 @@ pub async fn create_match_with_rounds(
     player_ids: &[Uuid],
     num_races: i32,
     players_per_race: i32,
+    notification_manager: &NotificationManager,
 ) -> Result<models::Match> {
     validate_create_match_inputs(player_ids, num_races, players_per_race)?;
 
@@ -145,7 +149,7 @@ pub async fn create_match_with_rounds(
     let race_allocations =
         race_allocation::allocate_races(&players, &teams, num_races, players_per_race)?;
 
-    create_match_in_transaction(
+    let match_record = create_match_in_transaction(
         pool,
         group_id,
         tournament_id,
@@ -154,7 +158,25 @@ pub async fn create_match_with_rounds(
         &tracks,
         &race_allocations,
     )
-    .await
+    .await?;
+
+    // Emit notification for match creation (round_number = 0 indicates match creation)
+    tracing::info!(
+        "Match created: match_id={}, tournament_id={}, emitting notification",
+        match_record.id,
+        tournament_id
+    );
+
+    let notification = RaceResultNotification {
+        match_id: match_record.id,
+        tournament_id,
+        round_number: 0, // 0 indicates match creation, not a race result
+        group_id,
+    };
+
+    notification_manager.notify(notification);
+
+    Ok(match_record)
 }
 
 /// Internal function: Persists match data in a single database transaction.

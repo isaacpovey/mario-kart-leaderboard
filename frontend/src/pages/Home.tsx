@@ -1,6 +1,7 @@
 import { Box, Button, Container, Heading, HStack, Stack, Text, VStack } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
 import { useEffect, useState } from 'react'
+import { useClient } from 'urql'
 import { CreateMatchModal } from '../components/CreateMatchModal'
 import { CreateTournamentModal } from '../components/CreateTournamentModal'
 import { HeroBanner } from '../components/domain/HeroBanner'
@@ -9,10 +10,12 @@ import { MatchList } from '../components/domain/MatchList'
 import { NewMatchNotification } from '../components/domain/NewMatchNotification'
 import { useAuth } from '../hooks/useAuth'
 import { useRaceResultsSubscription } from '../hooks/useRaceResultsSubscription'
+import { activeTournamentQuery } from '../queries/activeTournament.query'
 import { activeTournamentQueryAtom } from '../store/queries'
 
 const Home = () => {
   const { logout } = useAuth()
+  const urqlClient = useClient()
   const activeTournamentResult = useAtomValue(activeTournamentQueryAtom)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
@@ -20,7 +23,21 @@ const Home = () => {
   const currentTournament = activeTournamentResult?.data?.activeTournament ?? null
 
   // Subscribe to race result updates for live leaderboard and match list
-  useRaceResultsSubscription(currentTournament?.id)
+  const subscriptionResult = useRaceResultsSubscription(currentTournament?.id)
+
+  // Refetch tournament data when subscription receives updates (race results or match creation)
+  useEffect(() => {
+    if (subscriptionResult.data || subscriptionResult.error) {
+      // Trigger a refetch of the tournament data
+      // The query will fetch fresh data and update urql's cache, which automatically updates the atom
+      urqlClient
+        .query(activeTournamentQuery, {}, { requestPolicy: 'network-only' })
+        .toPromise()
+        .catch((err) => {
+          console.error('Failed to refetch tournament data:', err)
+        })
+    }
+  }, [subscriptionResult.data, subscriptionResult.error, urqlClient])
 
   useEffect(() => {
     document.title = 'Mario Kart Leaderboard'

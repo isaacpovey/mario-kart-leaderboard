@@ -57,6 +57,7 @@ impl MatchesMutation {
             &player_uuids,
             num_races,
             players_per_race,
+            &gql_ctx.notification_manager,
         )
         .await?;
 
