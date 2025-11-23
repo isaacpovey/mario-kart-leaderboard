@@ -230,6 +230,7 @@ pub async fn record_race_results(
     round_number: i32,
     results: &[(Uuid, i32)],
     match_record: &models::Match,
+    notification_manager: &crate::services::notification_manager::NotificationManager,
 ) -> Result<models::Match> {
     let player_ids: Vec<Uuid> = results.iter().map(|(id, _)| *id).collect();
 
@@ -267,6 +268,7 @@ pub async fn record_race_results(
         &all_time_elo_changes,
         &tournament_elo_changes,
         match_record,
+        notification_manager,
     )
     .await
 }
@@ -308,7 +310,10 @@ pub async fn record_results_in_transaction(
     all_time_elo_changes: &[elo::EloChange],
     tournament_elo_changes: &[elo::EloChange],
     match_record: &models::Match,
+    notification_manager: &crate::services::notification_manager::NotificationManager,
 ) -> Result<models::Match> {
+    tracing::info!("NOTIFY STEP 1: Starting transaction for match={}, round={}", match_id, round_number);
+
     let mut tx = pool
         .begin()
         .await
@@ -528,9 +533,32 @@ pub async fn record_results_in_transaction(
         match_record.clone()
     };
 
+    // Commit transaction first
     tx.commit()
         .await
         .map_err(|e| AppError::Internal(format!("Failed to commit transaction: {e}")))?;
+
+    tracing::info!("NOTIFY STEP 1: Transaction committed successfully");
+
+    // Broadcast notification directly through NotificationManager
+    let notification = crate::services::notification_manager::RaceResultNotification {
+        match_id,
+        tournament_id: updated_match.tournament_id,
+        round_number,
+        group_id,
+    };
+
+    tracing::info!(
+        "NOTIFY STEP 1: Broadcasting notification: match_id={}, tournament_id={}, round={}, group_id={}",
+        match_id,
+        updated_match.tournament_id,
+        round_number,
+        group_id
+    );
+
+    notification_manager.notify(notification);
+
+    tracing::info!("NOTIFY STEP 1: Successfully broadcast notification");
 
     Ok(updated_match)
 }

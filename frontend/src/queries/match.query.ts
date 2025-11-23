@@ -1,10 +1,10 @@
 import { graphql } from 'gql.tada'
-import { PlayerBasicFragment, PlayerWithTournamentEloFragment } from '../fragments/player.fragments'
 
 export const matchQuery = graphql(`
   query Match($matchId: ID!) {
     matchById(matchId: $matchId) {
       id
+      tournamentId
       time
       numOfRounds
       completed
@@ -13,7 +13,10 @@ export const matchQuery = graphql(`
         name
         score
         players {
-          ...PlayerBasic
+          id
+          name
+          avatarFilename
+          currentTournamentElo
         }
       }
       rounds {
@@ -24,11 +27,15 @@ export const matchQuery = graphql(`
         }
         completed
         players {
-          ...PlayerBasic
+          id
+          name
+          avatarFilename
         }
         results {
           player {
-            ...PlayerWithTournamentElo
+            id
+            name
+            avatarFilename
           }
           position
           tournamentEloChange
@@ -36,7 +43,10 @@ export const matchQuery = graphql(`
       }
       playerResults {
         player {
-          ...PlayerWithTournamentElo
+          id
+          name
+          avatarFilename
+          currentTournamentElo
         }
         position
         eloChange
@@ -47,4 +57,4 @@ export const matchQuery = graphql(`
       }
     }
   }
-`, [PlayerBasicFragment, PlayerWithTournamentEloFragment])
+`)

@@ -6,7 +6,9 @@ import { CreateTournamentModal } from '../components/CreateTournamentModal'
 import { HeroBanner } from '../components/domain/HeroBanner'
 import { LeaderboardList } from '../components/domain/LeaderboardList'
 import { MatchList } from '../components/domain/MatchList'
+import { NewMatchNotification } from '../components/domain/NewMatchNotification'
 import { useAuth } from '../hooks/useAuth'
+import { useRaceResultsSubscription } from '../hooks/useRaceResultsSubscription'
 import { activeTournamentQueryAtom } from '../store/queries'
 
 const Home = () => {
@@ -16,6 +18,9 @@ const Home = () => {
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
 
   const currentTournament = activeTournamentResult?.data?.activeTournament ?? null
+
+  // Subscribe to race result updates for live leaderboard and match list
+  useRaceResultsSubscription(currentTournament?.id)
 
   useEffect(() => {
     document.title = 'Mario Kart Leaderboard'
@@ -75,6 +80,7 @@ const Home = () => {
         </VStack>
         <CreateTournamentModal open={isModalOpen} onOpenChange={setIsModalOpen} />
         {currentTournament && <CreateMatchModal open={isMatchModalOpen} onOpenChange={setIsMatchModalOpen} tournamentId={currentTournament.id} />}
+        {currentTournament && <NewMatchNotification matches={currentTournament.matches} tournamentId={currentTournament.id} />}
       </Container>
     </Box>
   )

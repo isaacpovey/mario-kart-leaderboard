@@ -6,7 +6,6 @@ import { Avatar } from '../common/Avatar'
 type Player = {
   id: string
   name: string
-  currentTournamentElo: number | null
   avatarFilename?: string | null
 }
 

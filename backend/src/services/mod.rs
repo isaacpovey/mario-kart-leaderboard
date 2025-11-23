@@ -17,9 +17,11 @@
 //! - **match_service**: High-level match creation orchestration
 //! - **score_calculation**: Aggregate score calculations for players and teams
 //! - **result_recording**: Race result recording and ELO update orchestration
+//! - **notification_manager**: PostgreSQL LISTEN/NOTIFY for GraphQL subscriptions
 
 pub mod elo;
 pub mod match_service;
+pub mod notification_manager;
 pub mod race_allocation;
 pub mod result_recording;
 pub mod score_calculation;

@@ -4,12 +4,6 @@ import { createPlayerMutation } from '@/queries/createPlayer.mutation.ts'
 import { playersQueryAtom } from '@/store/queries.ts'
 import { useMutationWithRefresh } from '../patterns/useMutationWithRefresh'
 
-type Player = {
-  id: string
-  name: string
-  currentTournamentElo: number | null
-}
-
 export const usePlayerSelection = () => {
   const playersResult = useAtomValue(playersQueryAtom)
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
@@ -18,15 +12,15 @@ export const usePlayerSelection = () => {
 
   const { execute: createPlayer, isLoading: isCreatingPlayer, error: createPlayerError } = useMutationWithRefresh(createPlayerMutation)
 
-  const players = (playersResult.data?.players || []) as unknown as Player[]
-  const selectedPlayers = useMemo(() => players.filter((player: Player) => selectedPlayerIds.includes(player.id)), [players, selectedPlayerIds])
+  const players = playersResult.data?.players || []
+  const selectedPlayers = useMemo(() => players.filter((player) => selectedPlayerIds.includes(player.id)), [players, selectedPlayerIds])
 
   const filteredPlayers = useMemo(
-    () => players.filter((player: Player) => player.name.toLowerCase().includes(searchTerm.toLowerCase()) && !selectedPlayerIds.includes(player.id)),
+    () => players.filter((player) => player.name.toLowerCase().includes(searchTerm.toLowerCase()) && !selectedPlayerIds.includes(player.id)),
     [players, searchTerm, selectedPlayerIds]
   )
 
-  const canCreateNewPlayer = useMemo(() => searchTerm.trim() !== '' && !players.some((p: Player) => p.name.toLowerCase() === searchTerm.toLowerCase()), [searchTerm, players])
+  const canCreateNewPlayer = useMemo(() => searchTerm.trim() !== '' && !players.some((p) => p.name.toLowerCase() === searchTerm.toLowerCase()), [searchTerm, players])
 
   const togglePlayer = useCallback((playerId: string) => {
     setSelectedPlayerIds((prev) => (prev.includes(playerId) ? prev.filter((id) => id !== playerId) : [...prev, playerId]))

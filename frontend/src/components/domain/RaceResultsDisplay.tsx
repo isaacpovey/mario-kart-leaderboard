@@ -6,7 +6,6 @@ type RaceResult = {
   player: {
     id: string
     name: string
-    currentTournamentElo: number | null
     avatarFilename?: string | null
   }
   position: number

@@ -33,6 +33,10 @@ pub async fn auth_middleware(
     // Extract and validate group_id using pure function
     let group_id = extract_group_id(auth_header, &config.jwt_secret);
 
+    if group_id.is_none() && auth_header.is_some() {
+        tracing::warn!("Invalid or expired JWT token");
+    }
+
     // Transform request by adding group_id to extensions
     // Note: This mutation is unavoidable with Axum's design, but isolated
     let (mut parts, body) = req.into_parts();

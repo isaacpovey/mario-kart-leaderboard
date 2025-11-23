@@ -24,7 +24,7 @@ export const matchQueryAtom = (matchId: string) =>
   atomWithQuery({
     query: matchQuery,
     getVariables: () => ({ matchId }),
-    getContext: () => ({ requestPolicy: 'cache-first' }),
+    getContext: () => ({ requestPolicy: 'cache-and-network' }),
   })
 
 export const currentGroupQueryAtom = atomWithQuery({

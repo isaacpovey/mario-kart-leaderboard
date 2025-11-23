@@ -6,6 +6,7 @@ use crate::graphql::results::{PlayerMatchScoresByMatchLoader, PlayerRaceScoresBy
 use crate::graphql::rounds::PlayersByRoundLoader;
 use crate::graphql::teams::PlayersByTeamLoader;
 use crate::graphql::tracks::TrackLoader;
+use crate::services::notification_manager::NotificationManager;
 use async_graphql::dataloader::{DataLoader, HashMapCache};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -13,6 +14,7 @@ use uuid::Uuid;
 pub struct GraphQLContext {
     pub pool: DbPool,
     pub group_id: Option<Uuid>,
+    pub notification_manager: NotificationManager,
     pub group_loader: Arc<DataLoader<GroupLoader, HashMapCache>>,
     pub player_loader: Arc<DataLoader<PlayerLoader, HashMapCache>>,
     pub players_by_group_loader: Arc<DataLoader<PlayersByGroupLoader, HashMapCache>>,
@@ -31,7 +33,11 @@ pub struct GraphQLContext {
 }
 
 impl GraphQLContext {
-    pub fn new(pool: DbPool, group_id: Option<Uuid>) -> Self {
+    pub fn new(
+        pool: DbPool,
+        group_id: Option<Uuid>,
+        notification_manager: NotificationManager,
+    ) -> Self {
         Self {
             group_loader: Arc::new(DataLoader::with_cache(
                 GroupLoader::new(pool.clone()),
@@ -90,6 +96,7 @@ impl GraphQLContext {
             )),
             pool,
             group_id,
+            notification_manager,
         }
     }
 

@@ -88,6 +88,7 @@ impl RoundsMutation {
             round_number,
             &player_uuids_with_positions,
             &match_record,
+            &gql_ctx.notification_manager,
         )
         .await?;
 

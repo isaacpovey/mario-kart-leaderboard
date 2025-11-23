@@ -9,6 +9,7 @@ import { RaceResultsDisplay } from '../components/domain/RaceResultsDisplay'
 import { RoundResultsForm } from '../components/domain/RoundResultsForm'
 import { TeamCard } from '../components/domain/TeamCard'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
+import { useRaceResultsSubscription } from '../hooks/useRaceResultsSubscription'
 import { matchQueryAtom } from '../store/queries'
 
 const Match = () => {
@@ -33,6 +34,9 @@ const Match = () => {
 
   const match = matchResult.data.matchById
 
+  // Subscribe to race result updates for this match's tournament
+  useRaceResultsSubscription(match.tournamentId)
+
   const handleSelectRound = (roundNumber: number) => {
     setSelectedRound(roundNumber)
     setExpandedCompletedRound(null)
@@ -55,8 +59,7 @@ const Match = () => {
 
     setError('')
 
-    const roundPlayers = selectedRoundData.players as unknown as { id: string }[]
-    const results = roundPlayers
+    const results = selectedRoundData.players
       .map((player) => ({
         playerId: player.id,
         position: Number.parseInt(positions[player.id] || '0', 10),
@@ -120,7 +123,7 @@ const Match = () => {
             </Heading>
             <VStack gap={{ base: 3, md: 4 }} align="stretch">
               {match.teams.map((team) => (
-                <TeamCard key={team.id} team={team as unknown as Parameters<typeof TeamCard>[0]['team']} playerResults={match.playerResults as unknown as Parameters<typeof TeamCard>[0]['playerResults']} />
+                <TeamCard key={team.id} team={team} playerResults={match.playerResults} />
               ))}
             </VStack>
           </VStack>
@@ -132,7 +135,7 @@ const Match = () => {
               Races
             </Heading>
             <RaceList
-              rounds={match.rounds as unknown as Parameters<typeof RaceList>[0]['rounds']}
+              rounds={match.rounds}
               selectedRound={selectedRound}
               expandedCompletedRound={expandedCompletedRound}
               onSelectRound={handleSelectRound}
@@ -142,12 +145,12 @@ const Match = () => {
                 if (!roundData) return null
 
                 if (roundData.completed && roundData.results) {
-                  return <RaceResultsDisplay results={roundData.results as unknown as Parameters<typeof RaceResultsDisplay>[0]['results']} trackName={roundData.track?.name} />
+                  return <RaceResultsDisplay results={roundData.results} trackName={roundData.track?.name} />
                 }
 
                 return (
                   <RoundResultsForm
-                    round={roundData as unknown as Parameters<typeof RoundResultsForm>[0]['round']}
+                    round={roundData}
                     positions={positions}
                     onPositionChange={handlePositionChange}
                     onSubmit={handleSubmit}

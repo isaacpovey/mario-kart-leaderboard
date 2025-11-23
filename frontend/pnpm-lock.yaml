@@ -23,6 +23,9 @@ importers:
       graphql:
         specifier: 16.12.0
         version: 16.12.0
+      graphql-sse:
+        specifier: ^2.6.0
+        version: 2.6.0(graphql@16.12.0)
       jotai:
         specifier: 2.15.1
         version: 2.15.1(@babel/core@7.28.4)(@babel/template@7.27.2)(@types/react@19.2.2)(react@19.2.0)
@@ -998,6 +1001,12 @@ packages:
     hasBin: true
     peerDependencies:
       typescript: ^5.0.0
+
+  graphql-sse@2.6.0:
+    resolution: {integrity: sha512-BXT5Rjv9UFunjQsmN9WWEIq+TFNhgYibgwo1xkXLxzguQVyOd6paJ4v5DlL9K5QplS0w74bhF+aUiqaGXZBaug==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      graphql: '>=0.11 <=16'
 
   graphql@16.12.0:
     resolution: {integrity: sha512-DKKrynuQRne0PNpEbzuEdHlYOMksHSUI8Zc9Unei5gTsMNA2/vMpoMz/yKba50pejK56qj98qM0SjYxAKi13gQ==}
@@ -2564,6 +2573,10 @@ snapshots:
       - '@gql.tada/svelte-support'
       - '@gql.tada/vue-support'
       - graphql
+
+  graphql-sse@2.6.0(graphql@16.12.0):
+    dependencies:
+      graphql: 16.12.0
 
   graphql@16.12.0: {}
 
