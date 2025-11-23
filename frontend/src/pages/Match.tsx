@@ -24,6 +24,9 @@ const Match = () => {
   const [positions, setPositions] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
 
+  // Subscribe to race result updates for this match's tournament (must be called before any returns)
+  useRaceResultsSubscription(matchResult.data?.matchById?.tournamentId)
+
   useEffect(() => {
     document.title = 'Match Details'
   }, [])
@@ -33,9 +36,6 @@ const Match = () => {
   }
 
   const match = matchResult.data.matchById
-
-  // Subscribe to race result updates for this match's tournament
-  useRaceResultsSubscription(match.tournamentId)
 
   const handleSelectRound = (roundNumber: number) => {
     setSelectedRound(roundNumber)

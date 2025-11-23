@@ -38,18 +38,7 @@ export const Avatar = ({ name, avatarFilename, size = 'md' }: AvatarProps) => {
 
   return (
     <Circle size={dimensions.box} bg={bgColor} color="white" fontWeight="bold" fontSize={dimensions.text} flexShrink={0} overflow="hidden">
-      {shouldShowImage ? (
-        <Image
-          src={`/avatars/${avatarFilename}`}
-          alt={name}
-          width="100%"
-          height="100%"
-          objectFit="cover"
-          onError={() => setImageError(true)}
-        />
-      ) : (
-        initials
-      )}
+      {shouldShowImage ? <Image src={`/avatars/${avatarFilename}`} alt={name} width="100%" height="100%" objectFit="cover" onError={() => setImageError(true)} /> : initials}
     </Circle>
   )
 }
