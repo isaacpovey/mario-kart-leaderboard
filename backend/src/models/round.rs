@@ -99,19 +99,19 @@ impl Round {
                 if let Some(player_id) = opt_player_id {
                     if !entry.result_player_ids.contains(&player_id) {
                         entry.result_player_ids.push(player_id);
+                        entry.results.push(PlayerRaceScore {
+                            group_id: Uuid::nil(),
+                            match_id,
+                            round_number,
+                            player_id,
+                            position: opt_position.unwrap(),
+                            all_time_elo_change: opt_all_time_elo,
+                            all_time_elo_after: None,
+                            tournament_elo_change: opt_tournament_elo,
+                            tournament_elo_after: None,
+                            created_at: chrono::Utc::now(),
+                        });
                     }
-                    entry.results.push(PlayerRaceScore {
-                        group_id: Uuid::nil(),
-                        match_id,
-                        round_number,
-                        player_id,
-                        position: opt_position.unwrap(),
-                        all_time_elo_change: opt_all_time_elo,
-                        all_time_elo_after: None,
-                        tournament_elo_change: opt_tournament_elo,
-                        tournament_elo_after: None,
-                        created_at: chrono::Utc::now(),
-                    });
                 } else if let Some(round_player_id) = opt_round_player_id {
                     if !entry.result_player_ids.contains(&round_player_id) {
                         entry.result_player_ids.push(round_player_id);
