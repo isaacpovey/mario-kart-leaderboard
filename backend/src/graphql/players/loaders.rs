@@ -94,7 +94,7 @@ impl Loader<(Uuid, Uuid)> for PlayerActiveTournamentEloLoader {
              JOIN tournaments t ON t.id = pts.tournament_id
              WHERE pts.player_id = ANY($1)
                AND t.group_id = ANY($2)
-               AND t.end_date IS NULL",
+               AND t.winner IS NULL",
         )
         .bind(&player_ids)
         .bind(&group_ids)
