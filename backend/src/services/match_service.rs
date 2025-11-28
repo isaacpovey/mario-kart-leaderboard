@@ -144,7 +144,26 @@ pub async fn create_match_with_rounds(
         ));
     }
 
-    let teams = team_allocation::allocate_teams(&players, &players_per_race);
+    let tournament_elos = {
+        let mut tx = pool
+            .begin()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to start transaction: {e}")))?;
+        let elos = models::PlayerTournamentScore::get_or_create_batch(
+            &mut tx,
+            player_ids,
+            tournament_id,
+            group_id,
+        )
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to fetch tournament ELO: {e}")))?;
+        tx.commit()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to commit transaction: {e}")))?;
+        elos
+    };
+
+    let teams = team_allocation::allocate_teams(&players, &players_per_race, &tournament_elos);
     let tracks = track_selection::select_tracks(pool, tournament_id, num_races).await?;
     let race_allocations =
         race_allocation::allocate_races(&players, &teams, num_races, players_per_race)?;

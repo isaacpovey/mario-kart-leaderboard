@@ -15,7 +15,9 @@
 //!    that still has capacity
 
 use crate::models;
+use std::collections::HashMap;
 use tracing::instrument;
+use uuid::Uuid;
 
 /// Represents a team with its players and total ELO rating
 #[derive(Debug, Clone)]
@@ -78,6 +80,7 @@ pub fn calculate_team_sizes(num_players: usize, num_teams: usize) -> Vec<usize> 
 ///
 /// * `players` - Slice of players to allocate to teams
 /// * `players_per_race` - Maximum number of players per race (determines number of teams)
+/// * `elo_ratings` - Map of player IDs to ELO ratings (typically tournament ELO)
 ///
 /// # Returns
 ///
@@ -88,6 +91,7 @@ pub fn calculate_team_sizes(num_players: usize, num_teams: usize) -> Vec<usize> 
 /// ```ignore
 /// # use mario_kart_leaderboard_backend::services::team_allocation::allocate_teams;
 /// # use mario_kart_leaderboard_backend::models::Player;
+/// # use std::collections::HashMap;
 /// # use uuid::Uuid;
 /// let group_id = Uuid::new_v4();
 /// let players = vec![
@@ -95,16 +99,28 @@ pub fn calculate_team_sizes(num_players: usize, num_teams: usize) -> Vec<usize> 
 ///     Player { id: Uuid::new_v4(), group_id, name: "Bob".to_string(), elo_rating: 1200 },
 ///     Player { id: Uuid::new_v4(), group_id, name: "Charlie".to_string(), elo_rating: 1000 },
 /// ];
+/// let elo_ratings: HashMap<Uuid, i32> = players.iter().map(|p| (p.id, p.elo_rating)).collect();
 ///
-/// let teams = allocate_teams(&players, &2);
+/// let teams = allocate_teams(&players, &2, &elo_ratings);
 /// assert_eq!(teams.len(), 2);
 /// // Team 1: Alice (1400), Team 2: Bob (1200), Team 1: Charlie (1000)
 /// // Results in balanced teams: Team 1 (2400), Team 2 (1200)
 /// ```
-#[instrument(level = "info", skip(players), fields(num_players = players.len(), players_per_race = *players_per_race))]
-pub fn allocate_teams(players: &[models::Player], players_per_race: &i32) -> Vec<Team> {
+#[instrument(level = "info", skip(players, elo_ratings), fields(num_players = players.len(), players_per_race = *players_per_race))]
+pub fn allocate_teams(
+    players: &[models::Player],
+    players_per_race: &i32,
+    elo_ratings: &HashMap<Uuid, i32>,
+) -> Vec<Team> {
+    let get_elo = |player: &models::Player| -> i32 {
+        elo_ratings
+            .get(&player.id)
+            .copied()
+            .unwrap_or(player.elo_rating)
+    };
+
     let mut sorted_players = players.to_vec();
-    sorted_players.sort_by(|a, b| b.elo_rating.cmp(&a.elo_rating));
+    sorted_players.sort_by(|a, b| get_elo(b).cmp(&get_elo(a)));
 
     let num_players = players.len();
     let num_teams = std::cmp::min(*players_per_race as usize, num_players);
@@ -121,6 +137,7 @@ pub fn allocate_teams(players: &[models::Player], players_per_race: &i32) -> Vec
     sorted_players
         .into_iter()
         .fold(initial_teams, |teams, player| {
+            let player_elo = get_elo(&player);
             let team_idx = teams
                 .iter()
                 .enumerate()
@@ -142,7 +159,7 @@ pub fn allocate_teams(players: &[models::Player], players_per_race: &i32) -> Vec
                                 .cloned()
                                 .chain(std::iter::once(player.clone()))
                                 .collect(),
-                            total_elo: team.total_elo + player.elo_rating,
+                            total_elo: team.total_elo + player_elo,
                         }
                     } else {
                         team
