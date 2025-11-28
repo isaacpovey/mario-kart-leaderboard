@@ -16,15 +16,5 @@ export const currentTournamentAtom = atom(async (get) => {
       return b.startDate.localeCompare(a.startDate)
     })
 
-  return tournaments[0] || null
-})
-
-export const sortedPlayersAtom = atom(async (get) => {
-  const currentTournament = await get(currentTournamentAtom)
-
-  if (!currentTournament?.leaderboard) {
-    return []
-  }
-
-  return currentTournament.leaderboard.slice().sort((a: { allTimeEloRating: number }, b: { allTimeEloRating: number }) => b.allTimeEloRating - a.allTimeEloRating)
+  return tournaments[0] ?? null
 })

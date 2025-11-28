@@ -10,7 +10,12 @@
     "plugins": [
       {
         "name": "gql.tada/ts-plugin",
-        "schema": "http://localhost:8080/graphql",
+        "schema": {
+          "url": "http://localhost:8080/graphql",
+          "headers": {
+            "Accept": "application/json"
+          }
+        },
         "tadaOutputLocation": "./src/lib/graphql-env.d.ts"
       }
     ]

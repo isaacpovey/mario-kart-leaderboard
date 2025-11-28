@@ -1,6 +1,6 @@
 use crate::db::DbPool;
 use chrono::NaiveDate;
-use sqlx::FromRow;
+use sqlx::{FromRow, Postgres, Transaction};
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -83,6 +83,24 @@ impl Tournament {
         )
         .bind(group_id)
         .fetch_optional(pool)
+        .await
+    }
+
+    #[instrument(level = "debug", skip(tx))]
+    pub async fn set_winner(
+        tx: &mut Transaction<'_, Postgres>,
+        tournament_id: Uuid,
+        winner_id: Uuid,
+    ) -> Result<Self, sqlx::Error> {
+        sqlx::query_as::<_, Self>(
+            "UPDATE tournaments
+             SET winner = $1
+             WHERE id = $2
+             RETURNING id, group_id, start_date, end_date, winner",
+        )
+        .bind(winner_id)
+        .bind(tournament_id)
+        .fetch_one(&mut **tx)
         .await
     }
 }

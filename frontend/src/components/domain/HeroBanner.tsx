@@ -1,10 +1,11 @@
 import { Box, Button, Heading, VStack } from '@chakra-ui/react'
 
 type HeroBannerProps = {
-  onStartRace: () => void
+  onStartRace?: () => void
+  showStartButton?: boolean
 }
 
-export const HeroBanner = ({ onStartRace }: HeroBannerProps) => (
+export const HeroBanner = ({ onStartRace, showStartButton = true }: HeroBannerProps) => (
   <Box
     position="relative"
     w="full"
@@ -21,24 +22,26 @@ export const HeroBanner = ({ onStartRace }: HeroBannerProps) => (
         Mario Kart Leaderboard
       </Heading>
 
-      <Button
-        size={{ base: 'lg', md: 'xl' }}
-        colorScheme="yellow"
-        bg="brand.400"
-        color="gray.900"
-        fontWeight="bold"
-        fontSize={{ base: 'md', md: 'lg' }}
-        px={{ base: 6, md: 8 }}
-        py={{ base: 6, md: 7 }}
-        borderRadius="button"
-        _hover={{ bg: 'brand.500', transform: 'translateY(-2px)' }}
-        _active={{ transform: 'translateY(0)' }}
-        boxShadow="0 4px 12px rgba(0,0,0,0.2)"
-        transition="all 0.2s"
-        onClick={onStartRace}
-      >
-        Start New Race
-      </Button>
+      {showStartButton && onStartRace && (
+        <Button
+          size={{ base: 'lg', md: 'xl' }}
+          colorScheme="yellow"
+          bg="brand.400"
+          color="gray.900"
+          fontWeight="bold"
+          fontSize={{ base: 'md', md: 'lg' }}
+          px={{ base: 6, md: 8 }}
+          py={{ base: 6, md: 7 }}
+          borderRadius="button"
+          _hover={{ bg: 'brand.500', transform: 'translateY(-2px)' }}
+          _active={{ transform: 'translateY(0)' }}
+          boxShadow="0 4px 12px rgba(0,0,0,0.2)"
+          transition="all 0.2s"
+          onClick={onStartRace}
+        >
+          Start New Race
+        </Button>
+      )}
     </VStack>
   </Box>
 )

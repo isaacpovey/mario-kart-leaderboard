@@ -78,4 +78,27 @@ impl PlayerRaceScore {
         .fetch_all(pool)
         .await
     }
+
+    #[instrument(level = "debug", skip(pool))]
+    pub async fn find_elo_history_by_tournament_id(
+        pool: &DbPool,
+        tournament_id: Uuid,
+    ) -> Result<Vec<(Uuid, String, i32, String)>, sqlx::Error> {
+        sqlx::query_as::<_, (Uuid, String, i32, String)>(
+            "SELECT
+                prs.player_id,
+                p.name as player_name,
+                prs.tournament_elo_after,
+                prs.created_at::text as timestamp
+             FROM player_race_scores prs
+             INNER JOIN matches m ON prs.match_id = m.id
+             INNER JOIN players p ON prs.player_id = p.id
+             WHERE m.tournament_id = $1
+               AND prs.tournament_elo_after IS NOT NULL
+             ORDER BY prs.created_at ASC",
+        )
+        .bind(tournament_id)
+        .fetch_all(pool)
+        .await
+    }
 }

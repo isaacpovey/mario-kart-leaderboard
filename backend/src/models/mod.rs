@@ -8,6 +8,7 @@ pub mod player_tournament_score;
 pub mod round;
 pub mod team;
 pub mod tournament;
+pub mod tournament_stat;
 pub mod track;
 
 pub use group::Group;
@@ -20,4 +21,5 @@ pub use player_tournament_score::PlayerTournamentScore;
 pub use round::Round;
 pub use team::Team;
 pub use tournament::Tournament;
+pub use tournament_stat::{BiggestSwingData, TournamentStat, TournamentStatType};
 pub use track::Track;

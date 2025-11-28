@@ -28,5 +28,6 @@ pub mod score_calculation;
 pub mod scoring;
 pub mod team_allocation;
 pub mod teammate_elo;
+pub mod tournament_completion;
 pub mod track_selection;
 pub mod validation;
