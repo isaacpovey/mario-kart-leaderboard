@@ -100,11 +100,10 @@ const formatValue = (value: number, statType: StatType, extraData?: string | nul
   if (statType === 'BIGGEST_SWING' && extraData) {
     try {
       const parsed = JSON.parse(extraData)
-      const startElo = parsed.start_elo ?? parsed.startElo
-      const endElo = parsed.end_elo ?? parsed.endElo
-      if (startElo !== undefined && endElo !== undefined) {
-        const lowElo = Math.min(startElo, endElo)
-        const highElo = Math.max(startElo, endElo)
+      const lowElo = parsed.low_value ?? parsed.low_elo ?? parsed.lowElo ?? parsed.low ?? parsed.min
+      const highElo = parsed.high_value ?? parsed.high_elo ?? parsed.highElo ?? parsed.high ?? parsed.max
+
+      if (lowElo !== undefined && highElo !== undefined) {
         return `${Math.abs(value)} pts (${lowElo} → ${highElo})`
       }
     } catch {
