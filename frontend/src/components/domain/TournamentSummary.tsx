@@ -12,6 +12,7 @@ type DataPoint = {
 type PlayerEloHistory = {
   playerId: string
   playerName: string
+  avatarFilename?: string | null
   dataPoints: DataPoint[]
 }
 
@@ -106,7 +107,15 @@ export const TournamentSummary = ({
         <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
           ELO Progression
         </Heading>
-        <EloProgressionChart playerEloHistory={tournament.playerEloHistory} />
+        <EloProgressionChart
+          playerEloHistory={tournament.playerEloHistory.map((history) => {
+            const leaderboardEntry = tournament.leaderboard.find((e) => e.playerId === history.playerId)
+            return {
+              ...history,
+              avatarFilename: leaderboardEntry?.avatarFilename,
+            }
+          })}
+        />
       </VStack>
 
       {tournament.stats.length > 0 && (
