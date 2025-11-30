@@ -808,3 +808,411 @@ async fn test_teammates_have_same_player_position() {
         "Different teams should have different player_positions"
     );
 }
+
+// ============================================================================
+// Tests for `swap_round_player` mutation
+// ============================================================================
+
+#[tokio::test]
+async fn test_swap_round_player_success() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("Failed to create test players");
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 2)
+        .await
+        .expect("Failed to create test teams");
+
+    let _rounds = fixtures::create_test_rounds(&ctx.pool, match_record.id, 2)
+        .await
+        .expect("Failed to create test rounds");
+
+    for (i, player) in players.iter().enumerate() {
+        let team_idx = i % 2;
+        sqlx::query(
+            "INSERT INTO team_players (group_id, team_id, player_id, rank) VALUES ($1, $2, $3, $4)",
+        )
+        .bind(group.id)
+        .bind(teams[team_idx].id)
+        .bind(player.id)
+        .bind((i / 2 + 1) as i32)
+        .execute(&ctx.pool)
+        .await
+        .expect("Failed to add player to team");
+    }
+
+    fixtures::add_players_to_round(
+        &ctx.pool,
+        group.id,
+        match_record.id,
+        1,
+        teams[0].id,
+        &[players[0].id],
+    )
+    .await
+    .expect("Failed to add player to round");
+
+    let mutation = r#"
+        mutation SwapRoundPlayer($matchId: ID!, $roundNumber: Int!, $currentPlayerId: ID!, $newPlayerId: ID!) {
+            swapRoundPlayer(matchId: $matchId, roundNumber: $roundNumber, currentPlayerId: $currentPlayerId, newPlayerId: $newPlayerId) {
+                id
+            }
+        }
+    "#;
+
+    let request = Request::new(mutation)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string(),
+            "roundNumber": 1,
+            "currentPlayerId": players[0].id.to_string(),
+            "newPlayerId": players[2].id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(
+        response.errors.is_empty(),
+        "Expected no errors: {:?}",
+        response.errors
+    );
+
+    let round_players: Vec<(uuid::Uuid,)> = sqlx::query_as(
+        "SELECT player_id FROM round_players WHERE match_id = $1 AND round_number = 1",
+    )
+    .bind(match_record.id)
+    .fetch_all(&ctx.pool)
+    .await
+    .expect("Failed to fetch round players");
+
+    assert_eq!(round_players.len(), 1);
+    assert_eq!(round_players[0].0, players[2].id, "Player should have been swapped");
+}
+
+#[tokio::test]
+async fn test_swap_round_player_round_completed_fails() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("Failed to create test players");
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 2)
+        .await
+        .expect("Failed to create test teams");
+
+    let _rounds = fixtures::create_test_rounds(&ctx.pool, match_record.id, 2)
+        .await
+        .expect("Failed to create test rounds");
+
+    sqlx::query("UPDATE rounds SET completed = true WHERE match_id = $1 AND round_number = 1")
+        .bind(match_record.id)
+        .execute(&ctx.pool)
+        .await
+        .expect("Failed to mark round as completed");
+
+    for (i, player) in players.iter().enumerate() {
+        let team_idx = i % 2;
+        sqlx::query(
+            "INSERT INTO team_players (group_id, team_id, player_id, rank) VALUES ($1, $2, $3, $4)",
+        )
+        .bind(group.id)
+        .bind(teams[team_idx].id)
+        .bind(player.id)
+        .bind((i / 2 + 1) as i32)
+        .execute(&ctx.pool)
+        .await
+        .expect("Failed to add player to team");
+    }
+
+    fixtures::add_players_to_round(
+        &ctx.pool,
+        group.id,
+        match_record.id,
+        1,
+        teams[0].id,
+        &[players[0].id],
+    )
+    .await
+    .expect("Failed to add player to round");
+
+    let mutation = r#"
+        mutation SwapRoundPlayer($matchId: ID!, $roundNumber: Int!, $currentPlayerId: ID!, $newPlayerId: ID!) {
+            swapRoundPlayer(matchId: $matchId, roundNumber: $roundNumber, currentPlayerId: $currentPlayerId, newPlayerId: $newPlayerId) {
+                id
+            }
+        }
+    "#;
+
+    let request = Request::new(mutation)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string(),
+            "roundNumber": 1,
+            "currentPlayerId": players[0].id.to_string(),
+            "newPlayerId": players[2].id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(!response.errors.is_empty(), "Expected error for completed round");
+    assert!(
+        response.errors[0].message.contains("completed round"),
+        "Expected 'completed round' error, got: {}",
+        response.errors[0].message
+    );
+}
+
+#[tokio::test]
+async fn test_swap_round_player_different_team_fails() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("Failed to create test players");
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 2)
+        .await
+        .expect("Failed to create test teams");
+
+    let _rounds = fixtures::create_test_rounds(&ctx.pool, match_record.id, 2)
+        .await
+        .expect("Failed to create test rounds");
+
+    sqlx::query(
+        "INSERT INTO team_players (group_id, team_id, player_id, rank) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(group.id)
+    .bind(teams[0].id)
+    .bind(players[0].id)
+    .bind(1)
+    .execute(&ctx.pool)
+    .await
+    .expect("Failed to add player to team 0");
+
+    sqlx::query(
+        "INSERT INTO team_players (group_id, team_id, player_id, rank) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(group.id)
+    .bind(teams[1].id)
+    .bind(players[1].id)
+    .bind(1)
+    .execute(&ctx.pool)
+    .await
+    .expect("Failed to add player to team 1");
+
+    fixtures::add_players_to_round(
+        &ctx.pool,
+        group.id,
+        match_record.id,
+        1,
+        teams[0].id,
+        &[players[0].id],
+    )
+    .await
+    .expect("Failed to add player to round");
+
+    let mutation = r#"
+        mutation SwapRoundPlayer($matchId: ID!, $roundNumber: Int!, $currentPlayerId: ID!, $newPlayerId: ID!) {
+            swapRoundPlayer(matchId: $matchId, roundNumber: $roundNumber, currentPlayerId: $currentPlayerId, newPlayerId: $newPlayerId) {
+                id
+            }
+        }
+    "#;
+
+    let request = Request::new(mutation)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string(),
+            "roundNumber": 1,
+            "currentPlayerId": players[0].id.to_string(),
+            "newPlayerId": players[1].id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(!response.errors.is_empty(), "Expected error for different team");
+    assert!(
+        response.errors[0].message.contains("same team"),
+        "Expected 'same team' error, got: {}",
+        response.errors[0].message
+    );
+}
+
+#[tokio::test]
+async fn test_swap_round_player_already_in_round_fails() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("Failed to create test players");
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 2)
+        .await
+        .expect("Failed to create test teams");
+
+    let _rounds = fixtures::create_test_rounds(&ctx.pool, match_record.id, 2)
+        .await
+        .expect("Failed to create test rounds");
+
+    for player in &players[0..2] {
+        sqlx::query(
+            "INSERT INTO team_players (group_id, team_id, player_id, rank) VALUES ($1, $2, $3, $4)",
+        )
+        .bind(group.id)
+        .bind(teams[0].id)
+        .bind(player.id)
+        .bind(1)
+        .execute(&ctx.pool)
+        .await
+        .expect("Failed to add player to team");
+    }
+
+    fixtures::add_players_to_round(
+        &ctx.pool,
+        group.id,
+        match_record.id,
+        1,
+        teams[0].id,
+        &[players[0].id, players[1].id],
+    )
+    .await
+    .expect("Failed to add players to round");
+
+    let mutation = r#"
+        mutation SwapRoundPlayer($matchId: ID!, $roundNumber: Int!, $currentPlayerId: ID!, $newPlayerId: ID!) {
+            swapRoundPlayer(matchId: $matchId, roundNumber: $roundNumber, currentPlayerId: $currentPlayerId, newPlayerId: $newPlayerId) {
+                id
+            }
+        }
+    "#;
+
+    let request = Request::new(mutation)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string(),
+            "roundNumber": 1,
+            "currentPlayerId": players[0].id.to_string(),
+            "newPlayerId": players[1].id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(!response.errors.is_empty(), "Expected error for player already in round");
+    assert!(
+        response.errors[0].message.contains("already in this round"),
+        "Expected 'already in this round' error, got: {}",
+        response.errors[0].message
+    );
+}
+
+#[tokio::test]
+async fn test_swap_round_player_unauthorized() {
+    let ctx = setup::setup_test_db().await;
+
+    let group1 = fixtures::create_test_group(&ctx.pool, "Test Group 1", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let group2 = fixtures::create_test_group(&ctx.pool, "Test Group 2", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group1.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+
+    let players = fixtures::create_test_players(&ctx.pool, group1.id, 2)
+        .await
+        .expect("Failed to create test players");
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group1.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let mutation = r#"
+        mutation SwapRoundPlayer($matchId: ID!, $roundNumber: Int!, $currentPlayerId: ID!, $newPlayerId: ID!) {
+            swapRoundPlayer(matchId: $matchId, roundNumber: $roundNumber, currentPlayerId: $currentPlayerId, newPlayerId: $newPlayerId) {
+                id
+            }
+        }
+    "#;
+
+    let request = Request::new(mutation)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string(),
+            "roundNumber": 1,
+            "currentPlayerId": players[0].id.to_string(),
+            "newPlayerId": players[1].id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group2.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(!response.errors.is_empty(), "Expected unauthorized error");
+    assert!(
+        response.errors[0].message.contains("Match not found"),
+        "Expected 'Match not found' error, got: {}",
+        response.errors[0].message
+    );
+}

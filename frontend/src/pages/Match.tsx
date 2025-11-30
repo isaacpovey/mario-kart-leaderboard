@@ -3,10 +3,12 @@ import { useAtomValue } from 'jotai'
 import { useEffect, useMemo, useState } from 'react'
 import { LuCheck } from 'react-icons/lu'
 import { useNavigate, useParams } from 'react-router'
+import { CancelMatchModal } from '../components/CancelMatchModal'
 import { ErrorState } from '../components/common/ErrorState'
 import { RaceList } from '../components/domain/RaceList'
 import { RaceResultsDisplay } from '../components/domain/RaceResultsDisplay'
 import { RoundResultsForm } from '../components/domain/RoundResultsForm'
+import { SwapPlayerModal } from '../components/SwapPlayerModal'
 import { TeamCard } from '../components/domain/TeamCard'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
 import { useRaceResultsSubscription } from '../hooks/useRaceResultsSubscription'
@@ -17,12 +19,16 @@ const Match = () => {
   const navigate = useNavigate()
   const matchAtom = useMemo(() => matchQueryAtom(matchId || ''), [matchId])
   const matchResult = useAtomValue(matchAtom)
-  const { recordResults, isRecordingResults } = useMatchManagement()
+  const { recordResults, isRecordingResults, swapRoundPlayer, isSwappingPlayer, swapPlayerError } = useMatchManagement()
 
   const [selectedRound, setSelectedRound] = useState<number | null>(null)
   const [expandedCompletedRound, setExpandedCompletedRound] = useState<number | null>(null)
   const [positions, setPositions] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [swapModalOpen, setSwapModalOpen] = useState(false)
+  const [playerToSwap, setPlayerToSwap] = useState<{ id: string; name: string; avatarFilename?: string | null; teamId: string } | null>(null)
+  const [roundToSwap, setRoundToSwap] = useState<number | null>(null)
 
   // Subscribe to race result updates for this match's tournament (must be called before any returns)
   useRaceResultsSubscription(matchResult.data?.matchById?.tournamentId)
@@ -90,6 +96,35 @@ const Match = () => {
   }
 
   const selectedRoundData = match.rounds.find((r) => r.roundNumber === selectedRound)
+  const hasAnyResults = match.rounds.some((r) => r.completed)
+  const canCancelMatch = !match.completed && !hasAnyResults
+
+  const handleCancelSuccess = () => {
+    navigate('/')
+  }
+
+  const handleSwapPlayer = (player: { id: string; name: string; avatarFilename?: string | null; teamId?: string | unknown }, roundNumber: number) => {
+    if (!player.teamId) return
+    const teamId = typeof player.teamId === 'string' ? player.teamId : String(player.teamId)
+    setPlayerToSwap({ ...player, teamId })
+    setRoundToSwap(roundNumber)
+    setSwapModalOpen(true)
+  }
+
+  const handleSwapConfirm = async (newPlayerId: string) => {
+    if (!playerToSwap || roundToSwap === null || !matchId) return
+    const result = await swapRoundPlayer({
+      matchId,
+      roundNumber: roundToSwap,
+      currentPlayerId: playerToSwap.id,
+      newPlayerId,
+    })
+    if (result) {
+      setSwapModalOpen(false)
+      setPlayerToSwap(null)
+      setRoundToSwap(null)
+    }
+  }
 
   return (
     <Box minH="100vh" bg="bg.canvas">
@@ -156,6 +191,7 @@ const Match = () => {
                     onSubmit={handleSubmit}
                     error={error}
                     submitting={isRecordingResults}
+                    onSwapPlayer={(player) => handleSwapPlayer(player, roundNumber)}
                   />
                 )
               }}
@@ -170,8 +206,42 @@ const Match = () => {
               </Badge>
             </Box>
           )}
+
+          {canCancelMatch && (
+            <Box pt={4} borderTopWidth="1px" borderColor="gray.200">
+              <Button
+                colorScheme="red"
+                variant="outline"
+                size={{ base: 'sm', md: 'md' }}
+                onClick={() => setCancelModalOpen(true)}
+              >
+                Cancel Match
+              </Button>
+            </Box>
+          )}
         </VStack>
       </Container>
+
+      <CancelMatchModal
+        open={cancelModalOpen}
+        onOpenChange={setCancelModalOpen}
+        matchId={matchId || ''}
+        onSuccess={handleCancelSuccess}
+      />
+
+      {playerToSwap && roundToSwap !== null && (
+        <SwapPlayerModal
+          open={swapModalOpen}
+          onOpenChange={setSwapModalOpen}
+          currentPlayer={playerToSwap}
+          roundNumber={roundToSwap}
+          teams={match.teams}
+          roundPlayerIds={match.rounds.find((r) => r.roundNumber === roundToSwap)?.players.map((p) => p.id) ?? []}
+          onSwap={handleSwapConfirm}
+          isSwapping={isSwappingPlayer}
+          error={swapPlayerError}
+        />
+      )}
     </Box>
   )
 }

@@ -1006,3 +1006,249 @@ async fn test_create_match_with_rounds_no_auth() {
         response.errors[0].message
     );
 }
+
+// ============================================================================
+// Tests for `cancel_match` mutation
+// ============================================================================
+
+#[tokio::test]
+async fn test_cancel_match_success() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+
+    let tournament = &tournaments[0];
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let query = r#"
+        mutation CancelMatch($matchId: ID!) {
+            cancelMatch(matchId: $matchId)
+        }
+    "#;
+
+    let request = Request::new(query)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(
+        response.errors.is_empty(),
+        "Expected no errors: {:?}",
+        response.errors
+    );
+
+    let data = response.data.into_json().expect("Failed to parse response");
+    let result = data
+        .get("cancelMatch")
+        .expect("cancelMatch field not found")
+        .as_bool()
+        .expect("cancelMatch should be a boolean");
+
+    assert!(result, "cancelMatch should return true");
+
+    let match_exists: Option<(i32,)> =
+        sqlx::query_as("SELECT 1 FROM matches WHERE id = $1")
+            .bind(match_record.id)
+            .fetch_optional(&ctx.pool)
+            .await
+            .expect("Failed to check match existence");
+
+    assert!(match_exists.is_none(), "Match should be deleted");
+}
+
+#[tokio::test]
+async fn test_cancel_match_with_results_fails() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+
+    let tournament = &tournaments[0];
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let _rounds = fixtures::create_test_rounds(&ctx.pool, match_record.id, 2)
+        .await
+        .expect("Failed to create test rounds");
+
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 2)
+        .await
+        .expect("Failed to create test players");
+
+    sqlx::query(
+        "INSERT INTO player_race_scores
+         (group_id, match_id, round_number, player_id, position, all_time_elo_change, all_time_elo_after, tournament_elo_change, tournament_elo_after, created_at)
+         VALUES ($1, $2, 1, $3, 1, 10, 1210, 10, 1210, NOW())",
+    )
+    .bind(group.id)
+    .bind(match_record.id)
+    .bind(players[0].id)
+    .execute(&ctx.pool)
+    .await
+    .expect("Failed to insert race score");
+
+    let query = r#"
+        mutation CancelMatch($matchId: ID!) {
+            cancelMatch(matchId: $matchId)
+        }
+    "#;
+
+    let request = Request::new(query)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(!response.errors.is_empty(), "Expected error for match with results");
+    assert!(
+        response.errors[0]
+            .message
+            .contains("race results have been recorded"),
+        "Expected 'race results have been recorded' error, got: {}",
+        response.errors[0].message
+    );
+}
+
+#[tokio::test]
+async fn test_cancel_match_unauthorized() {
+    let ctx = setup::setup_test_db().await;
+
+    let group1 = fixtures::create_test_group(&ctx.pool, "Test Group 1", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let group2 = fixtures::create_test_group(&ctx.pool, "Test Group 2", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group1.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+
+    let tournament = &tournaments[0];
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group1.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let query = r#"
+        mutation CancelMatch($matchId: ID!) {
+            cancelMatch(matchId: $matchId)
+        }
+    "#;
+
+    let request = Request::new(query)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group2.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(!response.errors.is_empty(), "Expected unauthorized error");
+    assert!(
+        response.errors[0].message.contains("Match not found"),
+        "Expected 'Match not found' error, got: {}",
+        response.errors[0].message
+    );
+}
+
+#[tokio::test]
+async fn test_cancel_match_not_found() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let query = r#"
+        mutation CancelMatch($matchId: ID!) {
+            cancelMatch(matchId: $matchId)
+        }
+    "#;
+
+    let fake_uuid = "00000000-0000-0000-0000-000000000000";
+
+    let request = Request::new(query)
+        .variables(Variables::from_value(value!({
+            "matchId": fake_uuid
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(!response.errors.is_empty(), "Expected not found error");
+    assert!(
+        response.errors[0].message.contains("Match not found"),
+        "Expected 'Match not found' error, got: {}",
+        response.errors[0].message
+    );
+}
+
+#[tokio::test]
+async fn test_cancel_match_no_auth() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+
+    let tournament = &tournaments[0];
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let query = r#"
+        mutation CancelMatch($matchId: ID!) {
+            cancelMatch(matchId: $matchId)
+        }
+    "#;
+
+    let request = Request::new(query)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None, NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(!response.errors.is_empty(), "Expected authentication error");
+    assert!(
+        response.errors[0]
+            .message
+            .contains("Authentication required"),
+        "Expected 'Authentication required' error, got: {}",
+        response.errors[0].message
+    );
+}

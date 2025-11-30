@@ -30,7 +30,7 @@ export const matchQuery = graphql(`
           id
           name
           avatarFilename
-          currentTournamentElo
+          teamId
         }
         results {
           player {

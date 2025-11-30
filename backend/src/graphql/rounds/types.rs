@@ -1,9 +1,34 @@
 use crate::graphql::context::GraphQLContext;
-use crate::graphql::players::types::Player;
 use crate::graphql::results::types::PlayerRaceResult;
 use crate::graphql::tracks::types::Track;
 use async_graphql::*;
+use sqlx;
 use uuid::Uuid;
+
+#[derive(Clone)]
+pub struct RoundPlayer {
+    pub player: crate::models::Player,
+    pub team_id: Uuid,
+}
+
+#[Object]
+impl RoundPlayer {
+    async fn id(&self) -> ID {
+        self.player.id.to_string().into()
+    }
+
+    async fn name(&self) -> &str {
+        &self.player.name
+    }
+
+    async fn avatar_filename(&self) -> Option<&str> {
+        self.player.avatar_filename.as_deref()
+    }
+
+    async fn team_id(&self) -> ID {
+        self.team_id.to_string().into()
+    }
+}
 
 #[derive(Clone)]
 pub struct Round {
@@ -79,30 +104,31 @@ impl Round {
         Ok(track)
     }
 
-    async fn players(&self, ctx: &Context<'_>) -> Result<Vec<Player>> {
+    async fn players(&self, ctx: &Context<'_>) -> Result<Vec<RoundPlayer>> {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
 
-        let player_ids = if let Some(cached_ids) = &self.cached_result_player_ids {
-            cached_ids.clone()
-        } else {
-            return Ok(gql_ctx
-                .players_by_round_loader
-                .load_one((self.match_id, self.round_number))
-                .await?
-                .unwrap_or_default()
-                .into_iter()
-                .map(Player::from)
-                .collect());
-        };
+        let round_player_records: Vec<(Uuid, Uuid)> = sqlx::query_as(
+            "SELECT player_id, team_id FROM round_players
+             WHERE match_id = $1 AND round_number = $2
+             ORDER BY player_position",
+        )
+        .bind(self.match_id)
+        .bind(self.round_number)
+        .fetch_all(&gql_ctx.pool)
+        .await?;
 
-        let players_map = gql_ctx
-            .player_loader
-            .load_many(player_ids.clone())
-            .await?;
+        let player_ids: Vec<Uuid> = round_player_records.iter().map(|(pid, _)| *pid).collect();
 
-        Ok(player_ids
+        let players_map = gql_ctx.player_loader.load_many(player_ids).await?;
+
+        Ok(round_player_records
             .into_iter()
-            .filter_map(|id| players_map.get(&id).map(|p| Player::from(p.clone())))
+            .filter_map(|(player_id, team_id)| {
+                players_map.get(&player_id).map(|player| RoundPlayer {
+                    player: player.clone(),
+                    team_id,
+                })
+            })
             .collect())
     }
 

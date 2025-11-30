@@ -3,6 +3,7 @@ use crate::graphql::matches::types::Match;
 use crate::models;
 use crate::services::result_recording;
 use async_graphql::*;
+use sqlx;
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -91,6 +92,107 @@ impl RoundsMutation {
             &gql_ctx.notification_manager,
         )
         .await?;
+
+        Ok(Match::from(updated_match))
+    }
+
+    async fn swap_round_player(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "The match ID")] match_id: ID,
+        #[graphql(desc = "The round number")] round_number: i32,
+        #[graphql(desc = "The player to replace")] current_player_id: ID,
+        #[graphql(desc = "The replacement player")] new_player_id: ID,
+    ) -> Result<Match> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+        let group_id = gql_ctx.authenticated_group_id()?;
+
+        let match_uuid =
+            Uuid::parse_str(&match_id).map_err(|_| Error::new("Invalid match ID"))?;
+        let current_player_uuid =
+            Uuid::parse_str(&current_player_id).map_err(|_| Error::new("Invalid current player ID"))?;
+        let new_player_uuid =
+            Uuid::parse_str(&new_player_id).map_err(|_| Error::new("Invalid new player ID"))?;
+
+        let match_record = models::Match::find_by_id(&gql_ctx.pool, match_uuid)
+            .await?
+            .ok_or_else(|| Error::new("Match not found"))?;
+
+        if match_record.group_id != group_id {
+            return Err(Error::new("Match not found"));
+        }
+
+        let round = models::Round::find_one(&gql_ctx.pool, match_uuid, round_number)
+            .await?
+            .ok_or_else(|| Error::new("Round not found"))?;
+
+        if round.completed {
+            return Err(Error::new("Cannot swap players in a completed round"));
+        }
+
+        let current_round_player: Option<(Uuid, i32)> = sqlx::query_as(
+            "SELECT team_id, player_position FROM round_players
+             WHERE match_id = $1 AND round_number = $2 AND player_id = $3",
+        )
+        .bind(match_uuid)
+        .bind(round_number)
+        .bind(current_player_uuid)
+        .fetch_optional(&gql_ctx.pool)
+        .await?;
+
+        let (team_id, player_position) = current_round_player
+            .ok_or_else(|| Error::new("Current player not found in this round"))?;
+
+        let is_on_same_team: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM team_players WHERE team_id = $1 AND player_id = $2)",
+        )
+        .bind(team_id)
+        .bind(new_player_uuid)
+        .fetch_one(&gql_ctx.pool)
+        .await?;
+
+        if !is_on_same_team {
+            return Err(Error::new("Replacement player must be on the same team"));
+        }
+
+        let already_in_round: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM round_players WHERE match_id = $1 AND round_number = $2 AND player_id = $3)",
+        )
+        .bind(match_uuid)
+        .bind(round_number)
+        .bind(new_player_uuid)
+        .fetch_one(&gql_ctx.pool)
+        .await?;
+
+        if already_in_round {
+            return Err(Error::new("Replacement player is already in this round"));
+        }
+
+        sqlx::query(
+            "DELETE FROM round_players WHERE match_id = $1 AND round_number = $2 AND player_id = $3",
+        )
+        .bind(match_uuid)
+        .bind(round_number)
+        .bind(current_player_uuid)
+        .execute(&gql_ctx.pool)
+        .await?;
+
+        sqlx::query(
+            "INSERT INTO round_players (group_id, match_id, round_number, player_id, team_id, player_position)
+             VALUES ($1, $2, $3, $4, $5, $6)",
+        )
+        .bind(group_id)
+        .bind(match_uuid)
+        .bind(round_number)
+        .bind(new_player_uuid)
+        .bind(team_id)
+        .bind(player_position)
+        .execute(&gql_ctx.pool)
+        .await?;
+
+        let updated_match = models::Match::find_by_id(&gql_ctx.pool, match_uuid)
+            .await?
+            .ok_or_else(|| Error::new("Match not found after swap"))?;
 
         Ok(Match::from(updated_match))
     }

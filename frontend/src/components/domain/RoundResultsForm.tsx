@@ -1,11 +1,13 @@
-import { Box, Button, Field, Heading, HStack, Input, Text, VStack } from '@chakra-ui/react'
+import { Box, Button, Field, Heading, HStack, IconButton, Input, Text, VStack } from '@chakra-ui/react'
 import type { FormEvent } from 'react'
+import { LuArrowLeftRight } from 'react-icons/lu'
 import { Avatar } from '../common/Avatar'
 
 type Player = {
   id: string
   name: string
   avatarFilename?: string | null
+  teamId?: string | unknown
 }
 
 type Round = {
@@ -24,9 +26,10 @@ type RoundResultsFormProps = {
   onSubmit: (e: FormEvent) => void | Promise<void>
   error: string
   submitting: boolean
+  onSwapPlayer?: (player: Player) => void
 }
 
-export const RoundResultsForm = ({ round, positions, onPositionChange, onSubmit, error, submitting }: RoundResultsFormProps) => (
+export const RoundResultsForm = ({ round, positions, onPositionChange, onSubmit, error, submitting, onSwapPlayer }: RoundResultsFormProps) => (
   <Box p={{ base: 5, md: 6 }} bg="bg.panel" borderRadius="card" borderWidth="1px" borderColor="brand.400" boxShadow="card-hover">
     <VStack gap={{ base: 4, md: 5 }} align="stretch">
       <VStack gap={1} align="start">
@@ -43,10 +46,25 @@ export const RoundResultsForm = ({ round, positions, onPositionChange, onSubmit,
         <VStack gap={{ base: 3, md: 4 }} align="stretch">
           {round.players.map((player) => (
             <Field.Root key={player.id}>
-              <Field.Label fontSize={{ base: 'sm', md: 'md' }} fontWeight="medium" mb={2}>
-                <HStack gap={2}>
-                  <Avatar name={player.name} avatarFilename={player.avatarFilename} size="sm" />
-                  <Text>{player.name}</Text>
+              <Field.Label fontSize={{ base: 'sm', md: 'md' }} fontWeight="medium" mb={2} width="100%">
+                <HStack gap={2} justify="space-between" width="100%">
+                  <HStack gap={2}>
+                    <Avatar name={player.name} avatarFilename={player.avatarFilename} size="sm" />
+                    <Text>{player.name}</Text>
+                  </HStack>
+                  {onSwapPlayer && (
+                    <IconButton
+                      aria-label="Swap player"
+                      size="xs"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        onSwapPlayer(player)
+                      }}
+                    >
+                      <LuArrowLeftRight />
+                    </IconButton>
+                  )}
                 </HStack>
               </Field.Label>
               <Input
