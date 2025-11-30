@@ -2,7 +2,10 @@ mod common;
 
 use async_graphql::{Request, Variables, value};
 use common::{fixtures, setup};
-use mario_kart_leaderboard_backend::graphql::context::GraphQLContext;
+use mario_kart_leaderboard_backend::{
+    graphql::context::GraphQLContext,
+    services::notification_manager::NotificationManager,
+};
 
 #[tokio::test]
 async fn test_record_round_results_basic() {
@@ -66,7 +69,7 @@ async fn test_record_round_results_basic() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -166,7 +169,7 @@ async fn test_record_round_results_updates_elo() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -319,7 +322,7 @@ async fn test_record_round_results_with_multiple_players_and_varied_elos() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -448,7 +451,7 @@ async fn test_record_round_results_completes_match_when_all_rounds_done() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response1 = ctx.schema.execute(request1.data(gql_ctx)).await;
 
     assert!(response1.errors.is_empty());
@@ -473,7 +476,7 @@ async fn test_record_round_results_completes_match_when_all_rounds_done() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx2 = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx2 = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response2 = ctx.schema.execute(request2.data(gql_ctx2)).await;
 
     assert!(response2.errors.is_empty());
@@ -487,8 +490,8 @@ async fn test_record_round_results_completes_match_when_all_rounds_done() {
         Some(true)
     );
 
-    let team_scores: Vec<(f64,)> =
-        sqlx::query_as("SELECT score FROM team_match_scores WHERE match_id = $1")
+    let team_scores: Vec<(i32,)> =
+        sqlx::query_as("SELECT score FROM teams WHERE match_id = $1")
             .bind(match_record.id)
             .fetch_all(&ctx.pool)
             .await
@@ -556,7 +559,7 @@ async fn test_record_round_results_validation_invalid_position() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty());
@@ -622,7 +625,7 @@ async fn test_record_round_results_validation_duplicate_position() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty());
@@ -688,7 +691,7 @@ async fn test_record_round_results_validation_already_completed() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response1 = ctx.schema.execute(request1.data(gql_ctx)).await;
 
     assert!(response1.errors.is_empty());
@@ -704,7 +707,7 @@ async fn test_record_round_results_validation_already_completed() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx2 = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx2 = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response2 = ctx.schema.execute(request2.data(gql_ctx2)).await;
 
     assert!(!response2.errors.is_empty());

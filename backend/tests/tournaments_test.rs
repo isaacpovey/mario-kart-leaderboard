@@ -2,7 +2,10 @@ mod common;
 
 use async_graphql::{Request, Variables, value};
 use common::{fixtures, setup};
-use mario_kart_leaderboard_backend::graphql::context::GraphQLContext;
+use mario_kart_leaderboard_backend::{
+    graphql::context::GraphQLContext,
+    services::notification_manager::NotificationManager,
+};
 
 #[tokio::test]
 async fn test_tournaments_query() {
@@ -29,7 +32,7 @@ async fn test_tournaments_query() {
 
     let request = Request::new(query).data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -74,7 +77,7 @@ async fn test_create_tournament_mutation() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -121,7 +124,7 @@ async fn test_create_tournament_with_invalid_dates() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected date format error");

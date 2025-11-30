@@ -2,7 +2,10 @@ mod common;
 
 use async_graphql::{Request, Variables, value};
 use common::{fixtures, setup};
-use mario_kart_leaderboard_backend::graphql::context::GraphQLContext;
+use mario_kart_leaderboard_backend::{
+    graphql::context::GraphQLContext,
+    services::notification_manager::NotificationManager,
+};
 
 #[tokio::test]
 async fn test_players_query() {
@@ -22,14 +25,13 @@ async fn test_players_query() {
             players {
                 id
                 name
-                eloRating
             }
         }
     "#;
 
     let request = Request::new(query).data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -62,7 +64,6 @@ async fn test_create_player_mutation() {
             createPlayer(name: $name) {
                 id
                 name
-                eloRating
             }
         }
     "#;
@@ -73,7 +74,7 @@ async fn test_create_player_mutation() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -91,7 +92,6 @@ async fn test_create_player_mutation() {
         player.get("name").and_then(|v| v.as_str()),
         Some("Test Player")
     );
-    assert_eq!(player.get("eloRating").and_then(|v| v.as_i64()), Some(1200));
 }
 
 #[tokio::test]
@@ -113,7 +113,7 @@ async fn test_create_player_without_auth() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None);
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None, NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected authentication error");

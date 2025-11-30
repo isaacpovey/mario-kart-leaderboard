@@ -2,7 +2,11 @@ mod common;
 
 use async_graphql::{Request, Variables, value};
 use common::{fixtures, setup};
-use mario_kart_leaderboard_backend::{auth::verify_jwt, graphql::context::GraphQLContext};
+use mario_kart_leaderboard_backend::{
+    auth::verify_jwt,
+    graphql::context::GraphQLContext,
+    services::notification_manager::NotificationManager,
+};
 
 #[tokio::test]
 async fn test_login_query_success() {
@@ -26,7 +30,7 @@ async fn test_login_query_success() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None);
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None, NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -72,7 +76,7 @@ async fn test_login_query_invalid_credentials() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None);
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None, NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected authentication error");
@@ -100,7 +104,7 @@ async fn test_create_group_mutation() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None);
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None, NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(

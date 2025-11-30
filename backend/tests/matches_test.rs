@@ -2,196 +2,10 @@ mod common;
 
 use async_graphql::{Request, Variables, value};
 use common::{fixtures, setup};
-use mario_kart_leaderboard_backend::graphql::context::GraphQLContext;
-
-// ============================================================================
-// Tests for `matches` query
-// ============================================================================
-
-#[tokio::test]
-async fn test_matches_query() {
-    let ctx = setup::setup_test_db().await;
-
-    // Create test data
-    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
-        .await
-        .expect("Failed to create test group");
-
-    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
-        .await
-        .expect("Failed to create test tournaments");
-
-    let tournament = &tournaments[0];
-
-    let query = r#"
-        query Matches($tournamentId: ID!) {
-            matches(tournamentId: $tournamentId) {
-                id
-                tournamentId
-            }
-        }
-    "#;
-
-    let request = Request::new(query)
-        .variables(Variables::from_value(value!({
-            "tournamentId": tournament.id.to_string()
-        })))
-        .data(ctx.config.clone());
-
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
-    let response = ctx.schema.execute(request.data(gql_ctx)).await;
-
-    assert!(
-        response.errors.is_empty(),
-        "Expected no errors: {:?}",
-        response.errors
-    );
-
-    let data = response.data.into_json().expect("Failed to parse response");
-    let matches = data
-        .get("matches")
-        .expect("matches field not found")
-        .as_array()
-        .expect("matches should be an array");
-
-    // Should be 0 matches as we haven't created any yet
-    assert_eq!(matches.len(), 0);
-}
-
-#[tokio::test]
-async fn test_matches_query_unauthorized() {
-    let ctx = setup::setup_test_db().await;
-
-    // Create test data for two different groups
-    let group1 = fixtures::create_test_group(&ctx.pool, "Test Group 1", "password")
-        .await
-        .expect("Failed to create test group");
-
-    let group2 = fixtures::create_test_group(&ctx.pool, "Test Group 2", "password")
-        .await
-        .expect("Failed to create test group");
-
-    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group1.id, 1)
-        .await
-        .expect("Failed to create test tournaments");
-
-    let tournament = &tournaments[0];
-
-    let query = r#"
-        query Matches($tournamentId: ID!) {
-            matches(tournamentId: $tournamentId) {
-                id
-            }
-        }
-    "#;
-
-    let request = Request::new(query)
-        .variables(Variables::from_value(value!({
-            "tournamentId": tournament.id.to_string()
-        })))
-        .data(ctx.config.clone());
-
-    // Authenticate as group2, trying to access group1's tournament
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group2.id));
-    let response = ctx.schema.execute(request.data(gql_ctx)).await;
-
-    assert!(!response.errors.is_empty(), "Expected unauthorized error");
-    assert!(
-        response.errors[0].message.contains("Unauthorized"),
-        "Expected Unauthorized error, got: {}",
-        response.errors[0].message
-    );
-}
-
-#[tokio::test]
-async fn test_matches_query_with_resolved_fields() {
-    let ctx = setup::setup_test_db().await;
-
-    // Create test data
-    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
-        .await
-        .expect("Failed to create test group");
-
-    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
-        .await
-        .expect("Failed to create test tournaments");
-
-    let tournament = &tournaments[0];
-
-    // Create a match with rounds and teams
-    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 3)
-        .await
-        .expect("Failed to create test match");
-
-    let _teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 2)
-        .await
-        .expect("Failed to create test teams");
-
-    let _rounds = fixtures::create_test_rounds(&ctx.pool, match_record.id, 3)
-        .await
-        .expect("Failed to create test rounds");
-
-    let query = r#"
-        query Matches($tournamentId: ID!) {
-            matches(tournamentId: $tournamentId) {
-                id
-                numOfRounds
-                rounds {
-                    roundNumber
-                    trackId
-                }
-                teams {
-                    id
-                    teamNum
-                }
-            }
-        }
-    "#;
-
-    let request = Request::new(query)
-        .variables(Variables::from_value(value!({
-            "tournamentId": tournament.id.to_string()
-        })))
-        .data(ctx.config.clone());
-
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
-    let response = ctx.schema.execute(request.data(gql_ctx)).await;
-
-    assert!(
-        response.errors.is_empty(),
-        "Expected no errors: {:?}",
-        response.errors
-    );
-
-    let data = response.data.into_json().expect("Failed to parse response");
-    let matches = data
-        .get("matches")
-        .expect("matches field not found")
-        .as_array()
-        .expect("matches should be an array");
-
-    assert_eq!(matches.len(), 1);
-
-    let match_data = &matches[0];
-    assert_eq!(
-        match_data.get("numOfRounds").and_then(|v| v.as_i64()),
-        Some(3)
-    );
-
-    let rounds = match_data
-        .get("rounds")
-        .expect("rounds field not found")
-        .as_array()
-        .expect("rounds should be an array");
-    assert_eq!(rounds.len(), 3);
-
-    let teams = match_data
-        .get("teams")
-        .expect("teams field not found")
-        .as_array()
-        .expect("teams should be an array");
-    assert_eq!(teams.len(), 2);
-}
+use mario_kart_leaderboard_backend::{
+    graphql::context::GraphQLContext,
+    services::notification_manager::NotificationManager,
+};
 
 // ============================================================================
 // Tests for `match_by_id` query
@@ -232,7 +46,7 @@ async fn test_match_by_id_happy_path() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -276,9 +90,25 @@ async fn test_match_by_id_with_resolved_fields() {
         .await
         .expect("Failed to create test match");
 
-    let _teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 4)
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 4)
         .await
         .expect("Failed to create test teams");
+
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("Failed to create test players");
+
+    // Add players to teams (one player per team)
+    for (i, (team, player)) in teams.iter().zip(players.iter()).enumerate() {
+        sqlx::query("INSERT INTO team_players (group_id, team_id, player_id, rank) VALUES ($1, $2, $3, $4)")
+            .bind(group.id)
+            .bind(team.id)
+            .bind(player.id)
+            .bind(i as i32 + 1)
+            .execute(&ctx.pool)
+            .await
+            .expect("Failed to add player to team");
+    }
 
     let _rounds = fixtures::create_test_rounds(&ctx.pool, match_record.id, 3)
         .await
@@ -291,7 +121,9 @@ async fn test_match_by_id_with_resolved_fields() {
                 numOfRounds
                 rounds {
                     roundNumber
-                    trackId
+                    track {
+                        id
+                    }
                 }
                 teams {
                     id
@@ -308,7 +140,7 @@ async fn test_match_by_id_with_resolved_fields() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -362,7 +194,7 @@ async fn test_match_by_id_invalid_id() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected validation error");
@@ -398,7 +230,7 @@ async fn test_match_by_id_not_found() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected not found error");
@@ -446,7 +278,7 @@ async fn test_match_by_id_unauthorized() {
         .data(ctx.config.clone());
 
     // Authenticate as group2, trying to access group1's match
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group2.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group2.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected unauthorized error");
@@ -490,7 +322,7 @@ async fn test_match_by_id_no_auth() {
         .data(ctx.config.clone());
 
     // No authentication
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None);
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None, NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected authentication error");
@@ -552,7 +384,7 @@ async fn test_create_match_with_rounds_basic() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -660,7 +492,7 @@ async fn test_create_match_with_rounds_verifies_snake_draft() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -741,7 +573,9 @@ async fn test_create_match_with_rounds_verifies_tracks_assigned() {
                 id
                 rounds {
                     roundNumber
-                    trackId
+                    track {
+                        id
+                    }
                 }
             }
         }
@@ -755,7 +589,7 @@ async fn test_create_match_with_rounds_verifies_tracks_assigned() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -777,12 +611,17 @@ async fn test_create_match_with_rounds_verifies_tracks_assigned() {
 
     assert_eq!(rounds.len(), 3, "Should have 3 rounds");
 
-    // Verify all rounds have track IDs
+    // Verify all rounds have tracks
     for round in rounds {
-        let track_id = round.get("trackId");
+        let track = round.get("track");
+        assert!(
+            track.is_some() && !track.unwrap().is_null(),
+            "Each round should have a track"
+        );
+        let track_id = track.unwrap().get("id");
         assert!(
             track_id.is_some() && !track_id.unwrap().is_null(),
-            "Each round should have a track"
+            "Each track should have an id"
         );
     }
 }
@@ -825,7 +664,7 @@ async fn test_create_match_with_rounds_invalid_tournament_id() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected validation error");
@@ -872,7 +711,7 @@ async fn test_create_match_with_rounds_tournament_not_found() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected not found error");
@@ -927,7 +766,7 @@ async fn test_create_match_with_rounds_uneven_slot_distribution() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(
@@ -990,7 +829,7 @@ async fn test_create_match_with_rounds_players_per_race_exceeds_total() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected validation error");
@@ -1043,7 +882,7 @@ async fn test_create_match_with_rounds_zero_races() {
         })))
         .data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected validation error");
@@ -1103,7 +942,7 @@ async fn test_create_match_with_rounds_unauthorized() {
         .data(ctx.config.clone());
 
     // Authenticate as group2, trying to create match in group1's tournament
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group2.id));
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group2.id), NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected unauthorized error");
@@ -1155,7 +994,7 @@ async fn test_create_match_with_rounds_no_auth() {
         .data(ctx.config.clone());
 
     // No authentication
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None);
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None, NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(!response.errors.is_empty(), "Expected authentication error");

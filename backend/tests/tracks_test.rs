@@ -2,7 +2,10 @@ mod common;
 
 use async_graphql::Request;
 use common::setup;
-use mario_kart_leaderboard_backend::graphql::context::GraphQLContext;
+use mario_kart_leaderboard_backend::{
+    graphql::context::GraphQLContext,
+    services::notification_manager::NotificationManager,
+};
 
 #[tokio::test]
 async fn test_tracks_query() {
@@ -19,7 +22,7 @@ async fn test_tracks_query() {
 
     let request = Request::new(query).data(ctx.config.clone());
 
-    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None);
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), None, NotificationManager::new());
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
 
     assert!(

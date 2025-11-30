@@ -58,6 +58,8 @@ pub async fn setup_test_db() -> TestContext {
         server_port: 8080,
         enable_playground: false,
         cors_origins: vec!["http://localhost:3000".to_string()],
+        otlp_endpoint: None,
+        service_name: "test".to_string(),
     };
 
     TestContext {
