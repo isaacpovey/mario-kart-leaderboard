@@ -4,55 +4,28 @@
 //! This module implements an ELO rating system adapted for 24-player Mario Kart races.
 //! Unlike traditional 1v1 ELO, this system accounts for:
 //! - Multiple players racing simultaneously (up to 24 positions)
-//! - CPU opponents filling empty positions (assumed ELO of 800)
-//! - Normalized scoring based on final race position
+//! - CPU opponents filling empty positions (scaled based on race average ELO)
+//! - Non-linear scoring based on final race position (protects top finishers)
 //!
 //! ## How It Works
 //!
 //! The ELO calculation follows these steps:
 //!
-//! 1. **Create Full Field**: Fill a 24-player race with human players and CPU opponents
+//! 1. **Create Full Field**: Fill a 24-player race with human players and CPU opponents.
+//!    CPU ELO is based on the average human ELO in the race with a position-based decrease.
 //! 2. **Calculate Expected Score**: For each player, calculate their expected performance
 //!    against all other opponents using the standard ELO formula
-//! 3. **Calculate Actual Score**: Convert race position (1-24) to a normalized score (1.0-0.0)
+//! 3. **Calculate Actual Score**: Convert race position (1-24) to a normalized score using
+//!    a power function that rewards top positions more
 //! 4. **Apply K-Factor**: Calculate rating change using K=100 and the difference between
 //!    expected and actual scores
 //!
-//! ## Examples
+//! ## Algorithm Characteristics
 //!
-//! ### Basic 2-Player Race
-//! ```rust
-//! # use mario_kart_leaderboard_backend::services::elo::*;
-//! # use uuid::Uuid;
-//! let results = vec![
-//!     PlayerResult {
-//!         player_id: Uuid::new_v4(),
-//!         position: 1,
-//!         current_elo: 1200,
-//!     },
-//!     PlayerResult {
-//!         player_id: Uuid::new_v4(),
-//!         position: 2,
-//!         current_elo: 1200,
-//!     },
-//! ];
-//!
-//! let changes = calculate_elo_changes(&results);
-//! // 1st place gains ELO (beats 23 opponents: 1 human + 22 CPUs)
-//! // 2nd place also gains ELO (beats 22 CPU opponents at 1000 ELO)
-//! // 1st place gains more than 2nd place
-//! ```
-//!
-//! ### Why 2nd Place Can Gain ELO
-//!
-//! In a 24-player race, finishing 2nd means:
-//! - Lost to 1 opponent (1st place)
-//! - Beat 22 opponents (positions 3-24, all CPUs at ELO 800)
-//!
-//! When both human players have ELO 1200:
-//! - Beating 22 lower-rated opponents (800 ELO) provides significant ELO gain
-//! - Losing to 1 equal-rated opponent (1200 ELO) provides moderate ELO loss
-//! - Net result: 2nd place gains ELO (but less than 1st place)
+//! - **Dynamic CPU ELO**: CPUs scale with race skill level (based on average human ELO)
+//! - **Higher CPU floor**: Minimum CPU ELO of 950 reduces harsh penalties for lower-ranked players
+//! - **Non-linear scoring**: Power function (exponent 0.65) protects top 4 finishers and
+//!   compresses differences at bottom positions
 //!
 //! ## Constants
 
@@ -66,9 +39,10 @@ const K_FACTOR: f64 = 100.0;
 /// Total number of racers in a Mario Kart race (including CPUs)
 const TOTAL_RACE_SIZE: usize = 24;
 
-const MAX_CPU_ELO: i32 = 1400;
-const MIN_CPU_ELO: i32 = 600;
-const CPU_ELO_DECREASE: i32 = 100;
+const MIN_CPU_ELO: i32 = 950;
+const CPU_ELO_SPREAD: i32 = 300;
+const CPU_ELO_DECREASE: i32 = 25;
+const POSITION_SCORE_EXPONENT: f64 = 0.65;
 
 /// Represents a player's result in a single race
 #[derive(Debug, Clone)]
@@ -135,28 +109,36 @@ pub fn calculate_elo_changes(results: &[PlayerResult]) -> Vec<EloChange> {
 }
 
 /// Internal function: Creates a full 24-player field by filling empty positions with CPU opponents.
+/// CPU ELO is scaled based on the average human ELO in the race.
 /// Exposed for testing purposes.
 #[instrument(level = "debug", fields(human_count = human_results.len()))]
 pub fn create_full_field(human_results: &[PlayerResult]) -> Vec<PlayerResult> {
-    let mut full_field = Vec::with_capacity(TOTAL_RACE_SIZE);
+    let average_human_elo = human_results
+        .iter()
+        .map(|r| r.current_elo)
+        .sum::<i32>()
+        .checked_div(human_results.len() as i32)
+        .unwrap_or(1200);
 
-    full_field.extend_from_slice(human_results);
+    let base_cpu_elo = average_human_elo + CPU_ELO_SPREAD / 2;
 
     let human_positions: std::collections::HashSet<i32> =
         human_results.iter().map(|r| r.position).collect();
 
-    for position in 1..=TOTAL_RACE_SIZE as i32 {
-        if !human_positions.contains(&position) {
-            let cpu_elo = max(MIN_CPU_ELO, MAX_CPU_ELO - ((position - 1) * CPU_ELO_DECREASE));
-            full_field.push(PlayerResult {
-                player_id: Uuid::nil(),
-                position,
-                current_elo: cpu_elo,
-            });
-        }
-    }
-
-    full_field
+    (1..=TOTAL_RACE_SIZE as i32).fold(
+        human_results.to_vec(),
+        |mut field, position| {
+            if !human_positions.contains(&position) {
+                let cpu_elo = max(MIN_CPU_ELO, base_cpu_elo - ((position - 1) * CPU_ELO_DECREASE));
+                field.push(PlayerResult {
+                    player_id: Uuid::nil(),
+                    position,
+                    current_elo: cpu_elo,
+                });
+            }
+            field
+        },
+    )
 }
 
 #[instrument(level = "debug", skip(all_results), fields(opponent_count = all_results.len().saturating_sub(1), player_elo = player.current_elo))]
@@ -177,11 +159,15 @@ fn calculate_expected_score(player: &PlayerResult, all_results: &[PlayerResult])
         / opponent_count as f64
 }
 
-/// Internal function: Converts race position (1-24) to normalized score (1.0-0.0).
+/// Internal function: Converts race position (1-24) to normalized score using a power function.
+/// The power function compresses bottom positions and expands top positions,
+/// naturally protecting top finishers from losing ELO.
 /// Exposed for testing purposes.
 pub fn position_to_score(position: i32) -> f64 {
     if TOTAL_RACE_SIZE <= 1 {
         return 0.5;
     }
-    (TOTAL_RACE_SIZE as i32 - position) as f64 / (TOTAL_RACE_SIZE - 1) as f64
+    let linear_score =
+        (TOTAL_RACE_SIZE as i32 - position) as f64 / (TOTAL_RACE_SIZE - 1) as f64;
+    linear_score.powf(POSITION_SCORE_EXPONENT)
 }

@@ -233,3 +233,147 @@ fn test_full_field_creation() {
         "Human positions should be in full field"
     );
 }
+
+#[test]
+fn test_low_elo_player_12th_place_reduced_penalty() {
+    let results = vec![create_player(1, 12, 1000)];
+
+    let changes = calculate_elo_changes(&results);
+    let player = &changes[0];
+
+    assert!(
+        player.elo_change > -25,
+        "1000 ELO player finishing 12th should not lose more than 25 ELO, got: {}",
+        player.elo_change
+    );
+}
+
+#[test]
+fn test_top_player_3rd_place_protected() {
+    let results = vec![
+        create_player(1, 1, 1390),
+        create_player(2, 2, 1370),
+        create_player(3, 3, 1420),
+    ];
+
+    let changes = calculate_elo_changes(&results);
+    let top_player = changes
+        .iter()
+        .find(|c| c.player_id == Uuid::from_u128(3))
+        .unwrap();
+
+    assert!(
+        top_player.elo_change >= -5,
+        "1420 ELO player finishing 3rd should not lose more than 5 ELO, got: {}",
+        top_player.elo_change
+    );
+}
+
+#[test]
+fn test_underdog_first_place_increased_gain() {
+    let results = vec![
+        create_player(1, 1, 1000),
+        create_player(2, 2, 1300),
+        create_player(3, 3, 1350),
+        create_player(4, 4, 1400),
+    ];
+
+    let changes = calculate_elo_changes(&results);
+    let underdog = changes
+        .iter()
+        .find(|c| c.player_id == Uuid::from_u128(1))
+        .unwrap();
+
+    assert!(
+        underdog.elo_change >= 40,
+        "1000 ELO underdog winning 1st against 1300-1400 players should gain at least 40 ELO, got: {}",
+        underdog.elo_change
+    );
+}
+
+#[test]
+fn test_top_4_finishers_rarely_lose_elo() {
+    let results = vec![
+        create_player(1, 1, 1200),
+        create_player(2, 2, 1200),
+        create_player(3, 3, 1200),
+        create_player(4, 4, 1200),
+    ];
+
+    let changes = calculate_elo_changes(&results);
+
+    for (i, change) in changes.iter().enumerate() {
+        let position = i + 1;
+        assert!(
+            change.elo_change >= 0,
+            "Equal ELO player in position {} should not lose ELO, got: {}",
+            position,
+            change.elo_change
+        );
+    }
+}
+
+#[test]
+fn test_cpu_elo_scales_with_race_average() {
+    use mario_kart_leaderboard_backend::services::elo::create_full_field;
+
+    let low_elo_race = vec![create_player(1, 1, 900), create_player(2, 2, 950)];
+    let high_elo_race = vec![create_player(1, 1, 1400), create_player(2, 2, 1450)];
+
+    let low_field = create_full_field(&low_elo_race);
+    let high_field = create_full_field(&high_elo_race);
+
+    let low_cpu_avg: i32 = low_field
+        .iter()
+        .filter(|p| p.player_id == Uuid::nil())
+        .map(|p| p.current_elo)
+        .sum::<i32>()
+        / 22;
+
+    let high_cpu_avg: i32 = high_field
+        .iter()
+        .filter(|p| p.player_id == Uuid::nil())
+        .map(|p| p.current_elo)
+        .sum::<i32>()
+        / 22;
+
+    assert!(
+        high_cpu_avg > low_cpu_avg,
+        "CPUs in high-ELO race should have higher average ELO ({}) than low-ELO race ({})",
+        high_cpu_avg,
+        low_cpu_avg
+    );
+}
+
+#[test]
+fn test_position_scoring_is_nonlinear() {
+    use mario_kart_leaderboard_backend::services::elo::position_to_score;
+
+    let score_1st = position_to_score(1);
+    let score_4th = position_to_score(4);
+    let score_12th = position_to_score(12);
+
+    let linear_4th = (24.0 - 4.0) / 23.0;
+    let linear_12th = (24.0 - 12.0) / 23.0;
+
+    assert!(
+        score_4th > linear_4th,
+        "4th place score should be higher than linear (got {} vs {})",
+        score_4th,
+        linear_4th
+    );
+
+    assert!(
+        score_12th > linear_12th,
+        "12th place score should be higher than linear (got {} vs {})",
+        score_12th,
+        linear_12th
+    );
+
+    assert_eq!(score_1st, 1.0, "1st place should still be 1.0");
+    assert!(
+        score_4th > 0.9,
+        "4th place should have score > 0.9, got {}",
+        score_4th
+    );
+}
