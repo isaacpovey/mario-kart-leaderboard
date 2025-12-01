@@ -23,9 +23,9 @@
 //! ## Algorithm Characteristics
 //!
 //! - **Dynamic CPU ELO**: CPUs scale with race skill level (based on average human ELO)
-//! - **Higher CPU floor**: Minimum CPU ELO of 950 reduces harsh penalties for lower-ranked players
-//! - **Non-linear scoring**: Power function (exponent 0.65) protects top 4 finishers and
-//!   compresses differences at bottom positions
+//! - **CPU ELO floor**: Minimum CPU ELO of 800 for bottom positions
+//! - **Non-linear scoring**: Power function (exponent 1.5) steepens the curve so that
+//!   lower positions score significantly worse than top positions
 //!
 //! ## Constants
 
@@ -39,10 +39,10 @@ const K_FACTOR: f64 = 100.0;
 /// Total number of racers in a Mario Kart race (including CPUs)
 const TOTAL_RACE_SIZE: usize = 24;
 
-const MIN_CPU_ELO: i32 = 950;
-const CPU_ELO_SPREAD: i32 = 300;
+const MIN_CPU_ELO: i32 = 800;
+const CPU_ELO_SPREAD: i32 = 50;
 const CPU_ELO_DECREASE: i32 = 25;
-const POSITION_SCORE_EXPONENT: f64 = 0.65;
+const POSITION_SCORE_EXPONENT: f64 = 1.5;
 
 /// Represents a player's result in a single race
 #[derive(Debug, Clone)]

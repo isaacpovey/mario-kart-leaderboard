@@ -166,7 +166,7 @@ pub async fn create_match_with_rounds(
     let teams = team_allocation::allocate_teams(&players, &players_per_race, &tournament_elos);
     let tracks = track_selection::select_tracks(pool, tournament_id, num_races).await?;
     let race_allocations =
-        race_allocation::allocate_races(&players, &teams, num_races, players_per_race)?;
+        race_allocation::allocate_races(&players, &teams, num_races, players_per_race, &tournament_elos)?;
 
     let match_record = create_match_in_transaction(
         pool,

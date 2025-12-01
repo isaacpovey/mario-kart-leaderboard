@@ -28,6 +28,7 @@
 use crate::error::{AppError, Result};
 use crate::models;
 use crate::services::team_allocation::Team;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Represents the allocation of players to a specific race
@@ -59,6 +60,7 @@ struct PlayerWithElo {
 /// * `teams` - Slice of teams with their assigned players
 /// * `num_races` - Total number of races in the match
 /// * `_players_per_race` - Maximum players per race (currently unused, kept for compatibility)
+/// * `elo_ratings` - Map of player IDs to ELO ratings (typically tournament ELO)
 ///
 /// # Returns
 ///
@@ -74,19 +76,21 @@ struct PlayerWithElo {
 /// # use mario_kart_leaderboard_backend::services::race_allocation::allocate_races;
 /// # use mario_kart_leaderboard_backend::services::team_allocation::Team;
 /// # use mario_kart_leaderboard_backend::models::Player;
+/// # use std::collections::HashMap;
 /// # use uuid::Uuid;
 /// let group_id = Uuid::new_v4();
 /// let players = vec![
 ///     Player { id: Uuid::new_v4(), group_id, name: "Alice".to_string(), elo_rating: 1400 },
 ///     Player { id: Uuid::new_v4(), group_id, name: "Bob".to_string(), elo_rating: 1200 },
 /// ];
+/// let elo_ratings: HashMap<Uuid, i32> = players.iter().map(|p| (p.id, p.elo_rating)).collect();
 ///
 /// let teams = vec![
 ///     Team { team_num: 1, players: vec![players[0].clone()], total_elo: 1400 },
 ///     Team { team_num: 2, players: vec![players[1].clone()], total_elo: 1200 },
 /// ];
 ///
-/// let allocations = allocate_races(&players, &teams, 4, 2).unwrap();
+/// let allocations = allocate_races(&players, &teams, 4, 2, &elo_ratings).unwrap();
 /// assert_eq!(allocations.len(), 4);
 /// // Each race should have 2 players (one from each team)
 /// ```
@@ -95,6 +99,7 @@ pub fn allocate_races(
     teams: &[Team],
     num_races: i32,
     _players_per_race: i32,
+    elo_ratings: &HashMap<Uuid, i32>,
 ) -> Result<Vec<RaceAllocation>> {
     // Build team state with sorted players
     let team_state: Vec<(i32, Vec<PlayerWithElo>)> = teams
@@ -105,7 +110,7 @@ pub fn allocate_races(
                 .iter()
                 .map(|p| PlayerWithElo {
                     id: p.id,
-                    elo: p.elo_rating,
+                    elo: elo_ratings.get(&p.id).copied().unwrap_or(p.elo_rating),
                 })
                 .collect();
 

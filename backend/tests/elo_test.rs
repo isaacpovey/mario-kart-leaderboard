@@ -10,6 +10,73 @@ fn create_player(id: u128, position: i32, elo: i32) -> PlayerResult {
 }
 
 #[test]
+fn test_scenario_four_players_positions_1_to_4() {
+    let results = vec![
+        create_player(1, 1, 1200),
+        create_player(2, 2, 1200),
+        create_player(3, 3, 1200),
+        create_player(4, 4, 1200),
+    ];
+
+    let changes = calculate_elo_changes(&results);
+
+    println!("\n=== Scenario: 4 players at 1200 ELO, positions 1-4 ===");
+    for change in &changes {
+        let position = results
+            .iter()
+            .find(|r| r.player_id == change.player_id)
+            .map(|r| r.position)
+            .unwrap();
+        println!(
+            "Position {}: ELO change = {:+}, new ELO = {}",
+            position, change.elo_change, change.new_elo
+        );
+    }
+
+    let total_change: i32 = changes.iter().map(|c| c.elo_change).sum();
+    println!("Total ELO change: {:+}", total_change);
+
+    let pos1_change = changes.iter().find(|c| c.player_id == Uuid::from_u128(1)).unwrap();
+    let pos4_change = changes.iter().find(|c| c.player_id == Uuid::from_u128(4)).unwrap();
+
+    assert!(
+        pos1_change.elo_change > pos4_change.elo_change,
+        "Position 1 should gain more than position 4"
+    );
+}
+
+#[test]
+fn test_scenario_four_players_positions_1_2_4_11() {
+    let results = vec![
+        create_player(1, 1, 1200),
+        create_player(2, 2, 1200),
+        create_player(3, 4, 1200),
+        create_player(4, 11, 1200),
+    ];
+
+    let changes = calculate_elo_changes(&results);
+
+    println!("\n=== Scenario: 4 players at 1200 ELO, positions 1, 2, 4, 11 ===");
+    for change in &changes {
+        let position = results
+            .iter()
+            .find(|r| r.player_id == change.player_id)
+            .map(|r| r.position)
+            .unwrap();
+        println!(
+            "Position {}: ELO change = {:+}, new ELO = {}",
+            position, change.elo_change, change.new_elo
+        );
+    }
+
+    let total_change: i32 = changes.iter().map(|c| c.elo_change).sum();
+    println!("Total ELO change: {:+}", total_change);
+
+    let pos11_change = changes.iter().find(|c| c.player_id == Uuid::from_u128(4)).unwrap();
+    println!("Position 11 ELO change: {:+}", pos11_change.elo_change);
+}
+
+#[test]
 fn test_elo_two_equal_players_head_to_head() {
     let results = vec![create_player(1, 1, 1200), create_player(2, 2, 1200)];
 
@@ -235,15 +302,20 @@ fn test_full_field_creation() {
 }
 
 #[test]
-fn test_low_elo_player_12th_place_reduced_penalty() {
+fn test_low_elo_player_12th_place_penalty() {
     let results = vec![create_player(1, 12, 1000)];
 
     let changes = calculate_elo_changes(&results);
     let player = &changes[0];
 
     assert!(
-        player.elo_change > -25,
-        "1000 ELO player finishing 12th should not lose more than 25 ELO, got: {}",
+        player.elo_change > -50,
+        "1000 ELO player finishing 12th should not lose more than 50 ELO, got: {}",
+        player.elo_change
+    );
+    assert!(
+        player.elo_change < 0,
+        "1000 ELO player finishing 12th should lose ELO, got: {}",
         player.elo_change
     );
 }
@@ -356,24 +428,25 @@ fn test_position_scoring_is_nonlinear() {
     let linear_4th = (24.0 - 4.0) / 23.0;
     let linear_12th = (24.0 - 12.0) / 23.0;
 
+    // With exponent > 1.0, scores are LOWER than linear (steeper curve penalizes lower positions)
     assert!(
-        score_4th > linear_4th,
-        "4th place score should be higher than linear (got {} vs {})",
+        score_4th < linear_4th,
+        "4th place score should be lower than linear with steep curve (got {} vs {})",
         score_4th,
         linear_4th
     );
 
     assert!(
-        score_12th > linear_12th,
-        "12th place score should be higher than linear (got {} vs {})",
+        score_12th < linear_12th,
+        "12th place score should be lower than linear with steep curve (got {} vs {})",
         score_12th,
         linear_12th
     );
 
     assert_eq!(score_1st, 1.0, "1st place should still be 1.0");
     assert!(
-        score_4th > 0.9,
-        "4th place should have score > 0.9, got {}",
+        score_4th > 0.75 && score_4th < 0.85,
+        "4th place should have score around 0.81, got {}",
         score_4th
     );
 }
