@@ -42,9 +42,11 @@ export const NewMatchNotification = ({ matches, tournamentId }: NewMatchNotifica
 
     // Only show modal if matches increased after initial mount
     if (currentMatchCount > lastSeenMatchCount) {
-      const latestMatch = matches[matches.length - 1]
-      if (latestMatch) {
-        setNewMatchId(latestMatch.id)
+      // Find the most recent in-progress match (newly created matches are not completed)
+      const inProgressMatches = matches.filter((m) => !m.completed)
+      const latestInProgressMatch = inProgressMatches[inProgressMatches.length - 1]
+      if (latestInProgressMatch) {
+        setNewMatchId(latestInProgressMatch.id)
         setIsOpen(true)
         setLastSeenMatchCount(currentMatchCount)
         localStorage.setItem(`lastSeenMatchCount_${tournamentId}`, currentMatchCount.toString())

@@ -1,7 +1,9 @@
-import { Box, Button, Container, Heading, HStack, Stack, Text, VStack } from '@chakra-ui/react'
+import { Box, Button, Container, Heading, HStack, Spinner, Stack, Text, VStack } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useClient, useQuery } from 'urql'
+import { ErrorState } from '../components/common/ErrorState'
+import { CompleteTournamentModal } from '../components/CompleteTournamentModal'
 import { CreateMatchModal } from '../components/CreateMatchModal'
 import { CreateTournamentModal } from '../components/CreateTournamentModal'
 import { HeroBanner } from '../components/domain/HeroBanner'
@@ -9,7 +11,6 @@ import { LeaderboardList } from '../components/domain/LeaderboardList'
 import { MatchList } from '../components/domain/MatchList'
 import { NewMatchNotification } from '../components/domain/NewMatchNotification'
 import { TournamentSummary } from '../components/domain/TournamentSummary'
-import { useTournamentManagement } from '../hooks/features/useTournamentManagement'
 import { useAuth } from '../hooks/useAuth'
 import { useRaceResultsSubscription } from '../hooks/useRaceResultsSubscription'
 import { activeTournamentQuery } from '../queries/activeTournament.query'
@@ -17,15 +18,56 @@ import { tournamentByIdQuery } from '../queries/tournamentById.query'
 import { tournamentsQuery } from '../queries/tournaments.query'
 import { activeTournamentQueryAtom } from '../store/queries'
 
+const MAX_RETRIES = 3
+
 const Home = () => {
   const { logout } = useAuth()
   const urqlClient = useClient()
   const activeTournamentResult = useAtomValue(activeTournamentQueryAtom)
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
   const [isTournamentModalOpen, setIsTournamentModalOpen] = useState(false)
-  const { completeTournament, isCompleting } = useTournamentManagement()
+  const [isCompleteTournamentModalOpen, setIsCompleteTournamentModalOpen] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const lastErrorRef = useRef<Error | null>(null)
 
   const currentTournament = activeTournamentResult?.data?.activeTournament ?? null
+  const hasError = activeTournamentResult?.error !== undefined
+
+  // Track if this is a new error (different from last one we tried to handle)
+  const isNewError = hasError && activeTournamentResult.error !== lastErrorRef.current
+
+  // Auto-retry on error with exponential backoff
+  useEffect(() => {
+    if (isNewError && retryCount < MAX_RETRIES) {
+      lastErrorRef.current = activeTournamentResult.error ?? null
+      const delay = 1000 * Math.pow(2, retryCount) // 1s, 2s, 4s
+      const timer = setTimeout(() => {
+        urqlClient
+          .query(activeTournamentQuery, {}, { requestPolicy: 'network-only' })
+          .toPromise()
+          .finally(() => setRetryCount((prev) => prev + 1))
+      }, delay)
+      return () => clearTimeout(timer)
+    }
+  }, [isNewError, retryCount, urqlClient, activeTournamentResult.error])
+
+  // Reset retry count when we successfully load data
+  useEffect(() => {
+    if (activeTournamentResult?.data && !hasError) {
+      setRetryCount(0)
+      lastErrorRef.current = null
+    }
+  }, [activeTournamentResult?.data, hasError])
+
+  const handleManualRetry = useCallback(() => {
+    setRetryCount(0)
+    lastErrorRef.current = null
+    urqlClient.query(activeTournamentQuery, {}, { requestPolicy: 'network-only' }).toPromise()
+  }, [urqlClient])
+
+  // Determine loading and error states
+  const isRetrying = hasError && retryCount < MAX_RETRIES
+  const hasFailedCompletely = hasError && retryCount >= MAX_RETRIES
 
   const [tournamentsResult] = useQuery({
     query: tournamentsQuery,
@@ -41,12 +83,6 @@ const Home = () => {
   })
 
   const completedTournamentData = completedTournamentResult.data?.tournamentById ?? null
-
-  const handleCompleteTournament = async () => {
-    if (!currentTournament) return
-    await completeTournament(currentTournament.id)
-    urqlClient.query(activeTournamentQuery, {}, { requestPolicy: 'network-only' }).toPromise()
-  }
 
   // Subscribe to race result updates for live leaderboard and match list
   const subscriptionResult = useRaceResultsSubscription(currentTournament?.id)
@@ -68,6 +104,25 @@ const Home = () => {
   useEffect(() => {
     document.title = 'Mario Kart Leaderboard'
   }, [])
+
+  // Show error state if all retries have failed
+  if (hasFailedCompletely) {
+    return <ErrorState message="Failed to load tournament data. Please check your connection and try again." onRetry={handleManualRetry} />
+  }
+
+  // Show loading state while retrying (and no cached data)
+  if (isRetrying && !currentTournament) {
+    return (
+      <Box minH="100vh" bg="bg.canvas">
+        <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
+          <VStack gap={4} align="center" justify="center" minH="50vh">
+            <Spinner size="xl" color="blue.500" />
+            <Text color="gray.600">Loading tournament data...</Text>
+          </VStack>
+        </Container>
+      </Box>
+    )
+  }
 
   return (
     <Box minH="100vh" bg="bg.canvas">
@@ -127,13 +182,12 @@ const Home = () => {
           <Stack direction={{ base: 'column', sm: 'row' }} gap={3} justify="center" pb={4}>
             {currentTournament && (
               <Button
-                onClick={handleCompleteTournament}
+                onClick={() => setIsCompleteTournamentModalOpen(true)}
                 colorScheme="green"
                 size={{ base: 'md', md: 'lg' }}
                 borderRadius="button"
                 width={{ base: 'full', sm: 'auto' }}
                 px={8}
-                loading={isCompleting}
               >
                 Complete Tournament
               </Button>
@@ -145,6 +199,17 @@ const Home = () => {
         </VStack>
         {currentTournament && <CreateMatchModal open={isMatchModalOpen} onOpenChange={setIsMatchModalOpen} tournamentId={currentTournament.id} />}
         {currentTournament && <NewMatchNotification matches={currentTournament.matches} tournamentId={currentTournament.id} />}
+        {currentTournament && (
+          <CompleteTournamentModal
+            open={isCompleteTournamentModalOpen}
+            onOpenChange={setIsCompleteTournamentModalOpen}
+            tournamentId={currentTournament.id}
+            endDate={currentTournament.endDate}
+            onSuccess={() => {
+              urqlClient.query(activeTournamentQuery, {}, { requestPolicy: 'network-only' }).toPromise()
+            }}
+          />
+        )}
         <CreateTournamentModal open={isTournamentModalOpen} onOpenChange={setIsTournamentModalOpen} />
       </Container>
     </Box>
