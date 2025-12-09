@@ -92,6 +92,7 @@ export const urqlClient = createClient({
       },
     }),
     subscriptionExchange({
+      isSubscriptionOperation: (operation) => operation.kind === 'subscription',
       forwardSubscription: (operation) => ({
         subscribe: (sink) => ({
           unsubscribe: sseClient.subscribe(
