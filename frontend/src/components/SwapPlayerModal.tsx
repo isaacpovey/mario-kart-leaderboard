@@ -31,9 +31,7 @@ export const SwapPlayerModal = (props: SwapPlayerModalProps) => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
 
   const currentTeam = teams.find((t) => t.id === currentPlayer.teamId)
-  const eligiblePlayers = currentTeam?.players.filter(
-    (p) => p.id !== currentPlayer.id && !roundPlayerIds.includes(p.id)
-  ) ?? []
+  const eligiblePlayers = currentTeam?.players.filter((p) => p.id !== currentPlayer.id && !roundPlayerIds.includes(p.id)) ?? []
 
   const handleConfirm = async () => {
     if (!selectedPlayerId) return
@@ -46,12 +44,15 @@ export const SwapPlayerModal = (props: SwapPlayerModalProps) => {
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={(details) => {
-      if (!details.open) {
-        setSelectedPlayerId(null)
-      }
-      onOpenChange(details.open)
-    }}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(details) => {
+        if (!details.open) {
+          setSelectedPlayerId(null)
+        }
+        onOpenChange(details.open)
+      }}
+    >
       <Portal>
         <Dialog.Backdrop />
         <Dialog.Positioner>
@@ -62,7 +63,9 @@ export const SwapPlayerModal = (props: SwapPlayerModalProps) => {
             <Dialog.Body>
               <VStack gap={4} align="stretch">
                 <Box>
-                  <Text fontSize="sm" color="gray.600" mb={2}>Current player:</Text>
+                  <Text fontSize="sm" color="gray.600" mb={2}>
+                    Current player:
+                  </Text>
                   <HStack gap={2} p={2} bg="gray.50" borderRadius="md">
                     <Avatar name={currentPlayer.name} avatarFilename={currentPlayer.avatarFilename} size="sm" />
                     <Text fontWeight="medium">{currentPlayer.name}</Text>

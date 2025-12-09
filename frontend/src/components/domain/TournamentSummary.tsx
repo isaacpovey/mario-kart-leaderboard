@@ -53,14 +53,8 @@ const formatDate = (dateStr: string): string => {
   return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
-export const TournamentSummary = ({
-  tournament,
-  showStartButton = false,
-  onStartTournament,
-}: TournamentSummaryProps) => {
-  const winner = tournament.winnerId
-    ? tournament.leaderboard.find((entry) => entry.playerId === tournament.winnerId)
-    : tournament.leaderboard[0]
+export const TournamentSummary = ({ tournament, showStartButton = false, onStartTournament }: TournamentSummaryProps) => {
+  const winner = tournament.winnerId ? tournament.leaderboard.find((entry) => entry.playerId === tournament.winnerId) : tournament.leaderboard[0]
 
   const dateRange =
     tournament.startDate && tournament.endDate
@@ -83,25 +77,12 @@ export const TournamentSummary = ({
       </VStack>
 
       {showStartButton && onStartTournament && (
-        <Button
-          onClick={onStartTournament}
-          colorScheme="blue"
-          size={{ base: 'md', md: 'lg' }}
-          borderRadius="button"
-          width={{ base: 'full', sm: 'auto' }}
-          px={8}
-        >
+        <Button onClick={onStartTournament} colorScheme="blue" size={{ base: 'md', md: 'lg' }} borderRadius="button" width={{ base: 'full', sm: 'auto' }} px={8}>
           Start New Tournament
         </Button>
       )}
 
-      {winner && (
-        <TournamentChampion
-          name={winner.playerName}
-          avatarFilename={winner.avatarFilename}
-          score={winner.allTimeEloRating}
-        />
-      )}
+      {winner && <TournamentChampion name={winner.playerName} avatarFilename={winner.avatarFilename} score={winner.allTimeEloRating} />}
 
       <VStack gap={{ base: 3, md: 4 }} align="stretch">
         <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">

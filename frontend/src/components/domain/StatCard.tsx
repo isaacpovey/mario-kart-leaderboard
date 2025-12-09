@@ -1,28 +1,9 @@
 import { Box, Circle, HStack, Text, VStack } from '@chakra-ui/react'
 import type { ReactNode } from 'react'
-import {
-  LuChevronDown,
-  LuChevronsRight,
-  LuFrown,
-  LuHeart,
-  LuMedal,
-  LuTarget,
-  LuTrophy,
-  LuUsers,
-  LuX,
-} from 'react-icons/lu'
+import { LuChevronDown, LuChevronsRight, LuFrown, LuHeart, LuMedal, LuTarget, LuTrophy, LuUsers, LuX } from 'react-icons/lu'
 import { Avatar } from '../common/Avatar'
 
-type StatType =
-  | 'BEST_RACE'
-  | 'WORST_RACE'
-  | 'BIGGEST_SWING'
-  | 'BEST_TEAMMATE'
-  | 'WORST_TEAMMATE'
-  | 'MOST_HELPED'
-  | 'MOST_HURT'
-  | 'BEST_MATCH'
-  | 'WORST_MATCH'
+type StatType = 'BEST_RACE' | 'WORST_RACE' | 'BIGGEST_SWING' | 'BEST_TEAMMATE' | 'WORST_TEAMMATE' | 'MOST_HELPED' | 'MOST_HURT' | 'BEST_MATCH' | 'WORST_MATCH'
 
 type StatConfig = {
   label: string

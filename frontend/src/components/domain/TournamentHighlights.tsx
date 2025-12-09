@@ -35,13 +35,9 @@ const statTypeMap: Record<string, string> = {
 const normalizeStatType = (statType: string): string => statTypeMap[statType] ?? statType
 
 export const TournamentHighlights = ({ stats, leaderboard }: TournamentHighlightsProps) => {
-  const playerMap = leaderboard.reduce<Record<string, LeaderboardEntry>>(
-    (acc, entry) => ({ ...acc, [entry.playerId]: entry }),
-    {}
-  )
+  const playerMap = Object.fromEntries(leaderboard.map((entry) => [entry.playerId, entry]))
 
-  const getPlayer = (playerId: string): LeaderboardEntry =>
-    playerMap[playerId] ?? { playerId, playerName: 'Unknown Player', avatarFilename: null }
+  const getPlayer = (playerId: string): LeaderboardEntry => playerMap[playerId] ?? { playerId, playerName: 'Unknown Player', avatarFilename: null }
 
   return (
     <SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>

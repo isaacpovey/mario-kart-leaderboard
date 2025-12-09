@@ -62,14 +62,7 @@ export const EloProgressionChart = ({ playerEloHistory }: EloProgressionChartPro
     return [...new Set(all)].sort()
   }, [playerEloHistory])
 
-  const playerColorMap = useMemo(
-    () =>
-      playerEloHistory.reduce<Record<string, number>>(
-        (acc, player, index) => ({ ...acc, [player.playerId]: index }),
-        {}
-      ),
-    [playerEloHistory]
-  )
+  const playerColorMap = useMemo(() => Object.fromEntries(playerEloHistory.map((player, index) => [player.playerId, index])), [playerEloHistory])
 
   const { eloMin, eloMax } = useMemo(() => {
     const allElos = playerEloHistory.flatMap((p) => p.dataPoints.map((d) => d.elo))
@@ -83,12 +76,10 @@ export const EloProgressionChart = ({ playerEloHistory }: EloProgressionChartPro
     }
   }, [playerEloHistory])
 
-  const totalDuration = useMemo(
-    () => Math.max(1, uniqueTimestamps.length - 1) * ANIMATION_DURATION_PER_STEP,
-    [uniqueTimestamps.length]
-  )
+  const totalDuration = useMemo(() => Math.max(1, uniqueTimestamps.length - 1) * ANIMATION_DURATION_PER_STEP, [uniqueTimestamps.length])
 
   useEffect(() => {
+    void animationKey
     setAnimationProgress(0)
     startTimeRef.current = null
 
@@ -213,15 +204,7 @@ export const EloProgressionChart = ({ playerEloHistory }: EloProgressionChartPro
                   </HStack>
 
                   <Box flex={1} position="relative" height="28px" mx={2}>
-                    <Box
-                      position="absolute"
-                      left={0}
-                      top={0}
-                      bottom={0}
-                      width={calculateBarWidth(player.elo)}
-                      bg={color}
-                      borderRadius="md"
-                    />
+                    <Box position="absolute" left={0} top={0} bottom={0} width={calculateBarWidth(player.elo)} bg={color} borderRadius="md" />
                   </Box>
 
                   <Text fontSize="sm" fontWeight="bold" width="50px" textAlign="right" flexShrink={0}>

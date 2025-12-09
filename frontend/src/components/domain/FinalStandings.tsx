@@ -93,12 +93,7 @@ export const FinalStandings = ({ leaderboard, winnerId }: FinalStandingsProps) =
   return (
     <VStack gap={{ base: 3, md: 4 }} align="stretch">
       {leaderboard.map((entry, index) => (
-        <StandingCard
-          key={entry.playerId}
-          entry={entry}
-          position={index + 1}
-          isWinner={entry.playerId === winnerId}
-        />
+        <StandingCard key={entry.playerId} entry={entry} position={index + 1} isWinner={entry.playerId === winnerId} />
       ))}
     </VStack>
   )

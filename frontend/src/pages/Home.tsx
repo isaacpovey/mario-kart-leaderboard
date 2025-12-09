@@ -1,11 +1,12 @@
 import { Box, Button, Container, Heading, HStack, Spinner, Stack, Text, VStack } from '@chakra-ui/react'
+import type { ResultOf } from 'gql.tada'
 import { useAtomValue } from 'jotai'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useClient, useQuery } from 'urql'
-import { ErrorState } from '../components/common/ErrorState'
 import { CompleteTournamentModal } from '../components/CompleteTournamentModal'
 import { CreateMatchModal } from '../components/CreateMatchModal'
 import { CreateTournamentModal } from '../components/CreateTournamentModal'
+import { ErrorState } from '../components/common/ErrorState'
 import { HeroBanner } from '../components/domain/HeroBanner'
 import { LeaderboardList } from '../components/domain/LeaderboardList'
 import { MatchList } from '../components/domain/MatchList'
@@ -20,27 +21,29 @@ import { activeTournamentQueryAtom } from '../store/queries'
 
 const MAX_RETRIES = 3
 
-const Home = () => {
-  const { logout } = useAuth()
-  const urqlClient = useClient()
-  const activeTournamentResult = useAtomValue(activeTournamentQueryAtom)
-  const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
-  const [isTournamentModalOpen, setIsTournamentModalOpen] = useState(false)
-  const [isCompleteTournamentModalOpen, setIsCompleteTournamentModalOpen] = useState(false)
+type RetryState = {
+  isRetrying: boolean
+  hasFailedCompletely: boolean
+  handleManualRetry: () => void
+}
+
+type UseQueryRetryParams = {
+  urqlClient: ReturnType<typeof useClient>
+  hasError: boolean
+  error: Error | undefined
+  hasData: boolean
+}
+
+const useQueryRetry = ({ urqlClient, hasError, error, hasData }: UseQueryRetryParams): RetryState => {
   const [retryCount, setRetryCount] = useState(0)
   const lastErrorRef = useRef<Error | null>(null)
 
-  const currentTournament = activeTournamentResult?.data?.activeTournament ?? null
-  const hasError = activeTournamentResult?.error !== undefined
+  const isNewError = hasError && error !== lastErrorRef.current
 
-  // Track if this is a new error (different from last one we tried to handle)
-  const isNewError = hasError && activeTournamentResult.error !== lastErrorRef.current
-
-  // Auto-retry on error with exponential backoff
   useEffect(() => {
     if (isNewError && retryCount < MAX_RETRIES) {
-      lastErrorRef.current = activeTournamentResult.error ?? null
-      const delay = 1000 * Math.pow(2, retryCount) // 1s, 2s, 4s
+      lastErrorRef.current = error ?? null
+      const delay = 1000 * 2 ** retryCount
       const timer = setTimeout(() => {
         urqlClient
           .query(activeTournamentQuery, {}, { requestPolicy: 'network-only' })
@@ -49,15 +52,14 @@ const Home = () => {
       }, delay)
       return () => clearTimeout(timer)
     }
-  }, [isNewError, retryCount, urqlClient, activeTournamentResult.error])
+  }, [isNewError, retryCount, error, urqlClient])
 
-  // Reset retry count when we successfully load data
   useEffect(() => {
-    if (activeTournamentResult?.data && !hasError) {
+    if (hasData && !hasError) {
       setRetryCount(0)
       lastErrorRef.current = null
     }
-  }, [activeTournamentResult?.data, hasError])
+  }, [hasData, hasError])
 
   const handleManualRetry = useCallback(() => {
     setRetryCount(0)
@@ -65,9 +67,91 @@ const Home = () => {
     urqlClient.query(activeTournamentQuery, {}, { requestPolicy: 'network-only' }).toPromise()
   }, [urqlClient])
 
-  // Determine loading and error states
-  const isRetrying = hasError && retryCount < MAX_RETRIES
-  const hasFailedCompletely = hasError && retryCount >= MAX_RETRIES
+  return {
+    isRetrying: hasError && retryCount < MAX_RETRIES,
+    hasFailedCompletely: hasError && retryCount >= MAX_RETRIES,
+    handleManualRetry,
+  }
+}
+
+type ActiveTournament = NonNullable<ResultOf<typeof activeTournamentQuery>['activeTournament']>
+
+type ActiveTournamentContentProps = {
+  tournament: ActiveTournament
+}
+
+const ActiveTournamentContent = ({ tournament }: ActiveTournamentContentProps) => (
+  <>
+    <Heading size={{ base: 'lg', md: 'xl' }} color="gray.900">
+      Current Tournament
+    </Heading>
+
+    {(tournament.startDate || tournament.endDate) && (
+      <HStack gap={4} flexWrap="wrap" fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">
+        {tournament.startDate && <Text>Started: {tournament.startDate}</Text>}
+        {tournament.endDate && <Text>Ended: {tournament.endDate}</Text>}
+      </HStack>
+    )}
+
+    <VStack gap={{ base: 3, md: 4 }} align="stretch">
+      <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
+        Leaderboard
+      </Heading>
+      <LeaderboardList entries={tournament.leaderboard} />
+    </VStack>
+
+    <VStack gap={{ base: 3, md: 4 }} align="stretch">
+      <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
+        Races
+      </Heading>
+      <MatchList matches={tournament.matches} />
+    </VStack>
+  </>
+)
+
+type EmptyStateProps = {
+  onStartTournament: () => void
+}
+
+const EmptyState = ({ onStartTournament }: EmptyStateProps) => (
+  <Box p={8} bg="bg.panel" borderRadius="card" borderWidth="1px" borderColor="gray.200" textAlign="center">
+    <Text color="gray.600" fontSize={{ base: 'md', md: 'lg' }}>
+      No tournaments yet. Create one to get started!
+    </Text>
+    <Button mt={4} onClick={onStartTournament} colorScheme="blue" size={{ base: 'md', md: 'lg' }} borderRadius="button" px={8}>
+      Start Tournament
+    </Button>
+  </Box>
+)
+
+const LoadingState = () => (
+  <Box minH="100vh" bg="bg.canvas">
+    <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
+      <VStack gap={4} align="center" justify="center" minH="50vh">
+        <Spinner size="xl" color="blue.500" />
+        <Text color="gray.600">Loading tournament data...</Text>
+      </VStack>
+    </Container>
+  </Box>
+)
+
+const Home = () => {
+  const { logout } = useAuth()
+  const urqlClient = useClient()
+  const activeTournamentResult = useAtomValue(activeTournamentQueryAtom)
+  const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
+  const [isTournamentModalOpen, setIsTournamentModalOpen] = useState(false)
+  const [isCompleteTournamentModalOpen, setIsCompleteTournamentModalOpen] = useState(false)
+
+  const currentTournament = activeTournamentResult?.data?.activeTournament ?? null
+  const hasError = activeTournamentResult?.error !== undefined
+
+  const { isRetrying, hasFailedCompletely, handleManualRetry } = useQueryRetry({
+    urqlClient,
+    hasError,
+    error: activeTournamentResult?.error,
+    hasData: activeTournamentResult?.data !== undefined,
+  })
 
   const [tournamentsResult] = useQuery({
     query: tournamentsQuery,
@@ -112,70 +196,20 @@ const Home = () => {
 
   // Show loading state while retrying (and no cached data)
   if (isRetrying && !currentTournament) {
-    return (
-      <Box minH="100vh" bg="bg.canvas">
-        <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
-          <VStack gap={4} align="center" justify="center" minH="50vh">
-            <Spinner size="xl" color="blue.500" />
-            <Text color="gray.600">Loading tournament data...</Text>
-          </VStack>
-        </Container>
-      </Box>
-    )
+    return <LoadingState />
   }
 
   return (
     <Box minH="100vh" bg="bg.canvas">
       <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
         <VStack gap={{ base: 6, md: 8 }} align="stretch">
-          <HeroBanner
-            onStartRace={() => setIsMatchModalOpen(true)}
-            showStartButton={currentTournament !== null}
-          />
+          <HeroBanner onStartRace={() => setIsMatchModalOpen(true)} showStartButton={currentTournament !== null} />
 
-          {currentTournament ? (
-            <>
-              <Heading size={{ base: 'lg', md: 'xl' }} color="gray.900">
-                Current Tournament
-              </Heading>
-
-              {(currentTournament.startDate || currentTournament.endDate) && (
-                <HStack gap={4} flexWrap="wrap" fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">
-                  {currentTournament.startDate && <Text>Started: {currentTournament.startDate}</Text>}
-                  {currentTournament.endDate && <Text>Ended: {currentTournament.endDate}</Text>}
-                </HStack>
-              )}
-
-              <VStack gap={{ base: 3, md: 4 }} align="stretch">
-                <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
-                  Leaderboard
-                </Heading>
-                <LeaderboardList entries={currentTournament.leaderboard} />
-              </VStack>
-
-              <VStack gap={{ base: 3, md: 4 }} align="stretch">
-                <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
-                  Races
-                </Heading>
-                <MatchList matches={currentTournament.matches} />
-              </VStack>
-            </>
-          ) : completedTournamentData ? (
-            <TournamentSummary
-              tournament={completedTournamentData}
-              showStartButton={true}
-              onStartTournament={() => setIsTournamentModalOpen(true)}
-            />
-          ) : (
-            <Box p={8} bg="bg.panel" borderRadius="card" borderWidth="1px" borderColor="gray.200" textAlign="center">
-              <Text color="gray.600" fontSize={{ base: 'md', md: 'lg' }}>
-                No tournaments yet. Create one to get started!
-              </Text>
-              <Button mt={4} onClick={() => setIsTournamentModalOpen(true)} colorScheme="blue" size={{ base: 'md', md: 'lg' }} borderRadius="button" px={8}>
-                Start Tournament
-              </Button>
-            </Box>
+          {currentTournament && <ActiveTournamentContent tournament={currentTournament} />}
+          {!currentTournament && completedTournamentData && (
+            <TournamentSummary tournament={completedTournamentData} showStartButton={true} onStartTournament={() => setIsTournamentModalOpen(true)} />
           )}
+          {!currentTournament && !completedTournamentData && <EmptyState onStartTournament={() => setIsTournamentModalOpen(true)} />}
 
           <Box h="1px" bg="gray.200" my={4} />
 

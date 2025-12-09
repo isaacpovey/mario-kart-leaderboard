@@ -8,8 +8,8 @@ import { ErrorState } from '../components/common/ErrorState'
 import { RaceList } from '../components/domain/RaceList'
 import { RaceResultsDisplay } from '../components/domain/RaceResultsDisplay'
 import { RoundResultsForm } from '../components/domain/RoundResultsForm'
-import { SwapPlayerModal } from '../components/SwapPlayerModal'
 import { TeamCard } from '../components/domain/TeamCard'
+import { SwapPlayerModal } from '../components/SwapPlayerModal'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
 import { useRaceResultsSubscription } from '../hooks/useRaceResultsSubscription'
 import { matchQueryAtom } from '../store/queries'
@@ -209,12 +209,7 @@ const Match = () => {
 
           {canCancelMatch && (
             <Box pt={4} borderTopWidth="1px" borderColor="gray.200">
-              <Button
-                colorScheme="red"
-                variant="outline"
-                size={{ base: 'sm', md: 'md' }}
-                onClick={() => setCancelModalOpen(true)}
-              >
+              <Button colorScheme="red" variant="outline" size={{ base: 'sm', md: 'md' }} onClick={() => setCancelModalOpen(true)}>
                 Cancel Match
               </Button>
             </Box>
@@ -222,12 +217,7 @@ const Match = () => {
         </VStack>
       </Container>
 
-      <CancelMatchModal
-        open={cancelModalOpen}
-        onOpenChange={setCancelModalOpen}
-        matchId={matchId || ''}
-        onSuccess={handleCancelSuccess}
-      />
+      <CancelMatchModal open={cancelModalOpen} onOpenChange={setCancelModalOpen} matchId={matchId || ''} onSuccess={handleCancelSuccess} />
 
       {playerToSwap && roundToSwap !== null && (
         <SwapPlayerModal
