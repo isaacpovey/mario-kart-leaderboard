@@ -107,11 +107,17 @@ pub async fn unified_graphql_handler(
     headers: HeaderMap,
     req: GraphQLRequest,
 ) -> Response {
-    // Check Accept header for SSE
+    // Check Accept header for SSE - only treat as SSE if text/event-stream is the primary type
+    // (first in the Accept header list), not just if it's one of many acceptable types
     let accepts_sse = headers
         .get(ACCEPT)
         .and_then(|v| v.to_str().ok())
-        .map(|v| v.contains("text/event-stream"))
+        .map(|v| {
+            v.split(',')
+                .next()
+                .map(|first| first.trim().starts_with("text/event-stream"))
+                .unwrap_or(false)
+        })
         .unwrap_or(false);
 
     if accepts_sse {
