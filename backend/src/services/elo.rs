@@ -43,6 +43,8 @@ const MIN_CPU_ELO: i32 = 800;
 const CPU_ELO_SPREAD: i32 = 50;
 const CPU_ELO_DECREASE: i32 = 25;
 const POSITION_SCORE_EXPONENT: f64 = 1.5;
+const MIN_AVERAGE_ELO_FOR_CPU: i32 = 900;
+const MAX_AVERAGE_ELO_FOR_CPU: i32 = 1400;
 
 /// Represents a player's result in a single race
 #[derive(Debug, Clone)]
@@ -120,7 +122,9 @@ pub fn create_full_field(human_results: &[PlayerResult]) -> Vec<PlayerResult> {
         .checked_div(human_results.len() as i32)
         .unwrap_or(1200);
 
-    let base_cpu_elo = average_human_elo + CPU_ELO_SPREAD / 2;
+    let clamped_average_elo =
+        average_human_elo.clamp(MIN_AVERAGE_ELO_FOR_CPU, MAX_AVERAGE_ELO_FOR_CPU);
+    let base_cpu_elo = clamped_average_elo + CPU_ELO_SPREAD / 2;
 
     let human_positions: std::collections::HashSet<i32> =
         human_results.iter().map(|r| r.position).collect();
