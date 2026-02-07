@@ -1,5 +1,7 @@
 use crate::graphql::context::GraphQLContext;
+use crate::models::{PlayerMatchScore, Tournament};
 use async_graphql::*;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -23,6 +25,15 @@ impl From<crate::models::Player> for Player {
     }
 }
 
+#[derive(Clone, SimpleObject)]
+pub struct PlayerMatchHistoryEntry {
+    pub match_id: ID,
+    pub match_time: DateTime<Utc>,
+    pub position: i32,
+    pub elo_change: i32,
+    pub tournament_elo_change: i32,
+}
+
 #[Object]
 impl Player {
     async fn id(&self) -> ID {
@@ -37,6 +48,10 @@ impl Player {
         self.avatar_filename.as_deref()
     }
 
+    async fn elo_rating(&self) -> i32 {
+        self.elo_rating
+    }
+
     async fn current_tournament_elo(&self, ctx: &Context<'_>) -> Result<Option<i32>> {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
 
@@ -46,5 +61,32 @@ impl Player {
             .await?;
 
         Ok(tournament_elo)
+    }
+
+    async fn match_history(&self, ctx: &Context<'_>) -> Result<Vec<PlayerMatchHistoryEntry>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+
+        let active_tournament_id =
+            Tournament::get_active_tournament(&gql_ctx.pool, self.group_id).await?;
+
+        let Some(tournament_id) = active_tournament_id else {
+            return Ok(vec![]);
+        };
+
+        let matches =
+            PlayerMatchScore::find_by_player_and_tournament(&gql_ctx.pool, self.id, tournament_id)
+                .await?;
+
+        Ok(matches
+            .into_iter()
+            .filter(|m| m.completed)
+            .map(|m| PlayerMatchHistoryEntry {
+                match_id: ID(m.match_id.to_string()),
+                match_time: m.match_time,
+                position: m.position,
+                elo_change: m.elo_change,
+                tournament_elo_change: m.tournament_elo_change,
+            })
+            .collect())
     }
 }

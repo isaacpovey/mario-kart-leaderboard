@@ -5,6 +5,16 @@ use tracing::instrument;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, FromRow)]
+pub struct PlayerMatchWithTime {
+    pub match_id: Uuid,
+    pub match_time: DateTime<Utc>,
+    pub completed: bool,
+    pub position: i32,
+    pub elo_change: i32,
+    pub tournament_elo_change: i32,
+}
+
+#[derive(Debug, Clone, FromRow)]
 pub struct PlayerMatchScore {
     pub group_id: Uuid,
     pub match_id: Uuid,
@@ -52,6 +62,26 @@ impl PlayerMatchScore {
              ORDER BY match_id, position ASC",
         )
         .bind(match_ids)
+        .fetch_all(pool)
+        .await
+    }
+
+    #[instrument(level = "debug", skip(pool))]
+    pub async fn find_by_player_and_tournament(
+        pool: &DbPool,
+        player_id: Uuid,
+        tournament_id: Uuid,
+    ) -> Result<Vec<PlayerMatchWithTime>, sqlx::Error> {
+        sqlx::query_as::<_, PlayerMatchWithTime>(
+            "SELECT m.id as match_id, m.time as match_time, m.completed,
+                    pms.position, pms.elo_change, pms.tournament_elo_change
+             FROM player_match_scores pms
+             JOIN matches m ON m.id = pms.match_id
+             WHERE pms.player_id = $1 AND m.tournament_id = $2
+             ORDER BY m.time DESC",
+        )
+        .bind(player_id)
+        .bind(tournament_id)
         .fetch_all(pool)
         .await
     }
