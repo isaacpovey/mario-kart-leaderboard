@@ -42,6 +42,28 @@ export const usePlayerSelection = () => {
     return null
   }, [canCreateNewPlayer, isCreatingPlayer, createPlayer, searchTerm])
 
+  const createAndSelectPlayerByName = useCallback(
+    async (name: string) => {
+      if (isCreatingPlayer) return null
+      const trimmedName = name.trim()
+      if (!trimmedName) return null
+
+      const exactMatchExists = players.some((p) => p.name.toLowerCase() === trimmedName.toLowerCase())
+      if (exactMatchExists) return null
+
+      const result = await createPlayer({ name: trimmedName })
+
+      if (result.data?.createPlayer) {
+        const newPlayerId = result.data.createPlayer.id
+        setSelectedPlayerIds((prev) => [...prev, newPlayerId])
+        return result.data.createPlayer
+      }
+
+      return null
+    },
+    [isCreatingPlayer, createPlayer, players]
+  )
+
   const clearSelection = useCallback(() => {
     setSelectedPlayerIds([])
   }, [])
@@ -64,6 +86,7 @@ export const usePlayerSelection = () => {
     createPlayerError,
     togglePlayer,
     createAndSelectPlayer,
+    createAndSelectPlayerByName,
     clearSelection,
     setSelection,
   }

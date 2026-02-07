@@ -97,17 +97,12 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
                               Select Players
                             </Field.Label>
                             <PlayerSearchDropdown
-                              searchTerm={playerSelection.searchTerm}
-                              onSearchTermChange={playerSelection.setSearchTerm}
-                              showDropdown={playerSelection.showDropdown}
-                              onShowDropdownChange={playerSelection.setShowDropdown}
-                              filteredPlayers={playerSelection.filteredPlayers}
                               selectedPlayers={playerSelection.selectedPlayers}
                               selectedPlayerIds={playerSelection.selectedPlayerIds}
                               onTogglePlayer={playerSelection.togglePlayer}
-                              canCreateNewPlayer={playerSelection.canCreateNewPlayer}
                               isCreatingPlayer={playerSelection.isCreatingPlayer}
-                              onCreateAndSelectPlayer={playerSelection.createAndSelectPlayer}
+                              onCreatePlayerByName={playerSelection.createAndSelectPlayerByName}
+                              allPlayers={playerSelection.players}
                             />
                           </Field.Root>
 
