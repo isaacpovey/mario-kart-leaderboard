@@ -1,60 +1,20 @@
 
 //! Track Selection Service
 //!
-//! This module provides track selection algorithms that avoid recently used tracks
-//! when possible. The algorithm ensures:
-//! - Tracks are selected randomly for variety
-//! - Recently used tracks are avoided when sufficient alternatives exist
-//! - If insufficient fresh tracks exist, recently used tracks are included
+//! Selects tracks using a "shuffle bag" pattern: all tracks are played in random
+//! order before any track repeats. With N total tracks and R rounds per match,
+//! one full cycle = ceil(N/R) matches.
 //!
-//! ## Algorithm
-//!
-//! 1. Fetch all available tracks
-//! 2. Query recently used tracks from previous matches in the tournament
-//! 3. Partition tracks into available (not recently used) and recently used
-//! 4. If enough available tracks exist, use only those; otherwise mix both pools
-//! 5. Shuffle and select the required number of tracks
+//! Uses cycle-position-based selection to avoid the sliding window bug where
+//! tracks could repeat within a cycle at boundary crossings.
 
 use crate::db::DbPool;
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::models;
 use rand::seq::SliceRandom;
 use std::collections::HashSet;
 use uuid::Uuid;
 
-/// Selects tracks for a match, avoiding recently used tracks when possible.
-///
-/// This function implements an intelligent track selection algorithm that:
-/// - Queries all available tracks from the database
-/// - Identifies recently used tracks in the tournament
-/// - Prefers tracks that haven't been used recently
-/// - Falls back to including recently used tracks if needed
-/// - Randomly shuffles the pool and selects the required number
-///
-/// # Arguments
-///
-/// * `pool` - Database connection pool
-/// * `tournament_id` - UUID of the tournament
-/// * `num_races` - Number of tracks to select
-///
-/// # Returns
-///
-/// Result containing a vector of selected tracks
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Database queries fail
-/// - No tracks are available
-///
-/// # Examples
-///
-/// ```ignore
-/// let pool = create_pool(&config).await?;
-/// let tournament_id = Uuid::new_v4();
-/// let tracks = select_tracks(&pool, tournament_id, 4).await?;
-/// assert_eq!(tracks.len(), 4);
-/// ```
 pub async fn select_tracks(
     pool: &DbPool,
     tournament_id: Uuid,
@@ -62,39 +22,60 @@ pub async fn select_tracks(
 ) -> Result<Vec<models::Track>> {
     let all_tracks = models::Track::find_all(pool).await?;
     let total_track_count = all_tracks.len();
+    let num_races = num_races as usize;
 
-    let recently_used_track_ids: HashSet<Uuid> = sqlx::query_scalar(
-        "SELECT r.track_id
+    let total_rounds_played: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*)
          FROM rounds r
          JOIN matches m ON m.id = r.match_id
-         WHERE m.tournament_id = $1 AND r.track_id IS NOT NULL
-         ORDER BY m.time DESC, r.round_number DESC
-         LIMIT $2",
+         WHERE m.tournament_id = $1 AND r.track_id IS NOT NULL",
     )
     .bind(tournament_id)
-    .bind(total_track_count as i32)
-    .fetch_all(pool)
-    .await?
-    .into_iter()
-    .collect();
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to count rounds: {e}")))?;
 
-    let (available_tracks, recently_used_tracks): (Vec<models::Track>, Vec<models::Track>) =
-        all_tracks
-            .into_iter()
-            .partition(|track| !recently_used_track_ids.contains(&track.id));
+    let cycle_position = (total_rounds_played as usize) % total_track_count;
 
-    let track_pool = if available_tracks.len() >= num_races as usize {
-        available_tracks
+    let current_cycle_track_ids: HashSet<Uuid> = if cycle_position == 0 {
+        HashSet::new()
     } else {
-        available_tracks
-            .into_iter()
-            .chain(recently_used_tracks.into_iter())
-            .collect()
+        sqlx::query_scalar(
+            "SELECT r.track_id
+             FROM rounds r
+             JOIN matches m ON m.id = r.match_id
+             WHERE m.tournament_id = $1 AND r.track_id IS NOT NULL
+             ORDER BY m.time DESC, r.round_number DESC
+             LIMIT $2",
+        )
+        .bind(tournament_id)
+        .bind(cycle_position as i32)
+        .fetch_all(pool)
+        .await?
+        .into_iter()
+        .collect()
     };
 
-    let mut track_pool = track_pool;
-    track_pool.shuffle(&mut rand::rng());
-    let selected: Vec<models::Track> = track_pool.into_iter().take(num_races as usize).collect();
+    let (available_tracks, used_tracks): (Vec<models::Track>, Vec<models::Track>) = all_tracks
+        .into_iter()
+        .partition(|track| !current_cycle_track_ids.contains(&track.id));
 
-    Ok(selected)
+    let mut rng = rand::rng();
+
+    if available_tracks.len() >= num_races {
+        let mut track_pool = available_tracks;
+        track_pool.shuffle(&mut rng);
+        Ok(track_pool.into_iter().take(num_races).collect())
+    } else {
+        // Cycle boundary: take all remaining, then draw from new cycle
+        let mut selected = available_tracks;
+        let remaining_needed = num_races - selected.len();
+
+        let mut new_cycle_pool = used_tracks;
+        new_cycle_pool.shuffle(&mut rng);
+        selected.extend(new_cycle_pool.into_iter().take(remaining_needed));
+
+        selected.shuffle(&mut rng);
+        Ok(selected)
+    }
 }

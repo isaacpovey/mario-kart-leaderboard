@@ -1,6 +1,7 @@
 mod common;
 
 use common::{fixtures, setup};
+use mario_kart_leaderboard_backend::models;
 use mario_kart_leaderboard_backend::services::track_selection::select_tracks;
 use std::collections::HashSet;
 
@@ -115,9 +116,9 @@ async fn test_select_tracks_avoids_recently_used() {
     let second_track_ids: HashSet<_> = second_tracks.iter().map(|t| t.id).collect();
 
     let overlap = first_track_ids.intersection(&second_track_ids).count();
-    assert!(
-        overlap < 4,
-        "Second selection should prefer different tracks when possible"
+    assert_eq!(
+        overlap, 0,
+        "Second selection should have zero overlap with first within the same cycle"
     );
 }
 
@@ -207,4 +208,99 @@ async fn test_select_tracks_all_tracks_have_names() {
     for track in &tracks {
         assert!(!track.name.is_empty(), "Track should have a name");
     }
+}
+
+async fn persist_tracks_as_rounds(
+    pool: &sqlx::PgPool,
+    group_id: uuid::Uuid,
+    tournament_id: uuid::Uuid,
+    tracks: &[models::Track],
+) {
+    let test_match = fixtures::create_test_match(pool, group_id, tournament_id, tracks.len() as i32)
+        .await
+        .expect("Failed to create test match");
+
+    for (i, track) in tracks.iter().enumerate() {
+        sqlx::query(
+            "INSERT INTO rounds (match_id, round_number, track_id, completed)
+             VALUES ($1, $2, $3, false)",
+        )
+        .bind(test_match.id)
+        .bind(i as i32 + 1)
+        .bind(track.id)
+        .execute(pool)
+        .await
+        .expect("Failed to insert round");
+    }
+}
+
+#[tokio::test]
+async fn test_full_cycle_no_duplicates() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+
+    let all_tracks = models::Track::find_all(&ctx.pool)
+        .await
+        .expect("Failed to fetch all tracks");
+    let total_track_count = all_tracks.len();
+    let rounds_per_match = 6;
+    let matches_per_cycle = total_track_count / rounds_per_match;
+
+    let mut cycle_track_ids: Vec<uuid::Uuid> = Vec::new();
+
+    // Play a full cycle (5 matches x 6 rounds = 30 tracks)
+    for _ in 0..matches_per_cycle {
+        let tracks = select_tracks(&ctx.pool, tournament.id, rounds_per_match as i32)
+            .await
+            .expect("Failed to select tracks");
+
+        assert_eq!(tracks.len(), rounds_per_match);
+
+        let match_ids: HashSet<uuid::Uuid> = tracks.iter().map(|t| t.id).collect();
+        assert_eq!(match_ids.len(), rounds_per_match, "Tracks within a match should be unique");
+
+        // No overlap with previously selected tracks in this cycle
+        let overlap: Vec<_> = cycle_track_ids
+            .iter()
+            .filter(|id| match_ids.contains(id))
+            .collect();
+        assert!(
+            overlap.is_empty(),
+            "Tracks should not repeat within a cycle, but found {} duplicates",
+            overlap.len()
+        );
+
+        cycle_track_ids.extend(match_ids);
+        persist_tracks_as_rounds(&ctx.pool, group.id, tournament.id, &tracks).await;
+    }
+
+    assert_eq!(
+        cycle_track_ids.len(),
+        total_track_count,
+        "A full cycle should cover all {} tracks",
+        total_track_count
+    );
+    let unique_cycle: HashSet<_> = cycle_track_ids.iter().collect();
+    assert_eq!(
+        unique_cycle.len(),
+        total_track_count,
+        "All tracks in a cycle should be unique"
+    );
+
+    // Start of a new cycle (6th match) — should still produce valid tracks
+    let new_cycle_tracks = select_tracks(&ctx.pool, tournament.id, rounds_per_match as i32)
+        .await
+        .expect("Failed to select tracks for new cycle");
+
+    assert_eq!(new_cycle_tracks.len(), rounds_per_match);
+    let new_ids: HashSet<_> = new_cycle_tracks.iter().map(|t| t.id).collect();
+    assert_eq!(new_ids.len(), rounds_per_match, "New cycle tracks should be unique");
 }
