@@ -15,7 +15,7 @@ pub use group::Group;
 pub use r#match::Match;
 pub use player::Player;
 pub use player_match_score::{PlayerMatchScore, PlayerMatchWithTime};
-pub use player_race_score::PlayerRaceScore;
+pub use player_race_score::{PlayerRaceScore, PlayerTrackAggregation};
 pub use player_teammate_elo_contribution::PlayerTeammateEloContribution;
 pub use player_tournament_score::PlayerTournamentScore;
 pub use round::Round;

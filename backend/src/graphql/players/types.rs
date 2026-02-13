@@ -1,5 +1,5 @@
 use crate::graphql::context::GraphQLContext;
-use crate::models::{PlayerMatchScore, Tournament};
+use crate::models::{PlayerMatchScore, PlayerRaceScore, Tournament};
 use async_graphql::*;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -23,6 +23,13 @@ impl From<crate::models::Player> for Player {
             avatar_filename: model.avatar_filename,
         }
     }
+}
+
+#[derive(Clone, SimpleObject)]
+pub struct PlayerTrackStats {
+    pub track_name: String,
+    pub average_position: f64,
+    pub races_played: i64,
 }
 
 #[derive(Clone, SimpleObject)]
@@ -61,6 +68,33 @@ impl Player {
             .await?;
 
         Ok(tournament_elo)
+    }
+
+    async fn track_stats(&self, ctx: &Context<'_>) -> Result<Vec<PlayerTrackStats>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+
+        let active_tournament_id =
+            Tournament::get_active_tournament(&gql_ctx.pool, self.group_id).await?;
+
+        let Some(tournament_id) = active_tournament_id else {
+            return Ok(vec![]);
+        };
+
+        let stats = PlayerRaceScore::find_track_stats_by_player_and_tournament(
+            &gql_ctx.pool,
+            self.id,
+            tournament_id,
+        )
+        .await?;
+
+        Ok(stats
+            .into_iter()
+            .map(|s| PlayerTrackStats {
+                track_name: s.track_name,
+                average_position: s.average_position,
+                races_played: s.races_played,
+            })
+            .collect())
     }
 
     async fn match_history(&self, ctx: &Context<'_>) -> Result<Vec<PlayerMatchHistoryEntry>> {

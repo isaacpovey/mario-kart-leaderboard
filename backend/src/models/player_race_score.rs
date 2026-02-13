@@ -18,6 +18,13 @@ pub struct PlayerRaceScore {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, FromRow)]
+pub struct PlayerTrackAggregation {
+    pub track_name: String,
+    pub average_position: f64,
+    pub races_played: i64,
+}
+
 impl PlayerRaceScore {
     #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_match_id(
@@ -97,6 +104,34 @@ impl PlayerRaceScore {
                AND prs.tournament_elo_after IS NOT NULL
              ORDER BY prs.created_at ASC",
         )
+        .bind(tournament_id)
+        .fetch_all(pool)
+        .await
+    }
+
+    #[instrument(level = "debug", skip(pool))]
+    pub async fn find_track_stats_by_player_and_tournament(
+        pool: &DbPool,
+        player_id: Uuid,
+        tournament_id: Uuid,
+    ) -> Result<Vec<PlayerTrackAggregation>, sqlx::Error> {
+        sqlx::query_as::<_, PlayerTrackAggregation>(
+            "SELECT
+                t.name AS track_name,
+                AVG(prs.position)::float8 AS average_position,
+                COUNT(*)::bigint AS races_played
+             FROM player_race_scores prs
+             INNER JOIN rounds r ON prs.match_id = r.match_id AND prs.round_number = r.round_number
+             INNER JOIN tracks t ON r.track_id = t.id
+             INNER JOIN matches m ON prs.match_id = m.id
+             WHERE prs.player_id = $1
+               AND m.tournament_id = $2
+               AND m.completed = true
+               AND r.completed = true
+             GROUP BY t.id, t.name
+             ORDER BY average_position ASC",
+        )
+        .bind(player_id)
         .bind(tournament_id)
         .fetch_all(pool)
         .await

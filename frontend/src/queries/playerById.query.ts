@@ -8,6 +8,11 @@ export const playerByIdQuery = graphql(`
       avatarFilename
       eloRating
       currentTournamentElo
+      trackStats {
+        trackName
+        averagePosition
+        racesPlayed
+      }
       matchHistory {
         matchId
         matchTime

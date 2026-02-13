@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router'
 import { ErrorState } from '../components/common/ErrorState'
 import { PlayerHeader } from '../components/domain/PlayerHeader'
 import { PlayerMatchHistory } from '../components/domain/PlayerMatchHistory'
+import { PlayerTrackStats } from '../components/domain/PlayerTrackStats'
 import { playerByIdQueryAtom } from '../store/queries'
 
 const PlayerStats = () => {
@@ -24,6 +25,12 @@ const PlayerStats = () => {
   }
 
   const player = playerResult.data.playerById
+
+  const trackStats = player.trackStats.map((stat) => ({
+    trackName: String(stat.trackName),
+    averagePosition: stat.averagePosition,
+    racesPlayed: stat.racesPlayed,
+  }))
 
   const matchHistory = player.matchHistory.map((match) => ({
     matchId: match.matchId,
@@ -55,6 +62,18 @@ const PlayerStats = () => {
           </HStack>
 
           <PlayerHeader name={player.name} avatarFilename={player.avatarFilename} tournamentElo={player.currentTournamentElo} allTimeElo={player.eloRating} />
+
+          {trackStats.length > 0 && (
+            <>
+              <Box h="1px" bg="gray.200" />
+              <VStack gap={{ base: 3, md: 4 }} align="stretch">
+                <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
+                  Track Performance
+                </Heading>
+                <PlayerTrackStats trackStats={trackStats} />
+              </VStack>
+            </>
+          )}
 
           <Box h="1px" bg="gray.200" />
 
