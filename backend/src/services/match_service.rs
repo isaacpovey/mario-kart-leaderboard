@@ -132,6 +132,7 @@ pub async fn create_match_with_rounds(
     player_ids: &[Uuid],
     num_races: i32,
     players_per_race: i32,
+    random_teams: bool,
     notification_manager: &NotificationManager,
 ) -> Result<models::Match> {
     validate_create_match_inputs(player_ids, num_races, players_per_race)?;
@@ -163,7 +164,11 @@ pub async fn create_match_with_rounds(
         elos
     };
 
-    let teams = team_allocation::allocate_teams(&players, &players_per_race, &tournament_elos);
+    let teams = if random_teams {
+        team_allocation::allocate_teams_randomly(&players, &players_per_race, &tournament_elos)
+    } else {
+        team_allocation::allocate_teams(&players, &players_per_race, &tournament_elos)
+    };
     let tracks = track_selection::select_tracks(pool, tournament_id, num_races).await?;
     let race_allocations =
         race_allocation::allocate_races(&players, &teams, num_races, players_per_race, &tournament_elos)?;

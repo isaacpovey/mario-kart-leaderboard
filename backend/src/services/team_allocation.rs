@@ -15,6 +15,7 @@
 //!    that still has capacity
 
 use crate::models;
+use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use tracing::instrument;
 use uuid::Uuid;
@@ -167,4 +168,57 @@ pub fn allocate_teams(
                 })
                 .collect()
         })
+}
+
+/// Allocates players to teams randomly (no ELO balancing).
+///
+/// Players are shuffled randomly and then assigned sequentially to teams.
+/// Team sizes are still balanced using `calculate_team_sizes`.
+/// Total ELO is computed per team for display purposes.
+#[instrument(level = "info", skip(players, elo_ratings), fields(num_players = players.len(), players_per_race = *players_per_race))]
+pub fn allocate_teams_randomly(
+    players: &[models::Player],
+    players_per_race: &i32,
+    elo_ratings: &HashMap<Uuid, i32>,
+) -> Vec<Team> {
+    let get_elo = |player: &models::Player| -> i32 {
+        elo_ratings
+            .get(&player.id)
+            .copied()
+            .unwrap_or(player.elo_rating)
+    };
+
+    let mut shuffled_players = players.to_vec();
+    shuffled_players.shuffle(&mut rand::rng());
+
+    let num_players = players.len();
+    let num_teams = std::cmp::min(*players_per_race as usize, num_players);
+    let team_sizes = calculate_team_sizes(num_players, num_teams);
+
+    // Build prefix sums of team sizes so we can slice the shuffled players
+    let offsets: Vec<usize> = team_sizes
+        .iter()
+        .scan(0usize, |acc, &size| {
+            let start = *acc;
+            *acc += size;
+            Some(start)
+        })
+        .collect();
+
+    offsets
+        .iter()
+        .zip(team_sizes.iter())
+        .enumerate()
+        .map(|(team_idx, (&offset, &size))| {
+            let team_players: Vec<models::Player> =
+                shuffled_players[offset..offset + size].to_vec();
+            let total_elo: i32 = team_players.iter().map(|p| get_elo(p)).sum();
+
+            Team {
+                team_num: (team_idx + 1) as i32,
+                players: team_players,
+                total_elo,
+            }
+        })
+        .collect()
 }

@@ -22,6 +22,8 @@ impl MatchesMutation {
         #[graphql(desc = "The number of players per race (default: 4)")] players_per_race: Option<
             i32,
         >,
+        #[graphql(desc = "Whether to assign teams randomly instead of by ELO balance (default: false)")]
+        random_teams: Option<bool>,
     ) -> Result<Match> {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
         let group_id = gql_ctx.authenticated_group_id()?;
@@ -36,6 +38,7 @@ impl MatchesMutation {
         let player_uuids = player_uuids?;
 
         let players_per_race = players_per_race.unwrap_or(DEFAULT_PLAYERS_PER_RACE);
+        let random_teams = random_teams.unwrap_or(false);
 
         let tournament = models::Tournament::find_by_id(&gql_ctx.pool, tournament_uuid)
             .await?
@@ -58,6 +61,7 @@ impl MatchesMutation {
             &player_uuids,
             num_races,
             players_per_race,
+            random_teams,
             &gql_ctx.notification_manager,
         )
         .await?;

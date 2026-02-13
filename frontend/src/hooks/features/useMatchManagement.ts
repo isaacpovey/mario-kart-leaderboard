@@ -10,6 +10,7 @@ type CreateMatchInput = {
   playerIds: string[]
   numRaces: number
   playersPerRace: number
+  randomTeams: boolean
 }
 
 type RecordRoundResultsInput = {

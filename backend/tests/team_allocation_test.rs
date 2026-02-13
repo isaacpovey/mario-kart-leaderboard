@@ -1,5 +1,5 @@
 use mario_kart_leaderboard_backend::models::Player;
-use mario_kart_leaderboard_backend::services::team_allocation::{allocate_teams, calculate_team_sizes};
+use mario_kart_leaderboard_backend::services::team_allocation::{allocate_teams, allocate_teams_randomly, calculate_team_sizes};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -249,4 +249,96 @@ fn test_allocate_teams_empty_players_panics() {
     let elo_map: HashMap<Uuid, i32> = HashMap::new();
 
     let _ = allocate_teams(&players, &2, &elo_map);
+}
+
+// ============================================================================
+// Tests for `allocate_teams_randomly`
+// ============================================================================
+
+#[test]
+fn test_allocate_teams_randomly_correct_team_count_and_distribution() {
+    let players = vec![
+        create_test_player("Alice", 1400),
+        create_test_player("Bob", 1300),
+        create_test_player("Charlie", 1200),
+        create_test_player("Dave", 1100),
+    ];
+    let elo_map: HashMap<Uuid, i32> = players.iter().map(|p| (p.id, p.elo_rating)).collect();
+
+    let teams = allocate_teams_randomly(&players, &2, &elo_map);
+
+    assert_eq!(teams.len(), 2);
+    assert_eq!(teams[0].players.len(), 2);
+    assert_eq!(teams[1].players.len(), 2);
+}
+
+#[test]
+fn test_allocate_teams_randomly_all_players_assigned() {
+    let players = vec![
+        create_test_player("Alice", 1400),
+        create_test_player("Bob", 1300),
+        create_test_player("Charlie", 1200),
+        create_test_player("Dave", 1100),
+        create_test_player("Eve", 1000),
+    ];
+    let elo_map: HashMap<Uuid, i32> = players.iter().map(|p| (p.id, p.elo_rating)).collect();
+    let player_ids: std::collections::HashSet<Uuid> = players.iter().map(|p| p.id).collect();
+
+    let teams = allocate_teams_randomly(&players, &2, &elo_map);
+
+    let assigned_ids: std::collections::HashSet<Uuid> = teams
+        .iter()
+        .flat_map(|t| t.players.iter().map(|p| p.id))
+        .collect();
+
+    assert_eq!(assigned_ids, player_ids);
+}
+
+#[test]
+fn test_allocate_teams_randomly_total_elo_computed_correctly() {
+    let players = vec![
+        create_test_player("Alice", 1400),
+        create_test_player("Bob", 1200),
+        create_test_player("Charlie", 1000),
+        create_test_player("Dave", 800),
+    ];
+    let elo_map: HashMap<Uuid, i32> = players.iter().map(|p| (p.id, p.elo_rating)).collect();
+
+    let teams = allocate_teams_randomly(&players, &2, &elo_map);
+
+    for team in &teams {
+        let expected_elo: i32 = team.players.iter().map(|p| elo_map[&p.id]).sum();
+        assert_eq!(team.total_elo, expected_elo);
+    }
+
+    let total_elo: i32 = teams.iter().map(|t| t.total_elo).sum();
+    assert_eq!(total_elo, 4400);
+}
+
+#[test]
+fn test_allocate_teams_randomly_team_numbers_are_one_indexed() {
+    let players = vec![
+        create_test_player("Alice", 1400),
+        create_test_player("Bob", 1300),
+        create_test_player("Charlie", 1200),
+    ];
+    let elo_map: HashMap<Uuid, i32> = players.iter().map(|p| (p.id, p.elo_rating)).collect();
+
+    let teams = allocate_teams_randomly(&players, &3, &elo_map);
+
+    let team_nums: Vec<i32> = teams.iter().map(|t| t.team_num).collect();
+    assert_eq!(team_nums, vec![1, 2, 3]);
+}
+
+#[test]
+fn test_allocate_teams_randomly_single_player() {
+    let players = vec![create_test_player("Solo", 1200)];
+    let elo_map: HashMap<Uuid, i32> = players.iter().map(|p| (p.id, p.elo_rating)).collect();
+
+    let teams = allocate_teams_randomly(&players, &2, &elo_map);
+
+    assert_eq!(teams.len(), 1);
+    assert_eq!(teams[0].players.len(), 1);
+    assert_eq!(teams[0].total_elo, 1200);
+    assert_eq!(teams[0].team_num, 1);
 }

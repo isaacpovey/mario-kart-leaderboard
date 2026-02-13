@@ -1,4 +1,4 @@
-import { Box, Button, Dialog, Field, Portal, Tabs, Text, VStack } from '@chakra-ui/react'
+import { Box, Button, Dialog, Field, Portal, Switch, Tabs, Text, VStack } from '@chakra-ui/react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
@@ -18,6 +18,7 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
   const { formState, updateField, resetForm } = useFormState({
     numRaces: String(DEFAULT_NUM_RACES),
     playersPerRace: String(DEFAULT_PLAYERS_PER_RACE),
+    randomTeams: false,
   })
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('players')
@@ -51,6 +52,7 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
       playerIds: playerSelection.selectedPlayerIds,
       numRaces: Number.parseInt(formState.numRaces, 10) || FALLBACK_NUM_RACES,
       playersPerRace: Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE,
+      randomTeams: formState.randomTeams,
     })
 
     if (match) {
@@ -137,6 +139,21 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
                             onChange={updateField('playersPerRace')}
                             disabled={isCreatingMatch}
                           />
+
+                          <Field.Root>
+                            <Switch.Root
+                              checked={formState.randomTeams}
+                              onCheckedChange={(details) => updateField('randomTeams')(details.checked)}
+                              disabled={isCreatingMatch}
+                            >
+                              <Switch.HiddenInput />
+                              <Switch.Control>
+                                <Switch.Thumb />
+                              </Switch.Control>
+                              <Switch.Label>Random Teams</Switch.Label>
+                            </Switch.Root>
+                            <Field.HelperText>Disable ELO-based team balancing and assign teams randomly</Field.HelperText>
+                          </Field.Root>
 
                           <Box p={4} bg="blue.50" borderRadius="button" borderWidth="1px" borderColor="blue.200">
                             <Text fontSize="sm" color="blue.900">
