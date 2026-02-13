@@ -73,19 +73,7 @@ impl Player {
     async fn track_stats(&self, ctx: &Context<'_>) -> Result<Vec<PlayerTrackStats>> {
         let gql_ctx = ctx.data::<GraphQLContext>()?;
 
-        let active_tournament_id =
-            Tournament::get_active_tournament(&gql_ctx.pool, self.group_id).await?;
-
-        let Some(tournament_id) = active_tournament_id else {
-            return Ok(vec![]);
-        };
-
-        let stats = PlayerRaceScore::find_track_stats_by_player_and_tournament(
-            &gql_ctx.pool,
-            self.id,
-            tournament_id,
-        )
-        .await?;
+        let stats = PlayerRaceScore::find_track_stats_by_player(&gql_ctx.pool, self.id).await?;
 
         Ok(stats
             .into_iter()

@@ -110,10 +110,9 @@ impl PlayerRaceScore {
     }
 
     #[instrument(level = "debug", skip(pool))]
-    pub async fn find_track_stats_by_player_and_tournament(
+    pub async fn find_track_stats_by_player(
         pool: &DbPool,
         player_id: Uuid,
-        tournament_id: Uuid,
     ) -> Result<Vec<PlayerTrackAggregation>, sqlx::Error> {
         sqlx::query_as::<_, PlayerTrackAggregation>(
             "SELECT
@@ -125,14 +124,12 @@ impl PlayerRaceScore {
              INNER JOIN tracks t ON r.track_id = t.id
              INNER JOIN matches m ON prs.match_id = m.id
              WHERE prs.player_id = $1
-               AND m.tournament_id = $2
                AND m.completed = true
                AND r.completed = true
              GROUP BY t.id, t.name
              ORDER BY average_position ASC",
         )
         .bind(player_id)
-        .bind(tournament_id)
         .fetch_all(pool)
         .await
     }
