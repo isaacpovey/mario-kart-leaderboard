@@ -72,7 +72,7 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={(details) => onOpenChange(details.open)}>
+    <Dialog.Root open={open} onOpenChange={(details) => onOpenChange(details.open)} closeOnInteractOutside={false}>
       <Portal>
         <Dialog.Backdrop />
         <Dialog.Positioner>
