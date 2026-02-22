@@ -122,10 +122,7 @@ impl PlayerRaceScore {
              FROM player_race_scores prs
              INNER JOIN rounds r ON prs.match_id = r.match_id AND prs.round_number = r.round_number
              INNER JOIN tracks t ON r.track_id = t.id
-             INNER JOIN matches m ON prs.match_id = m.id
              WHERE prs.player_id = $1
-               AND m.completed = true
-               AND r.completed = true
              GROUP BY t.id, t.name
              ORDER BY average_position ASC",
         )
