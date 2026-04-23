@@ -26,6 +26,7 @@ const Match = () => {
   const [resultsMode, setResultsMode] = useState<'grid' | 'manual'>('grid')
   const [expandedCompletedRound, setExpandedCompletedRound] = useState<number | null>(null)
   const [positions, setPositions] = useState<Record<string, string>>({})
+  const [pinnedSlots, setPinnedSlots] = useState<Set<number>>(new Set())
 
   // Grid mode derives its slot map (position → playerId) from `positions` so both modes
   // share the same underlying state. Only integer positions 1..24 are considered.
@@ -82,7 +83,20 @@ const Match = () => {
     setResultsMode('grid')
     setExpandedCompletedRound(null)
     setPositions({})
+    setPinnedSlots(new Set())
     setError('')
+  }
+
+  const handleTogglePin = (slotNumber: number) => {
+    setPinnedSlots((prev) => {
+      const next = new Set(prev)
+      if (next.has(slotNumber)) {
+        next.delete(slotNumber)
+      } else {
+        next.add(slotNumber)
+      }
+      return next
+    })
   }
 
   const handleToggleExpanded = (roundNumber: number) => {
@@ -119,6 +133,7 @@ const Match = () => {
     if (updated) {
       setSelectedRound(null)
       setPositions({})
+      setPinnedSlots(new Set())
     }
   }
 
@@ -253,7 +268,9 @@ const Match = () => {
                       <ResultsGrid
                         round={roundData}
                         slots={slots}
+                        pinnedSlots={pinnedSlots}
                         onTogglePlayer={handleTogglePlayerInSlot}
+                        onTogglePin={handleTogglePin}
                         error={error}
                         submitting={isRecordingResults}
                         onSubmit={handleSubmitResults}
