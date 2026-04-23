@@ -73,6 +73,8 @@ cp .env.example .env
 
 The credentials in `.env.example` match the compose service defaults. Data is persisted in the named volume `mario-kart-pgdata`; use `docker compose ... down -v` to wipe it. If port `5432` is already taken by a host-native Postgres, stop that service first or change the host port mapping in `docker-compose.yml` and update `DATABASE_URL` in your `.env` accordingly.
 
+Prefer a single command? If you have `devbox` installed, `devbox run db:bootstrap` starts Postgres, runs migrations, and seeds a sample group (`Dev Group` / `devpassword`) with four players (`Mario`, `Luigi`, `Peach`, `Bowser`). It is idempotent — safe to re-run. The seed prints an auto-login URL you can paste into the browser (`http://localhost:5173/?groupId=...&password=...`), plus a JWT for the GraphQL playground.
+
 ### 3. Run Migrations
 
 Run all pending migrations:
