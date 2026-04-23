@@ -13,19 +13,23 @@
     "scripts": {
       "help": [
         "echo 'Available devbox scripts:'",
-        "echo '  db:up        Start Postgres via docker compose'",
+        "echo '  db:bootstrap Start Postgres, run migrations, and seed dev data'",
+        "echo '  db:up        Start Postgres (waits until healthy)'",
         "echo '  db:down      Stop Postgres (preserves data)'",
         "echo '  db:reset     Stop Postgres and wipe the data volume'",
         "echo '  db:logs      Tail Postgres logs'",
         "echo '  migrate      Run backend migrations'",
+        "echo '  seed         Seed the dev DB with a sample group and players'",
         "echo '  dev:backend  Run backend dev server'",
         "echo '  dev:frontend Run frontend dev server'"
       ],
-      "db:up": "docker compose -f backend/docker-compose.yml up -d postgres",
+      "db:up": "docker compose -f backend/docker-compose.yml up -d --wait postgres",
       "db:down": "docker compose -f backend/docker-compose.yml down",
       "db:reset": "docker compose -f backend/docker-compose.yml down -v",
       "db:logs": "docker compose -f backend/docker-compose.yml logs -f postgres",
       "migrate": "cd backend && cargo run --bin migrate up",
+      "seed": "cd backend && cargo run --bin seed",
+      "db:bootstrap": "docker compose -f backend/docker-compose.yml up -d --wait postgres && cd backend && cargo run --bin migrate up && cargo run --bin seed",
       "dev:backend": "cd backend && cargo run --bin mario-kart-leaderboard-backend",
       "dev:frontend": "cd frontend && pnpm dev"
     }
