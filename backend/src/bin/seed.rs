@@ -71,8 +71,21 @@ async fn main() -> Result<()> {
     }
 
     let token = create_jwt(group.id, &jwt_secret)?;
-    println!("\nGROUP_ID: {}", group.id);
-    println!("JWT: {}", token);
+    let frontend_url =
+        env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+
+    println!(
+        "\nAuto-login URL:\n  {}/?groupId={}&password={}",
+        frontend_url, group.id, group_password,
+    );
+    println!(
+        "\nOr log in manually at {}/login with:\n  group id: {}\n  password: {}",
+        frontend_url, group.id, group_password,
+    );
+    println!(
+        "\nJWT (for the GraphQL playground at http://localhost:8080/):\n  {}",
+        token,
+    );
 
     Ok(())
 }
