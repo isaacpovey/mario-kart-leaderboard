@@ -225,27 +225,33 @@ async fn test_check_out_missing_player_is_noop() {
 }
 
 #[tokio::test]
-async fn test_group_lobby_ordered_by_checkin_time() {
+async fn test_group_lobby_ordered_by_name() {
     let ctx = setup::setup_test_db().await;
     let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
         .await
         .expect("Failed to create test group");
-    let players = fixtures::create_test_players(&ctx.pool, group.id, 3)
-        .await
-        .expect("Failed to create test players");
-    let (alice, bob, carol) = (&players[0], &players[1], &players[2]);
 
-    mario_kart_leaderboard_backend::models::LobbyEntry::check_in(&ctx.pool, group.id, bob.id)
+    // Create players with names that sort unambiguously.
+    let carol = mario_kart_leaderboard_backend::models::Player::create(&ctx.pool, group.id, "Carol")
         .await
-        .expect("check_in bob");
-    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    mario_kart_leaderboard_backend::models::LobbyEntry::check_in(&ctx.pool, group.id, alice.id)
+        .expect("Failed to create Carol");
+    let alice = mario_kart_leaderboard_backend::models::Player::create(&ctx.pool, group.id, "Alice")
         .await
-        .expect("check_in alice");
-    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        .expect("Failed to create Alice");
+    let bob = mario_kart_leaderboard_backend::models::Player::create(&ctx.pool, group.id, "Bob")
+        .await
+        .expect("Failed to create Bob");
+
+    // Check in out of order to confirm the ORDER BY p.name ASC takes effect.
     mario_kart_leaderboard_backend::models::LobbyEntry::check_in(&ctx.pool, group.id, carol.id)
         .await
         .expect("check_in carol");
+    mario_kart_leaderboard_backend::models::LobbyEntry::check_in(&ctx.pool, group.id, bob.id)
+        .await
+        .expect("check_in bob");
+    mario_kart_leaderboard_backend::models::LobbyEntry::check_in(&ctx.pool, group.id, alice.id)
+        .await
+        .expect("check_in alice");
 
     let query = r#"
         query {
@@ -269,8 +275,8 @@ async fn test_group_lobby_ordered_by_checkin_time() {
         .as_array().unwrap();
 
     assert_eq!(lobby.len(), 3);
-    assert_eq!(lobby[0].get("id").and_then(|v| v.as_str()), Some(bob.id.to_string().as_str()));
-    assert_eq!(lobby[1].get("id").and_then(|v| v.as_str()), Some(alice.id.to_string().as_str()));
+    assert_eq!(lobby[0].get("id").and_then(|v| v.as_str()), Some(alice.id.to_string().as_str()));
+    assert_eq!(lobby[1].get("id").and_then(|v| v.as_str()), Some(bob.id.to_string().as_str()));
     assert_eq!(lobby[2].get("id").and_then(|v| v.as_str()), Some(carol.id.to_string().as_str()));
 }
 

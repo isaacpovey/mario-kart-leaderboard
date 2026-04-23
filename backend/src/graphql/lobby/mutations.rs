@@ -1,4 +1,5 @@
 use crate::graphql::context::GraphQLContext;
+use crate::graphql::lobby::fetch_lobby;
 use crate::graphql::players::types::Player;
 use crate::models;
 use crate::services::notification_manager::LobbyNotification;
@@ -39,8 +40,7 @@ impl LobbyMutation {
             .notification_manager
             .notify_lobby(LobbyNotification { group_id });
 
-        let lobby_players = load_lobby_players(&gql_ctx.pool, group_id).await?;
-        Ok(lobby_players)
+        fetch_lobby(&gql_ctx.pool, group_id).await
     }
 
     /// Check a player out of their group's lobby.
@@ -72,33 +72,7 @@ impl LobbyMutation {
             .notification_manager
             .notify_lobby(LobbyNotification { group_id });
 
-        let lobby_players = load_lobby_players(&gql_ctx.pool, group_id).await?;
-        Ok(lobby_players)
+        fetch_lobby(&gql_ctx.pool, group_id).await
     }
 }
 
-async fn load_lobby_players(
-    pool: &crate::db::DbPool,
-    group_id: Uuid,
-) -> Result<Vec<Player>> {
-    let entries = models::LobbyEntry::find_by_group_id(pool, group_id).await?;
-    if entries.is_empty() {
-        return Ok(Vec::new());
-    }
-    let player_ids: Vec<Uuid> = entries.iter().map(|e| e.player_id).collect();
-    let players_by_id = models::Player::find_by_ids(pool, &player_ids).await?;
-
-    // Preserve check-in order
-    let ordered: Vec<Player> = entries
-        .iter()
-        .filter_map(|e| {
-            players_by_id
-                .iter()
-                .find(|p| p.id == e.player_id)
-                .cloned()
-                .map(Player::from)
-        })
-        .collect();
-
-    Ok(ordered)
-}

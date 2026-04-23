@@ -46,32 +46,36 @@ impl LobbyEntry {
         Ok(())
     }
 
-    /// List lobby entries for a group, oldest check-in first.
+    /// List lobby entries for a group, ordered by player name (ascending).
     #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_group_id(
         pool: &DbPool,
         group_id: Uuid,
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
-            "SELECT group_id, player_id, checked_in_at FROM lobby_entries
-             WHERE group_id = $1
-             ORDER BY checked_in_at ASC",
+            "SELECT le.group_id, le.player_id, le.checked_in_at
+             FROM lobby_entries le
+             JOIN players p ON p.id = le.player_id
+             WHERE le.group_id = $1
+             ORDER BY p.name ASC",
         )
         .bind(group_id)
         .fetch_all(pool)
         .await
     }
 
-    /// Batched lookup for DataLoader.
+    /// Batched lookup for DataLoader. Ordered by player name (ascending).
     #[instrument(level = "debug", skip(pool), fields(batch_size = group_ids.len()))]
     pub async fn find_by_group_ids(
         pool: &DbPool,
         group_ids: &[Uuid],
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
-            "SELECT group_id, player_id, checked_in_at FROM lobby_entries
-             WHERE group_id = ANY($1)
-             ORDER BY checked_in_at ASC",
+            "SELECT le.group_id, le.player_id, le.checked_in_at
+             FROM lobby_entries le
+             JOIN players p ON p.id = le.player_id
+             WHERE le.group_id = ANY($1)
+             ORDER BY p.name ASC",
         )
         .bind(group_ids)
         .fetch_all(pool)
