@@ -7,6 +7,7 @@ import { CancelMatchModal } from '../components/CancelMatchModal'
 import { ErrorState } from '../components/common/ErrorState'
 import { RaceList } from '../components/domain/RaceList'
 import { RaceResultsDisplay } from '../components/domain/RaceResultsDisplay'
+import { ResultsGrid } from '../components/domain/ResultsGrid'
 import { RoundResultsForm } from '../components/domain/RoundResultsForm'
 import { TeamCard } from '../components/domain/TeamCard'
 import { SwapPlayerModal } from '../components/SwapPlayerModal'
@@ -22,6 +23,7 @@ const Match = () => {
   const { recordResults, isRecordingResults, swapRoundPlayer, isSwappingPlayer, swapPlayerError } = useMatchManagement()
 
   const [selectedRound, setSelectedRound] = useState<number | null>(null)
+  const [resultsMode, setResultsMode] = useState<'grid' | 'manual'>('grid')
   const [expandedCompletedRound, setExpandedCompletedRound] = useState<number | null>(null)
   const [positions, setPositions] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
@@ -45,6 +47,7 @@ const Match = () => {
 
   const handleSelectRound = (roundNumber: number) => {
     setSelectedRound(roundNumber)
+    setResultsMode('grid')
     setExpandedCompletedRound(null)
     setPositions({})
     setError('')
@@ -190,15 +193,50 @@ const Match = () => {
                 }
 
                 return (
-                  <RoundResultsForm
-                    round={roundData}
-                    positions={positions}
-                    onPositionChange={handlePositionChange}
-                    onSubmit={handleSubmit}
-                    error={error}
-                    submitting={isRecordingResults}
-                    onSwapPlayer={(player) => handleSwapPlayer(player, roundNumber)}
-                  />
+                  <VStack align="stretch" gap={3}>
+                    <HStack gap={2} justify="flex-end">
+                      <Button
+                        size="xs"
+                        variant={resultsMode === 'grid' ? 'solid' : 'outline'}
+                        colorScheme={resultsMode === 'grid' ? 'yellow' : undefined}
+                        bg={resultsMode === 'grid' ? 'brand.400' : undefined}
+                        color={resultsMode === 'grid' ? 'gray.900' : undefined}
+                        onClick={() => setResultsMode('grid')}
+                      >
+                        Grid
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant={resultsMode === 'manual' ? 'solid' : 'outline'}
+                        colorScheme={resultsMode === 'manual' ? 'yellow' : undefined}
+                        bg={resultsMode === 'manual' ? 'brand.400' : undefined}
+                        color={resultsMode === 'manual' ? 'gray.900' : undefined}
+                        onClick={() => setResultsMode('manual')}
+                      >
+                        Manual
+                      </Button>
+                    </HStack>
+
+                    {resultsMode === 'grid' ? (
+                      <ResultsGrid
+                        round={roundData}
+                        error={error}
+                        submitting={isRecordingResults}
+                        onSubmit={handleSubmitResults}
+                        onSwapPlayer={(player) => handleSwapPlayer(player, roundNumber)}
+                      />
+                    ) : (
+                      <RoundResultsForm
+                        round={roundData}
+                        positions={positions}
+                        onPositionChange={handlePositionChange}
+                        onSubmit={handleSubmit}
+                        error={error}
+                        submitting={isRecordingResults}
+                        onSwapPlayer={(player) => handleSwapPlayer(player, roundNumber)}
+                      />
+                    )}
+                  </VStack>
                 )
               }}
             />
