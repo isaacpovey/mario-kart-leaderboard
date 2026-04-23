@@ -48,12 +48,29 @@ async fn main() -> Result<()> {
         }
         None => {
             let hash = hash_password(&group_password)?;
-            let created = Group::create(&pool, &group_name, &hash).await?;
-            println!(
-                "seed: created group '{}' with id {}",
-                group_name, created.id
-            );
-            created
+            match Group::create(&pool, &group_name, &hash).await {
+                Ok(created) => {
+                    println!(
+                        "seed: created group '{}' with id {}",
+                        group_name, created.id
+                    );
+                    created
+                }
+                Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
+                    let found = Group::find_by_name(&pool, &group_name).await?.ok_or_else(|| {
+                        AppError::InvalidInput(format!(
+                            "groups.name unique violation but no matching row for '{}' — check for whitespace or casing in the stored value",
+                            group_name
+                        ))
+                    })?;
+                    println!(
+                        "seed: group '{}' already exists — reusing id {}",
+                        group_name, found.id
+                    );
+                    found
+                }
+                Err(e) => return Err(e.into()),
+            }
         }
     };
 
