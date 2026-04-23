@@ -34,7 +34,7 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
       playerSelection.setSelection(initialSelectedIds)
     }
   }, [open])
-  const { createMatchWithRounds, isCreatingMatch, createMatchError } = useMatchManagement()
+  const { createMatchWithRounds, isCreatingMatch } = useMatchManagement()
 
   const playersPerRace = Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE
   const numRaces = Number.parseInt(formState.numRaces, 10) || FALLBACK_NUM_RACES
@@ -185,10 +185,10 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
                     </Box>
                   </Tabs.Root>
 
-                  {(error || createMatchError) && (
+                  {error && (
                     <Box p={3} bg="red.50" borderRadius="button" borderWidth="1px" borderColor="red.300">
                       <Text color="red.700" fontSize="sm" fontWeight="medium">
-                        {error || createMatchError}
+                        {error}
                       </Text>
                     </Box>
                   )}
