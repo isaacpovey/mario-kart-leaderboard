@@ -34,19 +34,24 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
       playerSelection.setSelection(initialSelectedIds)
     }
   }, [open])
-  const { createMatchWithRounds, isCreatingMatch } = useMatchManagement()
+  const { createMatchWithRounds, isCreatingMatch, createMatchError } = useMatchManagement()
 
-  const totalSlots = (Number.parseInt(formState.numRaces, 10) || FALLBACK_NUM_RACES) * (Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE)
+  const playersPerRace = Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE
+  const numRaces = Number.parseInt(formState.numRaces, 10) || FALLBACK_NUM_RACES
+  const totalSlots = numRaces * playersPerRace
   const selectedCount = playerSelection.selectedPlayerIds.length
-  const isValidAllocation = selectedCount > 0 && totalSlots >= selectedCount
+  const isValidAllocation = selectedCount > 0 && selectedCount >= playersPerRace && totalSlots >= selectedCount
 
   const validationMessage = useMemo(() => {
     if (selectedCount === 0) return 'Select at least one player'
+    if (selectedCount < playersPerRace) {
+      return `Need at least ${playersPerRace} players for ${playersPerRace} per race (selected ${selectedCount})`
+    }
     if (totalSlots < selectedCount) {
       return `Total slots (${totalSlots}) must be at least equal to player count (${selectedCount})`
     }
     return ''
-  }, [totalSlots, selectedCount])
+  }, [totalSlots, selectedCount, playersPerRace])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,8 +65,8 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
     const match = await createMatchWithRounds({
       tournamentId,
       playerIds: playerSelection.selectedPlayerIds,
-      numRaces: Number.parseInt(formState.numRaces, 10) || FALLBACK_NUM_RACES,
-      playersPerRace: Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE,
+      numRaces,
+      playersPerRace,
       randomTeams: formState.randomTeams,
     })
 
@@ -180,10 +185,10 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
                     </Box>
                   </Tabs.Root>
 
-                  {error && (
+                  {(error || createMatchError) && (
                     <Box p={3} bg="red.50" borderRadius="button" borderWidth="1px" borderColor="red.300">
                       <Text color="red.700" fontSize="sm" fontWeight="medium">
-                        {error}
+                        {error || createMatchError}
                       </Text>
                     </Box>
                   )}
