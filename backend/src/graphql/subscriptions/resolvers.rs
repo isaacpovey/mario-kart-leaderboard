@@ -1,4 +1,5 @@
 use crate::graphql::context::GraphQLContext;
+use crate::graphql::players::types::Player;
 use crate::graphql::results::types::{PlayerMatchResult, PlayerRaceResult};
 use crate::graphql::subscriptions::types::RaceResultUpdate;
 use crate::graphql::teams::types::Team;
@@ -128,6 +129,59 @@ impl Subscription {
                     }
                     _ = tokio::time::sleep(Duration::from_secs(30)) => {
                         tracing::debug!("NOTIFY STEP 3: Timeout tick (keeping connection alive)");
+                        continue;
+                    }
+                }
+            }
+        };
+
+        Ok(stream)
+    }
+
+    /// Subscribe to lobby updates for the authenticated group.
+    ///
+    /// Receives real-time updates when players are checked in or out of the
+    /// authenticated group's lobby. Each event yields the full current lobby.
+    ///
+    /// # Authorization
+    ///
+    /// Filters notifications by the authenticated group's id; subscribers never
+    /// see events for other groups.
+    async fn lobby_updated(
+        &self,
+        ctx: &Context<'_>,
+    ) -> Result<impl Stream<Item = Result<Vec<Player>>>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+        let group_id = gql_ctx.authenticated_group_id()?;
+
+        let notification_manager = gql_ctx.notification_manager.clone();
+        let pool = gql_ctx.pool.clone();
+
+        let stream = async_stream::stream! {
+            let mut receiver = notification_manager.subscribe_lobby();
+
+            loop {
+                tokio::select! {
+                    notification = receiver.recv() => {
+                        match notification {
+                            Ok(notif) => {
+                                if notif.group_id == group_id {
+                                    match fetch_lobby(&pool, group_id).await {
+                                        Ok(players) => yield Ok(players),
+                                        Err(e) => yield Err(e),
+                                    }
+                                }
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                                tracing::warn!("Lobby subscription lagged, skipped {}", skipped);
+                                continue;
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                                break;
+                            }
+                        }
+                    }
+                    _ = tokio::time::sleep(Duration::from_secs(30)) => {
                         continue;
                     }
                 }
@@ -279,4 +333,23 @@ async fn fetch_teams(pool: &crate::db::DbPool, match_id: Uuid) -> Result<Vec<Tea
     .await?;
 
     Ok(teams.into_iter().map(Team::from).collect())
+}
+
+async fn fetch_lobby(
+    pool: &crate::db::DbPool,
+    group_id: Uuid,
+) -> Result<Vec<Player>> {
+    let entries = crate::models::LobbyEntry::find_by_group_id(pool, group_id).await?;
+    if entries.is_empty() {
+        return Ok(Vec::new());
+    }
+    let player_ids: Vec<Uuid> = entries.iter().map(|e| e.player_id).collect();
+    let players = crate::models::Player::find_by_ids(pool, &player_ids).await?;
+
+    let ordered: Vec<Player> = entries
+        .iter()
+        .filter_map(|e| players.iter().find(|p| p.id == e.player_id).cloned().map(Player::from))
+        .collect();
+
+    Ok(ordered)
 }
