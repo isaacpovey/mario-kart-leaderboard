@@ -24,7 +24,7 @@
       "db:down": "docker compose -f backend/docker-compose.yml down",
       "db:logs": "docker compose -f backend/docker-compose.yml logs -f postgres",
       "migrate": "cd backend && cargo run --bin migrate up",
-      "dev:backend": "cd backend && cargo run",
+      "dev:backend": "cd backend && cargo run --bin mario-kart-leaderboard-backend",
       "dev:frontend": "cd frontend && pnpm dev"
     }
   }
