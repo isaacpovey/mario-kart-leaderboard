@@ -4,7 +4,7 @@ use async_graphql::{Request, Variables, value};
 use common::{fixtures, setup};
 use mario_kart_leaderboard_backend::{
     graphql::context::GraphQLContext,
-    services::notification_manager::NotificationManager,
+    services::notification_manager::{LobbyNotification, NotificationManager},
 };
 
 #[tokio::test]
@@ -331,4 +331,83 @@ async fn test_lobby_persists_across_match_creation() {
         .await
         .expect("find_by_group_id");
     assert_eq!(lobby.len(), 4, "Lobby should be unchanged after match creation");
+}
+
+#[tokio::test]
+async fn test_lobby_updated_subscription_fires_on_check_in_and_filters_by_group() {
+    use futures::StreamExt;
+    use std::time::Duration;
+
+    let ctx = setup::setup_test_db().await;
+
+    let group_a = fixtures::create_test_group(&ctx.pool, "Group A", "password")
+        .await
+        .expect("create group A");
+    let group_b = fixtures::create_test_group(&ctx.pool, "Group B", "password")
+        .await
+        .expect("create group B");
+
+    let alice = mario_kart_leaderboard_backend::models::Player::create(&ctx.pool, group_a.id, "Alice")
+        .await
+        .expect("create Alice");
+    let outsider = mario_kart_leaderboard_backend::models::Player::create(&ctx.pool, group_b.id, "Zoe")
+        .await
+        .expect("create outsider");
+
+    let notification_manager = NotificationManager::new();
+
+    // Subscribe as group A.
+    let request = Request::new(r#"subscription { lobbyUpdated { id name } }"#)
+        .data(ctx.config.clone())
+        .data(GraphQLContext::new(
+            ctx.pool.clone(),
+            Some(group_a.id),
+            notification_manager.clone(),
+        ));
+    let mut stream = ctx.schema.execute_stream(request);
+
+    // The stream's broadcast receiver is only registered when the stream
+    // begins running. Spawn the notifications after a small delay so the
+    // receiver is live by the time we send.
+    let pool = ctx.pool.clone();
+    let nm = notification_manager.clone();
+    let group_a_id = group_a.id;
+    let group_b_id = group_b.id;
+    let alice_id = alice.id;
+    let outsider_id = outsider.id;
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        // Notification for group B must NOT reach the group A subscriber.
+        mario_kart_leaderboard_backend::models::LobbyEntry::check_in(&pool, group_b_id, outsider_id)
+            .await
+            .expect("check in outsider");
+        nm.notify_lobby(LobbyNotification { group_id: group_b_id });
+
+        // Notification for group A must be delivered.
+        mario_kart_leaderboard_backend::models::LobbyEntry::check_in(&pool, group_a_id, alice_id)
+            .await
+            .expect("check in alice");
+        nm.notify_lobby(LobbyNotification { group_id: group_a_id });
+    });
+
+    let response = tokio::time::timeout(Duration::from_secs(3), stream.next())
+        .await
+        .expect("subscription timed out")
+        .expect("subscription stream ended early");
+
+    assert!(response.errors.is_empty(), "Errors: {:?}", response.errors);
+
+    let data = response.data.into_json().expect("parse response");
+    let lobby = data.get("lobbyUpdated").expect("lobbyUpdated").as_array().expect("array");
+
+    // The yielded lobby is group A's only, and contains only Alice — proving
+    // the group B notification was filtered out (otherwise the first event
+    // delivered would have been for group B).
+    assert_eq!(lobby.len(), 1);
+    assert_eq!(
+        lobby[0].get("id").and_then(|v| v.as_str()),
+        Some(alice.id.to_string().as_str())
+    );
+    assert_eq!(lobby[0].get("name").and_then(|v| v.as_str()), Some("Alice"));
 }
