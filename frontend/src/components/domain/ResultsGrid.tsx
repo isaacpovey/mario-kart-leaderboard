@@ -1,10 +1,9 @@
 import { Box, Button, Heading, HStack, Text, VStack } from '@chakra-ui/react'
 import { useMemo, useState } from 'react'
 import { LuArrowLeftRight } from 'react-icons/lu'
-import { Avatar } from '../common/Avatar'
-import { GridSlotPicker } from './GridSlotPicker'
 
 const TOTAL_SLOTS = 24
+const SLOTS_PER_PAGE = 12
 
 type Player = {
   id: string
@@ -22,13 +21,19 @@ type Round = {
   players: Player[]
 }
 
+export type SlotAssignments = Record<number, string | null>
+
 type ResultsGridProps = {
   round: Round
+  slots: SlotAssignments
+  onTogglePlayer: (slotNumber: number, playerId: string) => void
   error: string
   submitting: boolean
   onSubmit: (results: Array<{ playerId: string; position: number }>) => void | Promise<void>
   onSwapPlayer?: (player: Player) => void
 }
+
+type Page = 'top' | 'bottom'
 
 const ordinal = (n: number): string => {
   const mod100 = n % 100
@@ -40,37 +45,21 @@ const ordinal = (n: number): string => {
   return `${n}th`
 }
 
-export const ResultsGrid = ({ round, error, submitting, onSubmit, onSwapPlayer }: ResultsGridProps) => {
-  const [slots, setSlots] = useState<Record<number, string | null>>({})
-  const [pickerSlot, setPickerSlot] = useState<number | null>(null)
+const pageSlots = (page: Page): number[] => {
+  const start = page === 'top' ? 1 : SLOTS_PER_PAGE + 1
+  const end = page === 'top' ? SLOTS_PER_PAGE : TOTAL_SLOTS
+  return Array.from({ length: end - start + 1 }, (_, i) => i + start)
+}
+
+export const ResultsGrid = ({ round, slots, onTogglePlayer, error, submitting, onSubmit, onSwapPlayer }: ResultsGridProps) => {
+  const [page, setPage] = useState<Page>('top')
 
   const assignedPlayerIds = useMemo(() => new Set(Object.values(slots).filter((v): v is string => v !== null)), [slots])
   const unassignedPlayers = useMemo(() => round.players.filter((p) => !assignedPlayerIds.has(p.id)), [round.players, assignedPlayerIds])
-  const playersById = useMemo(() => new Map(round.players.map((p) => [p.id, p])), [round.players])
-
-  const currentSlotAssignment = pickerSlot !== null && slots[pickerSlot] ? (playersById.get(slots[pickerSlot] as string) ?? null) : null
 
   const allAssigned = unassignedPlayers.length === 0
-
   const assignedCount = round.players.length - unassignedPlayers.length
   const validationHint = !allAssigned ? `Assign every player to a position before submitting. (${assignedCount}/${round.players.length} assigned)` : ''
-
-  const handleAssign = (playerId: string | null) => {
-    if (pickerSlot === null) return
-    setSlots((prev) => {
-      const next = { ...prev }
-      // Clear any other slot that previously held this player — a player can only be in one slot at a time.
-      if (playerId !== null) {
-        for (const [slotKey, existingId] of Object.entries(next)) {
-          if (existingId === playerId && Number(slotKey) !== pickerSlot) {
-            next[Number(slotKey)] = null
-          }
-        }
-      }
-      next[pickerSlot] = playerId
-      return next
-    })
-  }
 
   const handleSubmit = () => {
     const results = Object.entries(slots)
@@ -82,9 +71,53 @@ export const ResultsGrid = ({ round, error, submitting, onSubmit, onSwapPlayer }
     onSubmit(results)
   }
 
+  const renderSlot = (slotNumber: number) => {
+    const assignedId = slots[slotNumber] ?? null
+    const isAssigned = assignedId !== null
+    return (
+      <HStack
+        key={slotNumber}
+        gap={2}
+        px={3}
+        py={2}
+        borderRadius="md"
+        borderWidth="1px"
+        borderColor={isAssigned ? 'brand.300' : 'gray.200'}
+        bg={isAssigned ? 'brand.50' : slotNumber % 2 === 0 ? 'gray.50' : 'white'}
+        align="start"
+      >
+        <Box minW="2.5rem" textAlign="right" fontWeight="bold" fontSize="sm" color={isAssigned ? 'brand.700' : 'gray.500'} flexShrink={0} pt={1}>
+          {ordinal(slotNumber)}
+        </Box>
+        <HStack gap={1} flexWrap="wrap" flex={1}>
+          {round.players.map((player) => {
+            const isHere = assignedId === player.id
+            const isElsewhere = !isHere && assignedPlayerIds.has(player.id)
+            return (
+              <Button
+                key={player.id}
+                size="xs"
+                variant={isHere ? 'solid' : 'outline'}
+                colorScheme={isHere ? 'yellow' : undefined}
+                bg={isHere ? 'brand.400' : undefined}
+                color={isHere ? 'gray.900' : isElsewhere ? 'gray.400' : undefined}
+                borderColor={isElsewhere ? 'gray.200' : undefined}
+                opacity={isElsewhere ? 0.6 : 1}
+                onClick={() => onTogglePlayer(slotNumber, player.id)}
+                px={2}
+              >
+                {player.name}
+              </Button>
+            )
+          })}
+        </HStack>
+      </HStack>
+    )
+  }
+
   return (
-    <Box p={{ base: 5, md: 6 }} bg="bg.panel" borderRadius="card" borderWidth="1px" borderColor="brand.400" boxShadow="card-hover">
-      <VStack gap={{ base: 4, md: 5 }} align="stretch">
+    <Box p={{ base: 4, md: 6 }} bg="bg.panel" borderRadius="card" borderWidth="1px" borderColor="brand.400" boxShadow="card-hover">
+      <VStack gap={{ base: 3, md: 5 }} align="stretch">
         <VStack gap={1} align="start">
           <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
             Record Results
@@ -111,42 +144,31 @@ export const ResultsGrid = ({ round, error, submitting, onSubmit, onSwapPlayer }
           </HStack>
         )}
 
-        <VStack align="stretch" gap={1} maxH={{ base: '50vh', md: '60vh' }} overflowY="auto" borderWidth="1px" borderColor="gray.200" borderRadius="md" p={2}>
-          {Array.from({ length: TOTAL_SLOTS }, (_, i) => i + 1).map((slotNumber) => {
-            const playerId = slots[slotNumber] ?? null
-            const player = playerId ? (playersById.get(playerId) ?? null) : null
-            const isAssigned = player !== null
-            return (
-              <HStack
-                key={slotNumber}
-                as="button"
-                onClick={() => setPickerSlot(slotNumber)}
-                justify="space-between"
-                px={3}
-                py={2}
-                borderRadius="md"
-                borderWidth="1px"
-                borderColor={isAssigned ? 'brand.300' : 'gray.200'}
-                bg={isAssigned ? 'brand.50' : 'white'}
-                _hover={{ bg: isAssigned ? 'brand.100' : 'gray.50' }}
-                textAlign="left"
-              >
-                <HStack gap={3} flex={1}>
-                  <Box minW="2.5rem" textAlign="center" fontWeight="bold" fontSize="md" color={isAssigned ? 'brand.700' : 'gray.600'}>
-                    {ordinal(slotNumber)}
-                  </Box>
-                  {isAssigned && player ? (
-                    <HStack gap={2}>
-                      <Avatar name={player.name} avatarFilename={player.avatarFilename} size="sm" />
-                      <Text fontWeight="medium">{player.name}</Text>
-                    </HStack>
-                  ) : (
-                    <Text color="gray.500">CPU</Text>
-                  )}
-                </HStack>
-              </HStack>
-            )
-          })}
+        <HStack gap={2} justify="center">
+          <Button
+            size="sm"
+            variant={page === 'top' ? 'solid' : 'outline'}
+            colorScheme={page === 'top' ? 'yellow' : undefined}
+            bg={page === 'top' ? 'brand.400' : undefined}
+            color={page === 'top' ? 'gray.900' : undefined}
+            onClick={() => setPage('top')}
+          >
+            1st – 12th
+          </Button>
+          <Button
+            size="sm"
+            variant={page === 'bottom' ? 'solid' : 'outline'}
+            colorScheme={page === 'bottom' ? 'yellow' : undefined}
+            bg={page === 'bottom' ? 'brand.400' : undefined}
+            color={page === 'bottom' ? 'gray.900' : undefined}
+            onClick={() => setPage('bottom')}
+          >
+            13th – 24th
+          </Button>
+        </HStack>
+
+        <VStack gap={1} align="stretch">
+          {pageSlots(page).map(renderSlot)}
         </VStack>
 
         {(error || validationHint) && (
@@ -174,19 +196,6 @@ export const ResultsGrid = ({ round, error, submitting, onSubmit, onSwapPlayer }
           {submitting ? 'Submitting...' : 'Submit Results'}
         </Button>
       </VStack>
-
-      {pickerSlot !== null && (
-        <GridSlotPicker
-          open={pickerSlot !== null}
-          onOpenChange={(open) => {
-            if (!open) setPickerSlot(null)
-          }}
-          slotNumber={pickerSlot}
-          currentAssignment={currentSlotAssignment}
-          candidates={unassignedPlayers}
-          onAssign={handleAssign}
-        />
-      )}
     </Box>
   )
 }

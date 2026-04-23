@@ -7,7 +7,7 @@ import { CancelMatchModal } from '../components/CancelMatchModal'
 import { ErrorState } from '../components/common/ErrorState'
 import { RaceList } from '../components/domain/RaceList'
 import { RaceResultsDisplay } from '../components/domain/RaceResultsDisplay'
-import { ResultsGrid } from '../components/domain/ResultsGrid'
+import { ResultsGrid, type SlotAssignments } from '../components/domain/ResultsGrid'
 import { RoundResultsForm } from '../components/domain/RoundResultsForm'
 import { TeamCard } from '../components/domain/TeamCard'
 import { SwapPlayerModal } from '../components/SwapPlayerModal'
@@ -26,6 +26,38 @@ const Match = () => {
   const [resultsMode, setResultsMode] = useState<'grid' | 'manual'>('grid')
   const [expandedCompletedRound, setExpandedCompletedRound] = useState<number | null>(null)
   const [positions, setPositions] = useState<Record<string, string>>({})
+
+  // Grid mode derives its slot map (position → playerId) from `positions` so both modes
+  // share the same underlying state. Only integer positions 1..24 are considered.
+  const slots = useMemo<SlotAssignments>(() => {
+    const out: SlotAssignments = {}
+    for (const [playerId, posStr] of Object.entries(positions)) {
+      const position = Number.parseInt(posStr, 10)
+      if (position >= 1 && position <= 24 && !out[position]) {
+        out[position] = playerId
+      }
+    }
+    return out
+  }, [positions])
+
+  const handleTogglePlayerInSlot = (slotNumber: number, playerId: string) => {
+    setPositions((prev) => {
+      const next = { ...prev }
+      // Tapping the player already in this slot unassigns them.
+      if (Number.parseInt(next[playerId] || '0', 10) === slotNumber) {
+        delete next[playerId]
+        return next
+      }
+      // Moving the player here: clear anyone else currently in this slot.
+      for (const [otherPlayerId, otherPosStr] of Object.entries(next)) {
+        if (otherPlayerId !== playerId && Number.parseInt(otherPosStr, 10) === slotNumber) {
+          delete next[otherPlayerId]
+        }
+      }
+      next[playerId] = String(slotNumber)
+      return next
+    })
+  }
   const [error, setError] = useState('')
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [swapModalOpen, setSwapModalOpen] = useState(false)
@@ -220,6 +252,8 @@ const Match = () => {
                     {resultsMode === 'grid' ? (
                       <ResultsGrid
                         round={roundData}
+                        slots={slots}
+                        onTogglePlayer={handleTogglePlayerInSlot}
                         error={error}
                         submitting={isRecordingResults}
                         onSubmit={handleSubmitResults}
