@@ -12,3 +12,24 @@ services:
       # Maps host 4317 -> container 18889
       - "4317:18889"
     restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: mario-kart-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mario_kart
+    ports:
+      - "5432:5432"
+    volumes:
+      - mario-kart-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  mario-kart-pgdata:
