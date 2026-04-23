@@ -1,4 +1,4 @@
-import { Box, Button, Heading, HStack, Text, VStack } from '@chakra-ui/react'
+import { Box, Button, Heading, HStack, SimpleGrid, Text, VStack } from '@chakra-ui/react'
 import { useMemo, useState } from 'react'
 import { LuArrowLeftRight } from 'react-icons/lu'
 
@@ -89,7 +89,7 @@ export const ResultsGrid = ({ round, slots, onTogglePlayer, error, submitting, o
         <Box minW="2.5rem" textAlign="right" fontWeight="bold" fontSize="sm" color={isAssigned ? 'brand.700' : 'gray.500'} flexShrink={0} pt={1}>
           {ordinal(slotNumber)}
         </Box>
-        <HStack gap={1} flexWrap="wrap" flex={1}>
+        <SimpleGrid columns={{ base: 2, md: 4 }} gap={2} flex={1}>
           {round.players.map((player) => {
             const isHere = assignedId === player.id
             const isElsewhere = !isHere && assignedPlayerIds.has(player.id)
@@ -105,12 +105,13 @@ export const ResultsGrid = ({ round, slots, onTogglePlayer, error, submitting, o
                 opacity={isElsewhere ? 0.6 : 1}
                 onClick={() => onTogglePlayer(slotNumber, player.id)}
                 px={2}
+                minW={0}
               >
-                {player.name}
+                <Text truncate>{player.name}</Text>
               </Button>
             )
           })}
-        </HStack>
+        </SimpleGrid>
       </HStack>
     )
   }
