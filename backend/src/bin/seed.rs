@@ -1,7 +1,8 @@
+use chrono::{Duration, Local};
 use mario_kart_leaderboard_backend::{
     auth::{create_jwt, hash_password},
     error::{AppError, Result},
-    models::{Group, Player},
+    models::{Group, Player, Tournament},
     services::validation::{validate_name, validate_password},
 };
 use sqlx::postgres::PgPoolOptions;
@@ -85,6 +86,22 @@ async fn main() -> Result<()> {
         }
         Player::create(&pool, group.id, name).await?;
         println!("seed: created player '{}'", name);
+    }
+
+    let existing_tournaments = Tournament::find_by_group_id(&pool, group.id).await?;
+    if existing_tournaments.is_empty() {
+        let today = Local::now().date_naive();
+        let end = today + Duration::days(30);
+        let tournament = Tournament::create(&pool, group.id, Some(today), Some(end)).await?;
+        println!(
+            "seed: created tournament {} ({} → {})",
+            tournament.id, today, end
+        );
+    } else {
+        println!(
+            "seed: group already has {} tournament(s) — skipping",
+            existing_tournaments.len()
+        );
     }
 
     let token = create_jwt(group.id, &jwt_secret)?;
