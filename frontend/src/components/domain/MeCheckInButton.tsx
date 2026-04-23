@@ -1,8 +1,8 @@
-import { Box, Button, HStack, Text, VStack } from '@chakra-ui/react'
+import { Button, HStack, Text, VStack } from '@chakra-ui/react'
 import { useState } from 'react'
 import { useLobby } from '../../hooks/features/useLobby'
 import { useMe } from '../../hooks/features/useMe'
-import { PlayerSearchDropdown } from '../common/PlayerSearchDropdown'
+import { PlayerSelectorDrawer } from '../common/PlayerSelectorDrawer'
 
 type Player = {
   id: string
@@ -28,36 +28,35 @@ export const MeCheckInButton = (props: MeCheckInButtonProps) => {
   const me = meId ? (allPlayers.find((p) => p.id === meId) ?? null) : null
   const isCheckedIn = me !== null && checkedInPlayerIds.includes(me.id)
 
+  const pickerDrawer = (
+    <PlayerSelectorDrawer
+      open={pickerOpen}
+      onOpenChange={setPickerOpen}
+      allPlayers={allPlayers}
+      selectedPlayerIds={meId ? [meId] : []}
+      onTogglePlayer={(playerId) => {
+        setMe(playerId)
+        setPickerOpen(false)
+      }}
+      isCreatingPlayer={isCreatingPlayer}
+      onCreatePlayer={async (name) => {
+        const created = await onCreatePlayerByName(name)
+        if (created) {
+          setMe(created.id)
+          setPickerOpen(false)
+        }
+      }}
+    />
+  )
+
   if (!me) {
     return (
-      <Box>
+      <>
         <Button onClick={() => setPickerOpen(true)} colorScheme="blue" size="md" width="full" borderRadius="button">
-          Set me
+          Choose your racer
         </Button>
-        {pickerOpen && (
-          <Box mt={2}>
-            <PlayerSearchDropdown
-              selectedPlayers={[]}
-              selectedPlayerIds={[]}
-              onTogglePlayer={(playerId) => {
-                setMe(playerId)
-                setPickerOpen(false)
-              }}
-              isCreatingPlayer={isCreatingPlayer}
-              onCreatePlayerByName={async (name) => {
-                const created = await onCreatePlayerByName(name)
-                if (created) {
-                  setMe(created.id)
-                  setPickerOpen(false)
-                }
-                return created
-              }}
-              allPlayers={allPlayers}
-              placeholder="Who are you?"
-            />
-          </Box>
-        )}
-      </Box>
+        {pickerDrawer}
+      </>
     )
   }
 
@@ -74,6 +73,7 @@ export const MeCheckInButton = (props: MeCheckInButtonProps) => {
           change
         </Text>
       </HStack>
+      {pickerDrawer}
     </VStack>
   )
 }
