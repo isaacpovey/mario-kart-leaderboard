@@ -42,6 +42,39 @@ impl LobbyMutation {
         let lobby_players = load_lobby_players(&gql_ctx.pool, group_id).await?;
         Ok(lobby_players)
     }
+
+    /// Check a player out of their group's lobby.
+    ///
+    /// Idempotent: checking out a player not in the lobby is a no-op.
+    /// Returns the updated lobby.
+    async fn check_out_player(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "The player ID to check out")] player_id: ID,
+    ) -> Result<Vec<Player>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+        let group_id = gql_ctx.authenticated_group_id()?;
+
+        let player_uuid =
+            Uuid::parse_str(&player_id).map_err(|_| Error::new("Invalid player ID"))?;
+
+        let player = models::Player::find_by_id(&gql_ctx.pool, player_uuid)
+            .await?
+            .ok_or_else(|| Error::new("Player not found"))?;
+
+        if player.group_id != group_id {
+            return Err(Error::new("Player not found"));
+        }
+
+        models::LobbyEntry::check_out(&gql_ctx.pool, group_id, player_uuid).await?;
+
+        gql_ctx
+            .notification_manager
+            .notify_lobby(LobbyNotification { group_id });
+
+        let lobby_players = load_lobby_players(&gql_ctx.pool, group_id).await?;
+        Ok(lobby_players)
+    }
 }
 
 async fn load_lobby_players(

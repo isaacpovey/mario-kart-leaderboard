@@ -145,3 +145,81 @@ async fn test_check_in_rejects_cross_group_player() {
         .expect("count query failed");
     assert_eq!(count.0, 0);
 }
+
+#[tokio::test]
+async fn test_check_out_player_removes_from_lobby() {
+    let ctx = setup::setup_test_db().await;
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 2)
+        .await
+        .expect("Failed to create test players");
+    let (alice, bob) = (&players[0], &players[1]);
+
+    mario_kart_leaderboard_backend::models::LobbyEntry::check_in(&ctx.pool, group.id, alice.id)
+        .await
+        .expect("check_in alice");
+    mario_kart_leaderboard_backend::models::LobbyEntry::check_in(&ctx.pool, group.id, bob.id)
+        .await
+        .expect("check_in bob");
+
+    let mutation = r#"
+        mutation CheckOut($playerId: ID!) {
+            checkOutPlayer(playerId: $playerId) { id name }
+        }
+    "#;
+
+    let request = Request::new(mutation)
+        .variables(Variables::from_value(value!({
+            "playerId": alice.id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx =
+        GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(response.errors.is_empty(), "Expected no errors: {:?}", response.errors);
+
+    let data = response.data.into_json().expect("Failed to parse response");
+    let lobby = data.get("checkOutPlayer").unwrap().as_array().unwrap();
+    assert_eq!(lobby.len(), 1, "Expected exactly bob remaining after checking out alice");
+    assert_eq!(
+        lobby[0].get("id").and_then(|v| v.as_str()),
+        Some(bob.id.to_string().as_str())
+    );
+}
+
+#[tokio::test]
+async fn test_check_out_missing_player_is_noop() {
+    let ctx = setup::setup_test_db().await;
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test players");
+    let alice = &players[0];
+
+    let mutation = r#"
+        mutation CheckOut($playerId: ID!) {
+            checkOutPlayer(playerId: $playerId) { id }
+        }
+    "#;
+
+    let request = Request::new(mutation)
+        .variables(Variables::from_value(value!({
+            "playerId": alice.id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx =
+        GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(response.errors.is_empty(), "Expected no errors: {:?}", response.errors);
+    let data = response.data.into_json().expect("Failed to parse response");
+    let lobby = data.get("checkOutPlayer").unwrap().as_array().unwrap();
+    assert_eq!(lobby.len(), 0, "Expected empty lobby");
+}
