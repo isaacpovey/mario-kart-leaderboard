@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod context;
 pub mod groups;
+pub mod lobby;
 pub mod matches;
 pub mod players;
 pub mod results;
