@@ -2,9 +2,6 @@ import { Box, Button, Heading, HStack, IconButton, SimpleGrid, Text, VStack } fr
 import { useEffect, useMemo, useState } from 'react'
 import { LuArrowLeftRight, LuPin, LuPinOff } from 'react-icons/lu'
 
-const TOTAL_SLOTS = 24
-const SLOTS_PER_PAGE = 12
-
 type Player = {
   id: string
   name: string
@@ -35,7 +32,13 @@ type ResultsGridProps = {
   onSwapPlayer?: (player: Player) => void
 }
 
-type Page = 'pinned' | 'top' | 'bottom'
+type Page = 'pinned' | 'top' | 'middle' | 'bottom'
+
+const PAGE_RANGES: Record<'top' | 'middle' | 'bottom', { start: number; end: number; label: string }> = {
+  top: { start: 1, end: 8, label: '1st – 8th' },
+  middle: { start: 9, end: 16, label: '9th – 16th' },
+  bottom: { start: 17, end: 24, label: '17th – 24th' },
+}
 
 const ordinal = (n: number): string => {
   const mod100 = n % 100
@@ -47,9 +50,8 @@ const ordinal = (n: number): string => {
   return `${n}th`
 }
 
-const fullPageSlots = (page: 'top' | 'bottom'): number[] => {
-  const start = page === 'top' ? 1 : SLOTS_PER_PAGE + 1
-  const end = page === 'top' ? SLOTS_PER_PAGE : TOTAL_SLOTS
+const fullPageSlots = (page: 'top' | 'middle' | 'bottom'): number[] => {
+  const { start, end } = PAGE_RANGES[page]
   return Array.from({ length: end - start + 1 }, (_, i) => i + start)
 }
 
@@ -103,8 +105,8 @@ export const ResultsGrid = ({ round, slots, pinnedSlots, onTogglePlayer, onToggl
         py={2}
         borderRadius="md"
         borderWidth="1px"
-        borderColor={isAssigned ? 'brand.300' : isPinned ? 'brand.200' : 'gray.200'}
-        bg={isAssigned ? 'brand.50' : isPinned ? 'brand.50' : slotNumber % 2 === 0 ? 'gray.50' : 'white'}
+        borderColor={isAssigned ? 'brand.300' : 'gray.200'}
+        bg={isAssigned ? 'brand.50' : slotNumber % 2 === 0 ? 'gray.50' : 'white'}
         align="start"
       >
         <IconButton
@@ -120,7 +122,7 @@ export const ResultsGrid = ({ round, slots, pinnedSlots, onTogglePlayer, onToggl
         >
           {isPinned ? <LuPin /> : <LuPinOff />}
         </IconButton>
-        <Box minW="2.5rem" textAlign="right" fontWeight="bold" fontSize="sm" color={isAssigned ? 'brand.700' : isPinned ? 'brand.600' : 'gray.500'} flexShrink={0} pt={1}>
+        <Box minW="2.5rem" textAlign="right" fontWeight="bold" fontSize="sm" color={isAssigned ? 'brand.700' : 'gray.500'} flexShrink={0} pt={1}>
           {ordinal(slotNumber)}
         </Box>
         <SimpleGrid columns={{ base: 2, md: 4 }} gap={2} flex={1}>
@@ -195,26 +197,19 @@ export const ResultsGrid = ({ round, slots, pinnedSlots, onTogglePlayer, onToggl
               </HStack>
             </Button>
           )}
-          <Button
-            size="sm"
-            variant={page === 'top' ? 'solid' : 'outline'}
-            colorScheme={page === 'top' ? 'yellow' : undefined}
-            bg={page === 'top' ? 'brand.400' : undefined}
-            color={page === 'top' ? 'gray.900' : undefined}
-            onClick={() => setPage('top')}
-          >
-            1st – 12th
-          </Button>
-          <Button
-            size="sm"
-            variant={page === 'bottom' ? 'solid' : 'outline'}
-            colorScheme={page === 'bottom' ? 'yellow' : undefined}
-            bg={page === 'bottom' ? 'brand.400' : undefined}
-            color={page === 'bottom' ? 'gray.900' : undefined}
-            onClick={() => setPage('bottom')}
-          >
-            13th – 24th
-          </Button>
+          {(['top', 'middle', 'bottom'] as const).map((p) => (
+            <Button
+              key={p}
+              size="sm"
+              variant={page === p ? 'solid' : 'outline'}
+              colorScheme={page === p ? 'yellow' : undefined}
+              bg={page === p ? 'brand.400' : undefined}
+              color={page === p ? 'gray.900' : undefined}
+              onClick={() => setPage(p)}
+            >
+              {PAGE_RANGES[p].label}
+            </Button>
+          ))}
         </HStack>
 
         <VStack gap={1} align="stretch">
