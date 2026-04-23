@@ -1,11 +1,7 @@
 import { useSubscription } from 'urql'
 import { lobbyUpdatedSubscription } from '../subscriptions/lobbyUpdated.subscription'
 
-export const useLobbySubscription = (enabled: boolean) => {
-  const [result] = useSubscription({
-    query: lobbyUpdatedSubscription,
-    pause: !enabled,
-  })
-
+export const useLobbySubscription = () => {
+  const [result] = useSubscription({ query: lobbyUpdatedSubscription })
   return result
 }

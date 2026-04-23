@@ -16,10 +16,9 @@ import { TournamentSummary } from '../components/domain/TournamentSummary'
 import { useAuth } from '../hooks/useAuth'
 import { useRaceResultsSubscription } from '../hooks/useRaceResultsSubscription'
 import { activeTournamentQuery } from '../queries/activeTournament.query'
-import { lobbyQuery } from '../queries/lobby.query'
 import { tournamentByIdQuery } from '../queries/tournamentById.query'
 import { tournamentsQuery } from '../queries/tournaments.query'
-import { activeTournamentQueryAtom } from '../store/queries'
+import { activeTournamentQueryAtom, lobbyQueryAtom } from '../store/queries'
 
 const MAX_RETRIES = 3
 
@@ -170,8 +169,8 @@ const Home = () => {
 
   const completedTournamentData = completedTournamentResult.data?.tournamentById ?? null
 
-  const [lobbyResult] = useQuery({ query: lobbyQuery })
-  const lobbyPlayerIds = lobbyResult.data?.currentGroup?.lobby.map((p) => p.id) ?? []
+  const lobbyResult = useAtomValue(lobbyQueryAtom)
+  const lobbyPlayerIds = lobbyResult?.data?.currentGroup?.lobby.map((p) => p.id) ?? []
 
   // Subscribe to race result updates for live leaderboard and match list
   const subscriptionResult = useRaceResultsSubscription(currentTournament?.id)

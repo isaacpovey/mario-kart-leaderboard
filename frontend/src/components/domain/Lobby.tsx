@@ -1,17 +1,19 @@
 import { Box, Button, Heading, HStack, Input, Text, VStack } from '@chakra-ui/react'
+import { useAtomValue } from 'jotai'
 import { useEffect, useMemo, useState } from 'react'
-import { useClient, useQuery } from 'urql'
+import { useClient } from 'urql'
 import { useLobby } from '../../hooks/features/useLobby'
 import { usePlayerSelection } from '../../hooks/features/usePlayerSelection'
 import { useLobbySubscription } from '../../hooks/useLobbySubscription'
 import { lobbyQuery } from '../../queries/lobby.query'
+import { lobbyQueryAtom } from '../../store/queries'
 import { LobbyPlayerList } from './LobbyPlayerList'
 import { MeCheckInButton } from './MeCheckInButton'
 
 export const Lobby = () => {
   const client = useClient()
-  const [result] = useQuery({ query: lobbyQuery })
-  const subscriptionResult = useLobbySubscription(true)
+  const result = useAtomValue(lobbyQueryAtom)
+  const subscriptionResult = useLobbySubscription()
 
   // Refetch lobbyQuery whenever a subscription event arrives
   useEffect(() => {
@@ -22,7 +24,7 @@ export const Lobby = () => {
 
   const playerSelection = usePlayerSelection()
 
-  const group = result.data?.currentGroup ?? null
+  const group = result?.data?.currentGroup ?? null
   const allPlayers = useMemo(() => group?.players ?? [], [group])
   const checkedInPlayers = useMemo(() => group?.lobby ?? [], [group])
   const checkedInPlayerIds = useMemo(() => checkedInPlayers.map((p) => p.id), [checkedInPlayers])
@@ -52,7 +54,6 @@ export const Lobby = () => {
             const created = await playerSelection.createAndSelectPlayerByName(name)
             if (created) {
               await checkIn(created.id)
-              client.query(lobbyQuery, {}, { requestPolicy: 'network-only' }).toPromise()
             }
             return created
           }}
@@ -65,7 +66,6 @@ export const Lobby = () => {
             <AddPlayerInline
               onCreated={async (player) => {
                 await checkIn(player.id)
-                client.query(lobbyQuery, {}, { requestPolicy: 'network-only' }).toPromise()
                 setAddPlayerOpen(false)
               }}
               onCancel={() => setAddPlayerOpen(false)}
