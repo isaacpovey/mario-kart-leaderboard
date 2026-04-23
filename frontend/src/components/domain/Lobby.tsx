@@ -1,4 +1,4 @@
-import { Box, Button, Heading, HStack, Input, VStack } from '@chakra-ui/react'
+import { Box, Button, Heading, HStack, Input, Text, VStack } from '@chakra-ui/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useClient, useQuery } from 'urql'
 import { useLobby } from '../../hooks/features/useLobby'
@@ -36,7 +36,12 @@ export const Lobby = () => {
   return (
     <Box p={{ base: 3, md: 4 }} bg="bg.panel" borderRadius="card" borderWidth="1px" borderColor="gray.200">
       <VStack align="stretch" gap={4}>
-        <Heading size={{ base: 'md', md: 'lg' }}>Lobby</Heading>
+        <Box>
+          <Heading size={{ base: 'md', md: 'lg' }}>Lobby</Heading>
+          <Text fontSize="sm" color="gray.600" mt={1}>
+            Players in the lobby are auto-selected when starting a new race.
+          </Text>
+        </Box>
 
         <MeCheckInButton
           groupId={group.id}
