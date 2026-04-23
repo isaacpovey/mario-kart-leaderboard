@@ -63,14 +63,7 @@ export const MeCheckInButton = (props: MeCheckInButtonProps) => {
 
   return (
     <VStack align="stretch" gap={1}>
-      <Button
-        onClick={() => toggle(me.id)}
-        colorScheme={isCheckedIn ? 'red' : 'green'}
-        size="md"
-        width="full"
-        borderRadius="button"
-        loading={isLoading}
-      >
+      <Button onClick={() => toggle(me.id)} colorScheme={isCheckedIn ? 'red' : 'green'} size="md" width="full" borderRadius="button" loading={isLoading}>
         {isCheckedIn ? `Check me out (${me.name})` : `Check me in as ${me.name}`}
       </Button>
       <HStack justify="flex-end">

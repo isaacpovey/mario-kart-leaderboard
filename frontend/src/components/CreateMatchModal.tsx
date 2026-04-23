@@ -1,5 +1,5 @@
 import { Box, Button, Dialog, Field, Portal, Switch, Tabs, Text, VStack } from '@chakra-ui/react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
 import { usePlayerSelection } from '../hooks/features/usePlayerSelection'
@@ -12,8 +12,8 @@ const DEFAULT_PLAYERS_PER_RACE = 4
 const FALLBACK_NUM_RACES = 4
 const FALLBACK_PLAYERS_PER_RACE = 4
 
-export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (open: boolean) => void; tournamentId: string }) => {
-  const { open, onOpenChange, tournamentId } = dependencies
+export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (open: boolean) => void; tournamentId: string; initialSelectedIds?: string[] }) => {
+  const { open, onOpenChange, tournamentId, initialSelectedIds = [] } = dependencies
   const navigate = useNavigate()
   const { formState, updateField, resetForm } = useFormState({
     numRaces: String(DEFAULT_NUM_RACES),
@@ -23,7 +23,17 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('players')
 
-  const playerSelection = usePlayerSelection()
+  const playerSelection = usePlayerSelection(initialSelectedIds)
+
+  // Re-seed selection only when the modal opens. Reacting to every
+  // `initialSelectedIds` change would overwrite manual edits when the lobby
+  // subscription fires a refetch mid-edit.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — only react to `open`
+  useEffect(() => {
+    if (open) {
+      playerSelection.setSelection(initialSelectedIds)
+    }
+  }, [open])
   const { createMatchWithRounds, isCreatingMatch } = useMatchManagement()
 
   const totalSlots = (Number.parseInt(formState.numRaces, 10) || FALLBACK_NUM_RACES) * (Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE)
@@ -141,11 +151,7 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
                           />
 
                           <Field.Root>
-                            <Switch.Root
-                              checked={formState.randomTeams}
-                              onCheckedChange={(details) => updateField('randomTeams')(details.checked)}
-                              disabled={isCreatingMatch}
-                            >
+                            <Switch.Root checked={formState.randomTeams} onCheckedChange={(details) => updateField('randomTeams')(details.checked)} disabled={isCreatingMatch}>
                               <Switch.HiddenInput />
                               <Switch.Control>
                                 <Switch.Thumb />

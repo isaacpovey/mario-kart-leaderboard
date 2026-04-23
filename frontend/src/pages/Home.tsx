@@ -9,12 +9,14 @@ import { CreateTournamentModal } from '../components/CreateTournamentModal'
 import { ErrorState } from '../components/common/ErrorState'
 import { HeroBanner } from '../components/domain/HeroBanner'
 import { LeaderboardList } from '../components/domain/LeaderboardList'
+import { Lobby } from '../components/domain/Lobby'
 import { MatchList } from '../components/domain/MatchList'
 import { NewMatchNotification } from '../components/domain/NewMatchNotification'
 import { TournamentSummary } from '../components/domain/TournamentSummary'
 import { useAuth } from '../hooks/useAuth'
 import { useRaceResultsSubscription } from '../hooks/useRaceResultsSubscription'
 import { activeTournamentQuery } from '../queries/activeTournament.query'
+import { lobbyQuery } from '../queries/lobby.query'
 import { tournamentByIdQuery } from '../queries/tournamentById.query'
 import { tournamentsQuery } from '../queries/tournaments.query'
 import { activeTournamentQueryAtom } from '../store/queries'
@@ -168,6 +170,9 @@ const Home = () => {
 
   const completedTournamentData = completedTournamentResult.data?.tournamentById ?? null
 
+  const [lobbyResult] = useQuery({ query: lobbyQuery })
+  const lobbyPlayerIds = lobbyResult.data?.currentGroup?.lobby.map((p) => p.id) ?? []
+
   // Subscribe to race result updates for live leaderboard and match list
   const subscriptionResult = useRaceResultsSubscription(currentTournament?.id)
 
@@ -205,6 +210,8 @@ const Home = () => {
         <VStack gap={{ base: 6, md: 8 }} align="stretch">
           <HeroBanner onStartRace={() => setIsMatchModalOpen(true)} showStartButton={currentTournament !== null} />
 
+          <Lobby />
+
           {currentTournament && <ActiveTournamentContent tournament={currentTournament} />}
           {!currentTournament && completedTournamentData && (
             <TournamentSummary tournament={completedTournamentData} showStartButton={true} onStartTournament={() => setIsTournamentModalOpen(true)} />
@@ -231,7 +238,9 @@ const Home = () => {
             </Button>
           </Stack>
         </VStack>
-        {currentTournament && <CreateMatchModal open={isMatchModalOpen} onOpenChange={setIsMatchModalOpen} tournamentId={currentTournament.id} />}
+        {currentTournament && (
+          <CreateMatchModal open={isMatchModalOpen} onOpenChange={setIsMatchModalOpen} tournamentId={currentTournament.id} initialSelectedIds={lobbyPlayerIds} />
+        )}
         {currentTournament && <NewMatchNotification matches={currentTournament.matches} tournamentId={currentTournament.id} />}
         {currentTournament && (
           <CompleteTournamentModal

@@ -20,10 +20,7 @@ export const LobbyPlayerList = (props: LobbyPlayerListProps) => {
   const checkedInPlayerIds = useMemo(() => checkedInPlayers.map((p) => p.id), [checkedInPlayers])
   const { toggle, isLoading } = useLobby(checkedInPlayerIds)
 
-  const others = useMemo(
-    () => allPlayers.filter((p) => !checkedInPlayerIds.includes(p.id)).sort((a, b) => a.name.localeCompare(b.name)),
-    [allPlayers, checkedInPlayerIds]
-  )
+  const others = useMemo(() => allPlayers.filter((p) => !checkedInPlayerIds.includes(p.id)).sort((a, b) => a.name.localeCompare(b.name)), [allPlayers, checkedInPlayerIds])
 
   return (
     <VStack align="stretch" gap={4}>
