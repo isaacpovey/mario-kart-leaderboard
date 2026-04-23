@@ -141,11 +141,7 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
                           />
 
                           <Field.Root>
-                            <Switch.Root
-                              checked={formState.randomTeams}
-                              onCheckedChange={(details) => updateField('randomTeams')(details.checked)}
-                              disabled={isCreatingMatch}
-                            >
+                            <Switch.Root checked={formState.randomTeams} onCheckedChange={(details) => updateField('randomTeams')(details.checked)} disabled={isCreatingMatch}>
                               <Switch.HiddenInput />
                               <Switch.Control>
                                 <Switch.Thumb />
