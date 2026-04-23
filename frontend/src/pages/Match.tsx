@@ -59,18 +59,10 @@ const Match = () => {
     setPositions((prev) => ({ ...prev, [playerId]: position }))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (selectedRound === null || !selectedRoundData) return
+  const handleSubmitResults = async (results: Array<{ playerId: string; position: number }>) => {
+    if (selectedRound === null) return
 
     setError('')
-
-    const results = selectedRoundData.players
-      .map((player) => ({
-        playerId: player.id,
-        position: Number.parseInt(positions[player.id] || '0', 10),
-      }))
-      .filter((result) => result.position > 0)
 
     if (results.length === 0) {
       setError('Please enter at least one position')
@@ -93,6 +85,20 @@ const Match = () => {
       setSelectedRound(null)
       setPositions({})
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (selectedRound === null || !selectedRoundData) return
+
+    const results = selectedRoundData.players
+      .map((player) => ({
+        playerId: player.id,
+        position: Number.parseInt(positions[player.id] || '0', 10),
+      }))
+      .filter((result) => result.position > 0)
+
+    await handleSubmitResults(results)
   }
 
   const selectedRoundData = match.rounds.find((r) => r.roundNumber === selectedRound)
