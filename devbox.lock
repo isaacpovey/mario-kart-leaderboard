@@ -102,7 +102,7 @@
         }
       }
     },
-    "rustup@latest": {
+    "rustup@1.29.0": {
       "last_modified": "2026-04-01T01:09:41Z",
       "plugin_version": "0.0.1",
       "resolved": "github:NixOS/nixpkgs/62e3050a29278c985725a86704faa1e99236b51a#rustup",
@@ -151,7 +151,7 @@
         }
       }
     },
-    "sqlx-cli@latest": {
+    "sqlx-cli@0.8.6": {
       "last_modified": "2026-03-21T07:29:51Z",
       "resolved": "github:NixOS/nixpkgs/09061f748ee21f68a089cd5d91ec1859cd93d0be#sqlx-cli",
       "source": "devbox-search",

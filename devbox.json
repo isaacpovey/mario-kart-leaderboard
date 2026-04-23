@@ -1,10 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/main/.schema/devbox.schema.json",
   "packages": [
-    "rustup@latest",
+    "rustup@1.29.0",
     "nodejs@22",
     "pnpm@10.20.0",
-    "sqlx-cli@latest"
+    "sqlx-cli@0.8.6"
   ],
   "shell": {
     "init_hook": [
@@ -14,7 +14,8 @@
       "help": [
         "echo 'Available devbox scripts:'",
         "echo '  db:up        Start Postgres via docker compose'",
-        "echo '  db:down      Stop Postgres'",
+        "echo '  db:down      Stop Postgres (preserves data)'",
+        "echo '  db:reset     Stop Postgres and wipe the data volume'",
         "echo '  db:logs      Tail Postgres logs'",
         "echo '  migrate      Run backend migrations'",
         "echo '  dev:backend  Run backend dev server'",
@@ -22,6 +23,7 @@
       ],
       "db:up": "docker compose -f backend/docker-compose.yml up -d postgres",
       "db:down": "docker compose -f backend/docker-compose.yml down",
+      "db:reset": "docker compose -f backend/docker-compose.yml down -v",
       "db:logs": "docker compose -f backend/docker-compose.yml logs -f postgres",
       "migrate": "cd backend && cargo run --bin migrate up",
       "dev:backend": "cd backend && cargo run --bin mario-kart-leaderboard-backend",
