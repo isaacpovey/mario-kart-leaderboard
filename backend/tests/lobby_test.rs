@@ -273,3 +273,56 @@ async fn test_group_lobby_ordered_by_checkin_time() {
     assert_eq!(lobby[1].get("id").and_then(|v| v.as_str()), Some(alice.id.to_string().as_str()));
     assert_eq!(lobby[2].get("id").and_then(|v| v.as_str()), Some(carol.id.to_string().as_str()));
 }
+
+#[tokio::test]
+async fn test_lobby_persists_across_match_creation() {
+    let ctx = setup::setup_test_db().await;
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("Failed to create test players");
+
+    for p in &players {
+        mario_kart_leaderboard_backend::models::LobbyEntry::check_in(&ctx.pool, group.id, p.id)
+            .await
+            .expect("check_in");
+    }
+
+    let player_ids: Vec<String> = players.iter().map(|p| p.id.to_string()).collect();
+
+    let mutation = r#"
+        mutation CreateMatch($tournamentId: ID!, $playerIds: [ID!]!, $numRaces: Int!) {
+            createMatchWithRounds(
+                tournamentId: $tournamentId,
+                playerIds: $playerIds,
+                numRaces: $numRaces
+            ) { id }
+        }
+    "#;
+
+    let request = Request::new(mutation)
+        .variables(Variables::from_value(value!({
+            "tournamentId": tournament.id.to_string(),
+            "playerIds": player_ids,
+            "numRaces": 4
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx =
+        GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(response.errors.is_empty(), "Expected no errors: {:?}", response.errors);
+
+    // Lobby must still contain all 4 players
+    let lobby = mario_kart_leaderboard_backend::models::LobbyEntry::find_by_group_id(&ctx.pool, group.id)
+        .await
+        .expect("find_by_group_id");
+    assert_eq!(lobby.len(), 4, "Lobby should be unchanged after match creation");
+}
