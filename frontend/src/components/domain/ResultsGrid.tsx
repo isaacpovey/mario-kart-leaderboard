@@ -1,6 +1,6 @@
-import { Box, Button, Heading, HStack, IconButton, SimpleGrid, Text, VStack } from '@chakra-ui/react'
+import { Box, Button, Heading, HStack, SimpleGrid, Text, VStack } from '@chakra-ui/react'
 import { useEffect, useMemo, useState } from 'react'
-import { LuArrowLeftRight, LuPin, LuPinOff } from 'react-icons/lu'
+import { LuArrowLeftRight } from 'react-icons/lu'
 
 type Player = {
   id: string
@@ -23,21 +23,19 @@ export type SlotAssignments = Record<number, string | null>
 type ResultsGridProps = {
   round: Round
   slots: SlotAssignments
-  pinnedSlots: Set<number>
   onTogglePlayer: (slotNumber: number, playerId: string) => void
-  onTogglePin: (slotNumber: number) => void
   error: string
   submitting: boolean
   onSubmit: (results: Array<{ playerId: string; position: number }>) => void | Promise<void>
   onSwapPlayer?: (player: Player) => void
 }
 
-type Page = 'pinned' | 'top' | 'middle' | 'bottom'
+type Page = 'assigned' | 'top' | 'middle' | 'bottom'
 
 const PAGE_RANGES: Record<'top' | 'middle' | 'bottom', { start: number; end: number; label: string }> = {
-  top: { start: 1, end: 8, label: '1st – 8th' },
-  middle: { start: 9, end: 16, label: '9th – 16th' },
-  bottom: { start: 17, end: 24, label: '17th – 24th' },
+  top: { start: 1, end: 8, label: '1 – 8' },
+  middle: { start: 9, end: 16, label: '9 – 16' },
+  bottom: { start: 17, end: 24, label: '17 – 24' },
 }
 
 const ordinal = (n: number): string => {
@@ -55,7 +53,7 @@ const fullPageSlots = (page: 'top' | 'middle' | 'bottom'): number[] => {
   return Array.from({ length: end - start + 1 }, (_, i) => i + start)
 }
 
-export const ResultsGrid = ({ round, slots, pinnedSlots, onTogglePlayer, onTogglePin, error, submitting, onSubmit, onSwapPlayer }: ResultsGridProps) => {
+export const ResultsGrid = ({ round, slots, onTogglePlayer, error, submitting, onSubmit, onSwapPlayer }: ResultsGridProps) => {
   const [page, setPage] = useState<Page>('top')
 
   const assignedPlayerIds = useMemo(() => new Set(Object.values(slots).filter((v): v is string => v !== null)), [slots])
@@ -65,23 +63,26 @@ export const ResultsGrid = ({ round, slots, pinnedSlots, onTogglePlayer, onToggl
   const assignedCount = round.players.length - unassignedPlayers.length
   const validationHint = !allAssigned ? `Assign every player to a position before submitting. (${assignedCount}/${round.players.length} assigned)` : ''
 
-  const pinnedComplete = pinnedSlots.size === round.players.length && pinnedSlots.size > 0
+  const assignedSlotNumbers = useMemo(
+    () =>
+      Object.entries(slots)
+        .filter(([, playerId]) => playerId !== null)
+        .map(([slotStr]) => Number(slotStr))
+        .sort((a, b) => a - b),
+    [slots]
+  )
 
-  // Auto-switch to the "Pinned" view once enough slots are pinned; drop back to "top" if the user unpins one.
+  // If the user is on the "Assigned" view but no slots are assigned, fall back to "top".
   useEffect(() => {
-    if (pinnedComplete) {
-      setPage('pinned')
-    } else if (page === 'pinned') {
+    if (page === 'assigned' && assignedSlotNumbers.length === 0) {
       setPage('top')
     }
-  }, [pinnedComplete, page])
+  }, [page, assignedSlotNumbers.length])
 
   const visibleSlots = useMemo(() => {
-    if (page === 'pinned') {
-      return Array.from(pinnedSlots).sort((a, b) => a - b)
-    }
+    if (page === 'assigned') return assignedSlotNumbers
     return fullPageSlots(page)
-  }, [page, pinnedSlots])
+  }, [page, assignedSlotNumbers])
 
   const handleSubmit = () => {
     const results = Object.entries(slots)
@@ -96,7 +97,6 @@ export const ResultsGrid = ({ round, slots, pinnedSlots, onTogglePlayer, onToggl
   const renderSlot = (slotNumber: number) => {
     const assignedId = slots[slotNumber] ?? null
     const isAssigned = assignedId !== null
-    const isPinned = pinnedSlots.has(slotNumber)
     return (
       <HStack
         key={slotNumber}
@@ -109,19 +109,6 @@ export const ResultsGrid = ({ round, slots, pinnedSlots, onTogglePlayer, onToggl
         bg={isAssigned ? 'brand.50' : slotNumber % 2 === 0 ? 'gray.50' : 'white'}
         align="start"
       >
-        <IconButton
-          aria-label={isPinned ? `Unpin ${ordinal(slotNumber)}` : `Pin ${ordinal(slotNumber)}`}
-          size="xs"
-          variant={isPinned ? 'solid' : 'ghost'}
-          colorScheme={isPinned ? 'yellow' : undefined}
-          bg={isPinned ? 'brand.400' : undefined}
-          color={isPinned ? 'gray.900' : 'gray.500'}
-          onClick={() => onTogglePin(slotNumber)}
-          flexShrink={0}
-          mt={0.5}
-        >
-          {isPinned ? <LuPin /> : <LuPinOff />}
-        </IconButton>
         <Box minW="2.5rem" textAlign="right" fontWeight="bold" fontSize="sm" color={isAssigned ? 'brand.700' : 'gray.500'} flexShrink={0} pt={1}>
           {ordinal(slotNumber)}
         </Box>
@@ -182,19 +169,16 @@ export const ResultsGrid = ({ round, slots, pinnedSlots, onTogglePlayer, onToggl
         )}
 
         <HStack gap={2} justify="center" flexWrap="wrap">
-          {pinnedComplete && (
+          {assignedSlotNumbers.length > 0 && (
             <Button
               size="sm"
-              variant={page === 'pinned' ? 'solid' : 'outline'}
-              colorScheme={page === 'pinned' ? 'yellow' : undefined}
-              bg={page === 'pinned' ? 'brand.400' : undefined}
-              color={page === 'pinned' ? 'gray.900' : undefined}
-              onClick={() => setPage('pinned')}
+              variant={page === 'assigned' ? 'solid' : 'outline'}
+              colorScheme={page === 'assigned' ? 'yellow' : undefined}
+              bg={page === 'assigned' ? 'brand.400' : undefined}
+              color={page === 'assigned' ? 'gray.900' : undefined}
+              onClick={() => setPage('assigned')}
             >
-              <HStack gap={1}>
-                <LuPin />
-                <Text>Pinned ({pinnedSlots.size})</Text>
-              </HStack>
+              Assigned ({assignedSlotNumbers.length})
             </Button>
           )}
           {(['top', 'middle', 'bottom'] as const).map((p) => (

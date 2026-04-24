@@ -8,11 +8,12 @@ import { ErrorState } from '../components/common/ErrorState'
 import { RaceList } from '../components/domain/RaceList'
 import { RaceResultsDisplay } from '../components/domain/RaceResultsDisplay'
 import { ResultsGrid, type SlotAssignments } from '../components/domain/ResultsGrid'
-import { RoundResultsForm } from '../components/domain/RoundResultsForm'
 import { TeamCard } from '../components/domain/TeamCard'
 import { SwapPlayerModal } from '../components/SwapPlayerModal'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
 import { useRaceResultsSubscription } from '../hooks/useRaceResultsSubscription'
+import { useSlotAssignmentSync } from '../hooks/useSlotAssignmentSync'
+import { applyAssignment } from '../lib/slotAssignments'
 import { matchQueryAtom } from '../store/queries'
 
 const Match = () => {
@@ -23,10 +24,8 @@ const Match = () => {
   const { recordResults, isRecordingResults, swapRoundPlayer, isSwappingPlayer, swapPlayerError } = useMatchManagement()
 
   const [selectedRound, setSelectedRound] = useState<number | null>(null)
-  const [resultsMode, setResultsMode] = useState<'grid' | 'manual'>('grid')
   const [expandedCompletedRound, setExpandedCompletedRound] = useState<number | null>(null)
   const [positions, setPositions] = useState<Record<string, string>>({})
-  const [pinnedSlots, setPinnedSlots] = useState<Set<number>>(new Set())
 
   // Grid mode derives its slot map (position → playerId) from `positions` so both modes
   // share the same underlying state. Only integer positions 1..24 are considered.
@@ -41,15 +40,25 @@ const Match = () => {
     return out
   }, [positions])
 
+  const { publish } = useSlotAssignmentSync({
+    matchId: matchId ?? null,
+    roundNumber: selectedRound,
+    onAssignment: (slotNumber, playerId) => {
+      setPositions((prev) => applyAssignment(prev, slotNumber, playerId))
+    },
+  })
+
   const handleTogglePlayerInSlot = (slotNumber: number, playerId: string) => {
+    const prevPosStr = positions[playerId]
+    const prevSlot = prevPosStr ? Number.parseInt(prevPosStr, 10) : null
+    const tappingOwnSlot = prevSlot === slotNumber
+
     setPositions((prev) => {
       const next = { ...prev }
-      // Tapping the player already in this slot unassigns them.
-      if (Number.parseInt(next[playerId] || '0', 10) === slotNumber) {
+      if (tappingOwnSlot) {
         delete next[playerId]
         return next
       }
-      // Moving the player here: clear anyone else currently in this slot.
       for (const [otherPlayerId, otherPosStr] of Object.entries(next)) {
         if (otherPlayerId !== playerId && Number.parseInt(otherPosStr, 10) === slotNumber) {
           delete next[otherPlayerId]
@@ -58,6 +67,15 @@ const Match = () => {
       next[playerId] = String(slotNumber)
       return next
     })
+
+    if (tappingOwnSlot) {
+      publish(slotNumber, null)
+      return
+    }
+    if (prevSlot !== null && prevSlot !== slotNumber) {
+      publish(prevSlot, null)
+    }
+    publish(slotNumber, playerId)
   }
   const [error, setError] = useState('')
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
@@ -80,32 +98,14 @@ const Match = () => {
 
   const handleSelectRound = (roundNumber: number) => {
     setSelectedRound(roundNumber)
-    setResultsMode('grid')
     setExpandedCompletedRound(null)
     setPositions({})
-    setPinnedSlots(new Set())
     setError('')
-  }
-
-  const handleTogglePin = (slotNumber: number) => {
-    setPinnedSlots((prev) => {
-      const next = new Set(prev)
-      if (next.has(slotNumber)) {
-        next.delete(slotNumber)
-      } else {
-        next.add(slotNumber)
-      }
-      return next
-    })
   }
 
   const handleToggleExpanded = (roundNumber: number) => {
     setExpandedCompletedRound((prev) => (prev === roundNumber ? null : roundNumber))
     setSelectedRound(null)
-  }
-
-  const handlePositionChange = (playerId: string, position: string) => {
-    setPositions((prev) => ({ ...prev, [playerId]: position }))
   }
 
   const handleSubmitResults = async (results: Array<{ playerId: string; position: number }>) => {
@@ -133,25 +133,9 @@ const Match = () => {
     if (updated) {
       setSelectedRound(null)
       setPositions({})
-      setPinnedSlots(new Set())
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (selectedRound === null || !selectedRoundData) return
-
-    const results = selectedRoundData.players
-      .map((player) => ({
-        playerId: player.id,
-        position: Number.parseInt(positions[player.id] || '0', 10),
-      }))
-      .filter((result) => result.position > 0)
-
-    await handleSubmitResults(results)
-  }
-
-  const selectedRoundData = match.rounds.find((r) => r.roundNumber === selectedRound)
   const hasAnyResults = match.rounds.some((r) => r.completed)
   const canCancelMatch = !match.completed && !hasAnyResults
 
@@ -240,54 +224,15 @@ const Match = () => {
                 }
 
                 return (
-                  <VStack align="stretch" gap={3}>
-                    <HStack gap={2} justify="flex-end">
-                      <Button
-                        size="xs"
-                        variant={resultsMode === 'grid' ? 'solid' : 'outline'}
-                        colorScheme={resultsMode === 'grid' ? 'yellow' : undefined}
-                        bg={resultsMode === 'grid' ? 'brand.400' : undefined}
-                        color={resultsMode === 'grid' ? 'gray.900' : undefined}
-                        onClick={() => setResultsMode('grid')}
-                      >
-                        Grid
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant={resultsMode === 'manual' ? 'solid' : 'outline'}
-                        colorScheme={resultsMode === 'manual' ? 'yellow' : undefined}
-                        bg={resultsMode === 'manual' ? 'brand.400' : undefined}
-                        color={resultsMode === 'manual' ? 'gray.900' : undefined}
-                        onClick={() => setResultsMode('manual')}
-                      >
-                        Manual
-                      </Button>
-                    </HStack>
-
-                    {resultsMode === 'grid' ? (
-                      <ResultsGrid
-                        round={roundData}
-                        slots={slots}
-                        pinnedSlots={pinnedSlots}
-                        onTogglePlayer={handleTogglePlayerInSlot}
-                        onTogglePin={handleTogglePin}
-                        error={error}
-                        submitting={isRecordingResults}
-                        onSubmit={handleSubmitResults}
-                        onSwapPlayer={(player) => handleSwapPlayer(player, roundNumber)}
-                      />
-                    ) : (
-                      <RoundResultsForm
-                        round={roundData}
-                        positions={positions}
-                        onPositionChange={handlePositionChange}
-                        onSubmit={handleSubmit}
-                        error={error}
-                        submitting={isRecordingResults}
-                        onSwapPlayer={(player) => handleSwapPlayer(player, roundNumber)}
-                      />
-                    )}
-                  </VStack>
+                  <ResultsGrid
+                    round={roundData}
+                    slots={slots}
+                    onTogglePlayer={handleTogglePlayerInSlot}
+                    error={error}
+                    submitting={isRecordingResults}
+                    onSubmit={handleSubmitResults}
+                    onSwapPlayer={(player) => handleSwapPlayer(player, roundNumber)}
+                  />
                 )
               }}
             />
