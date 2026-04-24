@@ -2,11 +2,13 @@ import { Box, Button, Container, Heading, HStack, Spinner, Stack, Text, VStack }
 import type { ResultOf } from 'gql.tada'
 import { useAtomValue } from 'jotai'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { LuFlag, LuPlay, LuTrophy, LuUsers } from 'react-icons/lu'
 import { useClient, useQuery } from 'urql'
 import { CompleteTournamentModal } from '../components/CompleteTournamentModal'
 import { CreateMatchModal } from '../components/CreateMatchModal'
 import { CreateTournamentModal } from '../components/CreateTournamentModal'
 import { ErrorState } from '../components/common/ErrorState'
+import { BottomNav, type BottomNavItem } from '../components/domain/BottomNav'
 import { HeroBanner } from '../components/domain/HeroBanner'
 import { LeaderboardList } from '../components/domain/LeaderboardList'
 import { Lobby } from '../components/domain/Lobby'
@@ -77,6 +79,23 @@ const useQueryRetry = ({ urqlClient, hasError, error, hasData }: UseQueryRetryPa
 
 type ActiveTournament = NonNullable<ResultOf<typeof activeTournamentQuery>['activeTournament']>
 
+type BuildNavItemsArgs = {
+  hasActiveTournament: boolean
+  onStartRace: () => void
+}
+
+const buildNavItems = ({ hasActiveTournament, onStartRace }: BuildNavItemsArgs): BottomNavItem[] => {
+  if (!hasActiveTournament) {
+    return [{ id: 'lobby', label: 'Lobby', icon: LuUsers, targetId: 'lobby-section' }]
+  }
+  return [
+    { id: 'lobby', label: 'Lobby', icon: LuUsers, targetId: 'lobby-section' },
+    { id: 'leaderboard', label: 'Leaderboard', icon: LuTrophy, targetId: 'leaderboard-section' },
+    { id: 'races', label: 'Races', icon: LuFlag, targetId: 'races-section', dividerAfter: true },
+    { id: 'start-race', label: 'Start Race', icon: LuPlay, onClick: onStartRace },
+  ]
+}
+
 type ActiveTournamentContentProps = {
   tournament: ActiveTournament
 }
@@ -94,14 +113,14 @@ const ActiveTournamentContent = ({ tournament }: ActiveTournamentContentProps) =
       </HStack>
     )}
 
-    <VStack gap={{ base: 3, md: 4 }} align="stretch">
+    <VStack id="leaderboard-section" scrollMarginTop={{ base: 4, md: 6 }} gap={{ base: 3, md: 4 }} align="stretch">
       <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
         Leaderboard
       </Heading>
       <LeaderboardList entries={tournament.leaderboard} />
     </VStack>
 
-    <VStack gap={{ base: 3, md: 4 }} align="stretch">
+    <VStack id="races-section" scrollMarginTop={{ base: 4, md: 6 }} gap={{ base: 3, md: 4 }} align="stretch">
       <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
         Races
       </Heading>
@@ -172,6 +191,11 @@ const Home = () => {
   const lobbyResult = useAtomValue(lobbyQueryAtom)
   const lobbyPlayerIds = lobbyResult?.data?.currentGroup?.lobby.map((p) => p.id) ?? []
 
+  const navItems = buildNavItems({
+    hasActiveTournament: currentTournament !== null,
+    onStartRace: () => setIsMatchModalOpen(true),
+  })
+
   // Subscribe to race result updates for live leaderboard and match list
   const subscriptionResult = useRaceResultsSubscription(currentTournament?.id)
 
@@ -204,12 +228,14 @@ const Home = () => {
   }
 
   return (
-    <Box minH="100vh" bg="bg.canvas">
+    <Box minH="100vh" bg="bg.canvas" pb={{ base: '80px', md: '88px' }}>
       <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
         <VStack gap={{ base: 6, md: 8 }} align="stretch">
           <HeroBanner onStartRace={() => setIsMatchModalOpen(true)} showStartButton={currentTournament !== null} />
 
-          <Lobby />
+          <Box id="lobby-section" scrollMarginTop={{ base: 4, md: 6 }}>
+            <Lobby />
+          </Box>
 
           {currentTournament && <ActiveTournamentContent tournament={currentTournament} />}
           {!currentTournament && completedTournamentData && (
@@ -254,6 +280,7 @@ const Home = () => {
         )}
         <CreateTournamentModal open={isTournamentModalOpen} onOpenChange={setIsTournamentModalOpen} />
       </Container>
+      <BottomNav items={navItems} />
     </Box>
   )
 }

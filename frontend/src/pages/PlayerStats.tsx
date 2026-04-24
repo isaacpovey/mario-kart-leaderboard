@@ -1,8 +1,10 @@
-import { Box, Button, Container, Heading, HStack, VStack } from '@chakra-ui/react'
+import { Box, Container, Heading, VStack } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
 import { useEffect, useMemo } from 'react'
+import { LuHistory, LuHouse, LuMap } from 'react-icons/lu'
 import { useNavigate, useParams } from 'react-router'
 import { ErrorState } from '../components/common/ErrorState'
+import { BottomNav, type BottomNavItem } from '../components/domain/BottomNav'
 import { PlayerHeader } from '../components/domain/PlayerHeader'
 import { PlayerMatchHistory } from '../components/domain/PlayerMatchHistory'
 import { PlayerTrackStats } from '../components/domain/PlayerTrackStats'
@@ -40,33 +42,26 @@ const PlayerStats = () => {
     tournamentEloChange: match.tournamentEloChange,
   }))
 
+  const navItems: BottomNavItem[] = [
+    { id: 'home', label: 'Home', icon: LuHouse, onClick: () => navigate('/'), dividerAfter: true },
+    ...(trackStats.length > 0 ? ([{ id: 'tracks', label: 'Tracks', icon: LuMap, targetId: 'tracks-section' }] satisfies BottomNavItem[]) : []),
+    { id: 'matches', label: 'Matches', icon: LuHistory, targetId: 'matches-section' },
+  ]
+
   return (
-    <Box minH="100vh" bg="bg.canvas">
+    <Box minH="100vh" bg="bg.canvas" pb={{ base: '80px', md: '88px' }}>
       <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
         <VStack gap={{ base: 6, md: 8 }} align="stretch">
-          <HStack justify="space-between" flexWrap="wrap" gap={{ base: 3, md: 4 }}>
-            <Heading size={{ base: 'lg', md: 'xl', lg: '2xl' }} color="gray.900">
-              Player Stats
-            </Heading>
-            <Button
-              onClick={() => navigate('/')}
-              variant="outline"
-              size={{ base: 'sm', md: 'md' }}
-              borderRadius="button"
-              borderWidth="2px"
-              flexShrink={0}
-              _hover={{ bg: 'gray.50' }}
-            >
-              Back to Home
-            </Button>
-          </HStack>
+          <Heading size={{ base: 'lg', md: 'xl', lg: '2xl' }} color="gray.900">
+            Player Stats
+          </Heading>
 
           <PlayerHeader name={player.name} avatarFilename={player.avatarFilename} tournamentElo={player.currentTournamentElo} allTimeElo={player.eloRating} />
 
           {trackStats.length > 0 && (
             <>
               <Box h="1px" bg="gray.200" />
-              <VStack gap={{ base: 3, md: 4 }} align="stretch">
+              <VStack id="tracks-section" scrollMarginTop={{ base: 4, md: 6 }} gap={{ base: 3, md: 4 }} align="stretch">
                 <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
                   Track Performance
                 </Heading>
@@ -77,7 +72,7 @@ const PlayerStats = () => {
 
           <Box h="1px" bg="gray.200" />
 
-          <VStack gap={{ base: 3, md: 4 }} align="stretch">
+          <VStack id="matches-section" scrollMarginTop={{ base: 4, md: 6 }} gap={{ base: 3, md: 4 }} align="stretch">
             <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
               Recent Matches
             </Heading>
@@ -85,6 +80,8 @@ const PlayerStats = () => {
           </VStack>
         </VStack>
       </Container>
+
+      <BottomNav items={navItems} />
     </Box>
   )
 }
