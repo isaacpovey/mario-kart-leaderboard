@@ -1,6 +1,7 @@
 use crate::graphql::context::GraphQLContext;
 use crate::graphql::matches::types::Match;
 use crate::models;
+use crate::services::notification_manager::SlotAssignmentNotification;
 use crate::services::result_recording;
 use async_graphql::*;
 use sqlx;
@@ -195,5 +196,72 @@ impl RoundsMutation {
             .ok_or_else(|| Error::new("Match not found after swap"))?;
 
         Ok(Match::from(updated_match))
+    }
+
+    /// Assert the authoritative state of one slot in a round's grid.
+    ///
+    /// Ephemeral: validates and broadcasts via the notification manager;
+    /// nothing is written to the database. The scorekeeper still records
+    /// the round via `recordRoundResults`.
+    async fn assert_slot_assignment(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "The match ID")] match_id: ID,
+        #[graphql(desc = "The round number")] round_number: i32,
+        #[graphql(desc = "The slot being asserted (1..=24)")] slot_number: i32,
+        #[graphql(desc = "The player now in this slot, or null to clear it")] player_id: Option<ID>,
+        #[graphql(desc = "Per-tab client identifier for echo filtering")] client_id: String,
+    ) -> Result<bool> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+        let group_id = gql_ctx.authenticated_group_id()?;
+
+        if !(1..=24).contains(&slot_number) {
+            return Err(Error::new("Slot number must be between 1 and 24"));
+        }
+
+        let match_uuid = Uuid::parse_str(&match_id).map_err(|_| Error::new("Invalid match ID"))?;
+
+        let match_record = models::Match::find_by_id(&gql_ctx.pool, match_uuid)
+            .await?
+            .ok_or_else(|| Error::new("Match not found"))?;
+
+        if match_record.group_id != group_id {
+            return Err(Error::new("Match not found"));
+        }
+
+        let round = models::Round::find_one(&gql_ctx.pool, match_uuid, round_number)
+            .await?
+            .ok_or_else(|| Error::new("Round not found"))?;
+
+        if round.completed {
+            return Err(Error::new("Round is already completed"));
+        }
+
+        let player_uuid_opt = match player_id {
+            Some(id) => {
+                let uuid = Uuid::parse_str(&id).map_err(|_| Error::new("Invalid player ID"))?;
+                let round_players =
+                    result_recording::get_round_players(&gql_ctx.pool, match_uuid, round_number)
+                        .await?;
+                if !round_players.contains(&uuid) {
+                    return Err(Error::new("Player is not in this round"));
+                }
+                Some(uuid)
+            }
+            None => None,
+        };
+
+        gql_ctx
+            .notification_manager
+            .notify_slot_assignment(SlotAssignmentNotification {
+                group_id,
+                match_id: match_uuid,
+                round_number,
+                slot_number,
+                player_id: player_uuid_opt,
+                source_client_id: client_id,
+            });
+
+        Ok(true)
     }
 }

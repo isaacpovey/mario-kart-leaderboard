@@ -19,6 +19,21 @@ pub struct RaceResultNotification {
     pub group_id: Uuid,
 }
 
+/// Notification payload for grid slot assignment events.
+///
+/// Ephemeral: in-process broadcast only, no DB persistence. Carries the
+/// asserted state of a single slot in a round of a match. The
+/// `source_client_id` lets subscribers echo-filter their own publishes.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SlotAssignmentNotification {
+    pub group_id: Uuid,
+    pub match_id: Uuid,
+    pub round_number: i32,
+    pub slot_number: i32,
+    pub player_id: Option<Uuid>,
+    pub source_client_id: String,
+}
+
 /// Manager for handling GraphQL subscription notifications
 ///
 /// Uses a broadcast channel for in-memory pub/sub and PostgreSQL LISTEN
@@ -26,6 +41,7 @@ pub struct RaceResultNotification {
 #[derive(Clone)]
 pub struct NotificationManager {
     sender: broadcast::Sender<RaceResultNotification>,
+    slot_assignment_sender: broadcast::Sender<SlotAssignmentNotification>,
 }
 
 impl NotificationManager {
@@ -34,7 +50,8 @@ impl NotificationManager {
     /// Channel capacity is set to 100 to handle bursts of notifications
     pub fn new() -> Self {
         let (sender, _) = broadcast::channel(100);
-        Self { sender }
+        let (slot_assignment_sender, _) = broadcast::channel(100);
+        Self { sender, slot_assignment_sender }
     }
 
     /// Subscribe to race result notifications
@@ -42,6 +59,31 @@ impl NotificationManager {
     /// Returns a receiver that will get all future notifications
     pub fn subscribe(&self) -> broadcast::Receiver<RaceResultNotification> {
         self.sender.subscribe()
+    }
+
+    /// Subscribe to slot assignment notifications.
+    ///
+    /// In-process only — these events are not bridged to PostgreSQL.
+    pub fn subscribe_slot_assignments(&self) -> broadcast::Receiver<SlotAssignmentNotification> {
+        self.slot_assignment_sender.subscribe()
+    }
+
+    /// Broadcast a slot assignment notification to all in-process subscribers.
+    pub fn notify_slot_assignment(&self, notification: SlotAssignmentNotification) {
+        tracing::debug!(
+            group_id = %notification.group_id,
+            match_id = %notification.match_id,
+            round_number = notification.round_number,
+            slot_number = notification.slot_number,
+            subscribers = self.slot_assignment_sender.receiver_count(),
+            "broadcasting slot assignment notification"
+        );
+        if let Err(e) = self.slot_assignment_sender.send(notification) {
+            tracing::error!(
+                "failed to broadcast slot assignment notification (no receivers): {:?}",
+                e
+            );
+        }
     }
 
     /// Manually notify subscribers (used for local broadcasting)

@@ -1,6 +1,6 @@
 use crate::graphql::context::GraphQLContext;
 use crate::graphql::results::types::{PlayerMatchResult, PlayerRaceResult};
-use crate::graphql::subscriptions::types::RaceResultUpdate;
+use crate::graphql::subscriptions::types::{RaceResultUpdate, SlotAssignmentEvent};
 use crate::graphql::teams::types::Team;
 use crate::graphql::tournaments::types::LeaderboardEntry;
 use crate::models;
@@ -128,6 +128,68 @@ impl Subscription {
                     }
                     _ = tokio::time::sleep(Duration::from_secs(30)) => {
                         tracing::debug!("NOTIFY STEP 3: Timeout tick (keeping connection alive)");
+                        continue;
+                    }
+                }
+            }
+        };
+
+        Ok(stream)
+    }
+
+    /// Subscribe to grid slot assignment updates for a specific (match, round).
+    ///
+    /// Receives real-time broadcasts when any client in the authenticated
+    /// group asserts a slot assignment via `assertSlotAssignment`. Filters by
+    /// the authenticated group, the subscribed match, and the subscribed
+    /// round; subscribers never see events for other groups, other matches,
+    /// or other rounds.
+    async fn slot_assignments_updated(
+        &self,
+        ctx: &Context<'_>,
+        match_id: ID,
+        round_number: i32,
+    ) -> Result<impl Stream<Item = Result<SlotAssignmentEvent>>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+        let group_id = gql_ctx.authenticated_group_id()?;
+
+        let match_uuid =
+            Uuid::parse_str(&match_id.0).map_err(|_| Error::new("Invalid match ID"))?;
+
+        let notification_manager = gql_ctx.notification_manager.clone();
+
+        let stream = async_stream::stream! {
+            let mut receiver = notification_manager.subscribe_slot_assignments();
+
+            loop {
+                tokio::select! {
+                    notification = receiver.recv() => {
+                        match notification {
+                            Ok(notif) => {
+                                if notif.group_id == group_id
+                                    && notif.match_id == match_uuid
+                                    && notif.round_number == round_number
+                                {
+                                    yield Ok(SlotAssignmentEvent {
+                                        slot_number: notif.slot_number,
+                                        player_id: notif.player_id.map(|id| ID(id.to_string())),
+                                        source_client_id: notif.source_client_id,
+                                    });
+                                }
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                                tracing::warn!(
+                                    "Slot assignment subscription lagged, skipped {}",
+                                    skipped
+                                );
+                                continue;
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                                break;
+                            }
+                        }
+                    }
+                    _ = tokio::time::sleep(Duration::from_secs(30)) => {
                         continue;
                     }
                 }

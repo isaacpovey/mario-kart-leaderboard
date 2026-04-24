@@ -1216,3 +1216,469 @@ async fn test_swap_round_player_unauthorized() {
         response.errors[0].message
     );
 }
+
+// ----------------------------------------------------------------------------
+// assertSlotAssignment mutation + slotAssignmentsUpdated subscription
+// ----------------------------------------------------------------------------
+
+const ASSERT_SLOT_MUTATION: &str = r#"
+    mutation Assert($matchId: ID!, $roundNumber: Int!, $slotNumber: Int!, $playerId: ID, $clientId: String!) {
+        assertSlotAssignment(
+            matchId: $matchId
+            roundNumber: $roundNumber
+            slotNumber: $slotNumber
+            playerId: $playerId
+            clientId: $clientId
+        )
+    }
+"#;
+
+#[tokio::test]
+async fn test_assert_slot_assignment_publishes_for_valid_request() {
+    use mario_kart_leaderboard_backend::services::notification_manager::NotificationManager;
+
+    let ctx = setup::setup_test_db().await;
+    let group = fixtures::create_test_group(&ctx.pool, "Group A", "password")
+        .await
+        .expect("create group");
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("create players");
+    let tournament = fixtures::create_test_tournament(&ctx.pool, group.id, None, None)
+        .await
+        .expect("create tournament");
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 1)
+        .await
+        .expect("create match");
+    fixtures::create_test_rounds(&ctx.pool, match_record.id, 1)
+        .await
+        .expect("create rounds");
+    let player_ids: Vec<uuid::Uuid> = players.iter().map(|p| p.id).collect();
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 1)
+        .await
+        .expect("create teams");
+    fixtures::add_players_to_round(&ctx.pool, group.id, match_record.id, 1, teams[0].id, &player_ids)
+        .await
+        .expect("add players to round");
+
+    let notification_manager = NotificationManager::new();
+    let mut receiver = notification_manager.subscribe_slot_assignments();
+
+    let request = Request::new(ASSERT_SLOT_MUTATION)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string(),
+            "roundNumber": 1,
+            "slotNumber": 5,
+            "playerId": players[0].id.to_string(),
+            "clientId": "client-a",
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx =
+        GraphQLContext::new(ctx.pool.clone(), Some(group.id), notification_manager.clone());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+    assert!(response.errors.is_empty(), "Unexpected errors: {:?}", response.errors);
+
+    let data = response.data.into_json().expect("parse response");
+    assert_eq!(data.get("assertSlotAssignment").and_then(|v| v.as_bool()), Some(true));
+
+    let received = tokio::time::timeout(std::time::Duration::from_secs(1), receiver.recv())
+        .await
+        .expect("timed out waiting for notification")
+        .expect("broadcast receive failed");
+
+    assert_eq!(received.group_id, group.id);
+    assert_eq!(received.match_id, match_record.id);
+    assert_eq!(received.round_number, 1);
+    assert_eq!(received.slot_number, 5);
+    assert_eq!(received.player_id, Some(players[0].id));
+    assert_eq!(received.source_client_id, "client-a");
+}
+
+#[tokio::test]
+async fn test_assert_slot_assignment_accepts_null_player_as_clear() {
+    use mario_kart_leaderboard_backend::services::notification_manager::NotificationManager;
+
+    let ctx = setup::setup_test_db().await;
+    let group = fixtures::create_test_group(&ctx.pool, "Group A", "password")
+        .await
+        .expect("create group");
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("create players");
+    let tournament = fixtures::create_test_tournament(&ctx.pool, group.id, None, None)
+        .await
+        .expect("create tournament");
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 1)
+        .await
+        .expect("create match");
+    fixtures::create_test_rounds(&ctx.pool, match_record.id, 1)
+        .await
+        .expect("create rounds");
+    let player_ids: Vec<uuid::Uuid> = players.iter().map(|p| p.id).collect();
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 1)
+        .await
+        .expect("create teams");
+    fixtures::add_players_to_round(&ctx.pool, group.id, match_record.id, 1, teams[0].id, &player_ids)
+        .await
+        .expect("add players");
+
+    let notification_manager = NotificationManager::new();
+    let mut receiver = notification_manager.subscribe_slot_assignments();
+
+    let request = Request::new(ASSERT_SLOT_MUTATION)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string(),
+            "roundNumber": 1,
+            "slotNumber": 7,
+            "playerId": null,
+            "clientId": "client-a",
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx =
+        GraphQLContext::new(ctx.pool.clone(), Some(group.id), notification_manager.clone());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+    assert!(response.errors.is_empty(), "Unexpected errors: {:?}", response.errors);
+
+    let received = tokio::time::timeout(std::time::Duration::from_secs(1), receiver.recv())
+        .await
+        .expect("timed out")
+        .expect("broadcast receive");
+    assert_eq!(received.slot_number, 7);
+    assert_eq!(received.player_id, None);
+}
+
+#[tokio::test]
+async fn test_assert_slot_assignment_rejects_out_of_range_slot() {
+    let ctx = setup::setup_test_db().await;
+    let group = fixtures::create_test_group(&ctx.pool, "Group A", "password")
+        .await
+        .expect("create group");
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("create players");
+    let tournament = fixtures::create_test_tournament(&ctx.pool, group.id, None, None)
+        .await
+        .expect("create tournament");
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 1)
+        .await
+        .expect("create match");
+    fixtures::create_test_rounds(&ctx.pool, match_record.id, 1)
+        .await
+        .expect("create rounds");
+    let player_ids: Vec<uuid::Uuid> = players.iter().map(|p| p.id).collect();
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 1)
+        .await
+        .expect("create teams");
+    fixtures::add_players_to_round(&ctx.pool, group.id, match_record.id, 1, teams[0].id, &player_ids)
+        .await
+        .expect("add players");
+
+    let request = Request::new(ASSERT_SLOT_MUTATION)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string(),
+            "roundNumber": 1,
+            "slotNumber": 25,
+            "playerId": players[0].id.to_string(),
+            "clientId": "client-a",
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+    assert!(!response.errors.is_empty(), "Expected error for slot_number=25");
+    assert!(
+        response.errors[0].message.contains("Slot number must be between 1 and 24"),
+        "Unexpected error message: {}",
+        response.errors[0].message
+    );
+}
+
+#[tokio::test]
+async fn test_assert_slot_assignment_rejects_player_not_in_round() {
+    let ctx = setup::setup_test_db().await;
+    let group = fixtures::create_test_group(&ctx.pool, "Group A", "password")
+        .await
+        .expect("create group");
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 5)
+        .await
+        .expect("create players");
+    let tournament = fixtures::create_test_tournament(&ctx.pool, group.id, None, None)
+        .await
+        .expect("create tournament");
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 1)
+        .await
+        .expect("create match");
+    fixtures::create_test_rounds(&ctx.pool, match_record.id, 1)
+        .await
+        .expect("create rounds");
+    let in_round: Vec<uuid::Uuid> = players.iter().take(4).map(|p| p.id).collect();
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 1)
+        .await
+        .expect("create teams");
+    fixtures::add_players_to_round(&ctx.pool, group.id, match_record.id, 1, teams[0].id, &in_round)
+        .await
+        .expect("add players");
+
+    let request = Request::new(ASSERT_SLOT_MUTATION)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string(),
+            "roundNumber": 1,
+            "slotNumber": 5,
+            "playerId": players[4].id.to_string(),
+            "clientId": "client-a",
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+    assert!(!response.errors.is_empty(), "Expected error for player not in round");
+    assert!(
+        response.errors[0].message.contains("Player is not in this round"),
+        "Unexpected error message: {}",
+        response.errors[0].message
+    );
+}
+
+#[tokio::test]
+async fn test_assert_slot_assignment_rejects_completed_round() {
+    let ctx = setup::setup_test_db().await;
+    let group = fixtures::create_test_group(&ctx.pool, "Group A", "password")
+        .await
+        .expect("create group");
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("create players");
+    let tournament = fixtures::create_test_tournament(&ctx.pool, group.id, None, None)
+        .await
+        .expect("create tournament");
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 1)
+        .await
+        .expect("create match");
+    fixtures::create_test_rounds(&ctx.pool, match_record.id, 1)
+        .await
+        .expect("create rounds");
+    let player_ids: Vec<uuid::Uuid> = players.iter().map(|p| p.id).collect();
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 1)
+        .await
+        .expect("create teams");
+    fixtures::add_players_to_round(&ctx.pool, group.id, match_record.id, 1, teams[0].id, &player_ids)
+        .await
+        .expect("add players");
+
+    sqlx::query("UPDATE rounds SET completed = true WHERE match_id = $1 AND round_number = $2")
+        .bind(match_record.id)
+        .bind(1_i32)
+        .execute(&ctx.pool)
+        .await
+        .expect("complete round");
+
+    let request = Request::new(ASSERT_SLOT_MUTATION)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string(),
+            "roundNumber": 1,
+            "slotNumber": 5,
+            "playerId": players[0].id.to_string(),
+            "clientId": "client-a",
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+    assert!(!response.errors.is_empty(), "Expected error for completed round");
+    assert!(
+        response.errors[0].message.contains("Round is already completed"),
+        "Unexpected error message: {}",
+        response.errors[0].message
+    );
+}
+
+#[tokio::test]
+async fn test_assert_slot_assignment_rejects_cross_group_match() {
+    let ctx = setup::setup_test_db().await;
+    let group_a = fixtures::create_test_group(&ctx.pool, "Group A", "password")
+        .await
+        .expect("create group A");
+    let group_b = fixtures::create_test_group(&ctx.pool, "Group B", "password")
+        .await
+        .expect("create group B");
+
+    let players_b = fixtures::create_test_players(&ctx.pool, group_b.id, 4)
+        .await
+        .expect("create players in group B");
+    let tournament_b = fixtures::create_test_tournament(&ctx.pool, group_b.id, None, None)
+        .await
+        .expect("create tournament B");
+    let match_b = fixtures::create_test_match(&ctx.pool, group_b.id, tournament_b.id, 1)
+        .await
+        .expect("create match B");
+    fixtures::create_test_rounds(&ctx.pool, match_b.id, 1)
+        .await
+        .expect("create rounds B");
+    let player_ids: Vec<uuid::Uuid> = players_b.iter().map(|p| p.id).collect();
+    let teams_b = fixtures::create_test_teams(&ctx.pool, group_b.id, match_b.id, 1)
+        .await
+        .expect("create teams B");
+    fixtures::add_players_to_round(&ctx.pool, group_b.id, match_b.id, 1, teams_b[0].id, &player_ids)
+        .await
+        .expect("add players B");
+
+    let request = Request::new(ASSERT_SLOT_MUTATION)
+        .variables(Variables::from_value(value!({
+            "matchId": match_b.id.to_string(),
+            "roundNumber": 1,
+            "slotNumber": 5,
+            "playerId": players_b[0].id.to_string(),
+            "clientId": "client-a",
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx =
+        GraphQLContext::new(ctx.pool.clone(), Some(group_a.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+    assert!(!response.errors.is_empty(), "Expected error for cross-group match");
+    assert!(
+        response.errors[0].message.contains("Match not found"),
+        "Unexpected error message: {}",
+        response.errors[0].message
+    );
+}
+
+#[tokio::test]
+async fn test_slot_assignments_updated_filters_by_group_match_and_round() {
+    use futures::StreamExt;
+    use mario_kart_leaderboard_backend::services::notification_manager::{
+        NotificationManager, SlotAssignmentNotification,
+    };
+    use std::time::Duration;
+
+    let ctx = setup::setup_test_db().await;
+
+    let group_a = fixtures::create_test_group(&ctx.pool, "Group A", "password")
+        .await
+        .expect("create group A");
+    let group_b = fixtures::create_test_group(&ctx.pool, "Group B", "password")
+        .await
+        .expect("create group B");
+
+    let players_a = fixtures::create_test_players(&ctx.pool, group_a.id, 4)
+        .await
+        .expect("create players A");
+    let tournament_a = fixtures::create_test_tournament(&ctx.pool, group_a.id, None, None)
+        .await
+        .expect("create tournament A");
+    let match_a = fixtures::create_test_match(&ctx.pool, group_a.id, tournament_a.id, 2)
+        .await
+        .expect("create match A");
+    fixtures::create_test_rounds(&ctx.pool, match_a.id, 2)
+        .await
+        .expect("create rounds A");
+    let player_ids_a: Vec<uuid::Uuid> = players_a.iter().map(|p| p.id).collect();
+    let teams_a = fixtures::create_test_teams(&ctx.pool, group_a.id, match_a.id, 1)
+        .await
+        .expect("create teams A");
+    fixtures::add_players_to_round(&ctx.pool, group_a.id, match_a.id, 1, teams_a[0].id, &player_ids_a)
+        .await
+        .expect("add players A r1");
+    fixtures::add_players_to_round(&ctx.pool, group_a.id, match_a.id, 2, teams_a[0].id, &player_ids_a)
+        .await
+        .expect("add players A r2");
+
+    let other_match = fixtures::create_test_match(&ctx.pool, group_a.id, tournament_a.id, 1)
+        .await
+        .expect("create other match A");
+    fixtures::create_test_rounds(&ctx.pool, other_match.id, 1)
+        .await
+        .expect("create rounds other");
+
+    let notification_manager = NotificationManager::new();
+
+    let request = Request::new(
+        r#"subscription SlotAssignments($matchId: ID!, $roundNumber: Int!) {
+            slotAssignmentsUpdated(matchId: $matchId, roundNumber: $roundNumber) {
+                slotNumber
+                playerId
+                sourceClientId
+            }
+        }"#,
+    )
+    .variables(Variables::from_value(value!({
+        "matchId": match_a.id.to_string(),
+        "roundNumber": 1,
+    })))
+    .data(ctx.config.clone())
+    .data(GraphQLContext::new(
+        ctx.pool.clone(),
+        Some(group_a.id),
+        notification_manager.clone(),
+    ));
+    let mut stream = ctx.schema.execute_stream(request);
+
+    let nm = notification_manager.clone();
+    let match_a_id = match_a.id;
+    let other_match_id = other_match.id;
+    let group_a_id = group_a.id;
+    let group_b_id = group_b.id;
+    let player_a_id = players_a[0].id;
+    tokio::spawn(async move {
+        // Allow the subscription's broadcast receiver to register before we publish.
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        // Wrong group — must NOT reach the group A subscriber.
+        nm.notify_slot_assignment(SlotAssignmentNotification {
+            group_id: group_b_id,
+            match_id: match_a_id,
+            round_number: 1,
+            slot_number: 1,
+            player_id: Some(player_a_id),
+            source_client_id: "other-group".into(),
+        });
+
+        // Wrong match — must NOT reach.
+        nm.notify_slot_assignment(SlotAssignmentNotification {
+            group_id: group_a_id,
+            match_id: other_match_id,
+            round_number: 1,
+            slot_number: 2,
+            player_id: Some(player_a_id),
+            source_client_id: "other-match".into(),
+        });
+
+        // Wrong round — must NOT reach.
+        nm.notify_slot_assignment(SlotAssignmentNotification {
+            group_id: group_a_id,
+            match_id: match_a_id,
+            round_number: 2,
+            slot_number: 3,
+            player_id: Some(player_a_id),
+            source_client_id: "other-round".into(),
+        });
+
+        // Correct — MUST reach.
+        nm.notify_slot_assignment(SlotAssignmentNotification {
+            group_id: group_a_id,
+            match_id: match_a_id,
+            round_number: 1,
+            slot_number: 5,
+            player_id: Some(player_a_id),
+            source_client_id: "wanted".into(),
+        });
+    });
+
+    let response = tokio::time::timeout(Duration::from_secs(3), stream.next())
+        .await
+        .expect("subscription timed out")
+        .expect("stream ended early");
+
+    assert!(response.errors.is_empty(), "Unexpected errors: {:?}", response.errors);
+
+    let data = response.data.into_json().expect("parse response");
+    let event = data.get("slotAssignmentsUpdated").expect("slotAssignmentsUpdated");
+    assert_eq!(event.get("slotNumber").and_then(|v| v.as_i64()), Some(5));
+    assert_eq!(
+        event.get("playerId").and_then(|v| v.as_str()),
+        Some(player_a_id.to_string().as_str())
+    );
+    assert_eq!(event.get("sourceClientId").and_then(|v| v.as_str()), Some("wanted"));
+}
