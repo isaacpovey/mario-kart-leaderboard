@@ -1,5 +1,5 @@
 import { Box, Button, Heading, HStack, SimpleGrid, Text, VStack } from '@chakra-ui/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { LuArrowLeftRight } from 'react-icons/lu'
 
 type Player = {
@@ -72,23 +72,22 @@ export const ResultsGrid = ({ round, slots, onTogglePlayer, error, submitting, o
     [slots]
   )
 
-  // If the user is on the "Assigned" view but no slots are assigned, fall back to "top".
-  useEffect(() => {
-    if (page === 'assigned' && assignedSlotNumbers.length === 0) {
-      setPage('top')
-    }
-  }, [page, assignedSlotNumbers.length])
+  // Derive the rendered page rather than mirroring it via state + useEffect:
+  // if the user previously selected "Assigned" and the assignment count drops
+  // to zero, we render the "top" page instead. The `page` state still records
+  // the user's chosen tab so re-assignments restore the Assigned view.
+  const effectivePage: Page = page === 'assigned' && assignedSlotNumbers.length === 0 ? 'top' : page
 
   const visibleSlots = useMemo(() => {
-    if (page === 'assigned') return assignedSlotNumbers
-    return fullPageSlots(page)
-  }, [page, assignedSlotNumbers])
+    if (effectivePage === 'assigned') return assignedSlotNumbers
+    return fullPageSlots(effectivePage)
+  }, [effectivePage, assignedSlotNumbers])
 
   const handleSubmit = () => {
     const results = Object.entries(slots)
-      .filter(([, playerId]) => playerId !== null)
+      .filter((entry): entry is [string, string] => entry[1] !== null)
       .map(([position, playerId]) => ({
-        playerId: playerId as string,
+        playerId,
         position: Number(position),
       }))
     onSubmit(results)
@@ -172,10 +171,10 @@ export const ResultsGrid = ({ round, slots, onTogglePlayer, error, submitting, o
           {assignedSlotNumbers.length > 0 && (
             <Button
               size="sm"
-              variant={page === 'assigned' ? 'solid' : 'outline'}
-              colorScheme={page === 'assigned' ? 'yellow' : undefined}
-              bg={page === 'assigned' ? 'brand.400' : undefined}
-              color={page === 'assigned' ? 'gray.900' : undefined}
+              variant={effectivePage === 'assigned' ? 'solid' : 'outline'}
+              colorScheme={effectivePage === 'assigned' ? 'yellow' : undefined}
+              bg={effectivePage === 'assigned' ? 'brand.400' : undefined}
+              color={effectivePage === 'assigned' ? 'gray.900' : undefined}
               onClick={() => setPage('assigned')}
             >
               Assigned ({assignedSlotNumbers.length})
@@ -185,10 +184,10 @@ export const ResultsGrid = ({ round, slots, onTogglePlayer, error, submitting, o
             <Button
               key={p}
               size="sm"
-              variant={page === p ? 'solid' : 'outline'}
-              colorScheme={page === p ? 'yellow' : undefined}
-              bg={page === p ? 'brand.400' : undefined}
-              color={page === p ? 'gray.900' : undefined}
+              variant={effectivePage === p ? 'solid' : 'outline'}
+              colorScheme={effectivePage === p ? 'yellow' : undefined}
+              bg={effectivePage === p ? 'brand.400' : undefined}
+              color={effectivePage === p ? 'gray.900' : undefined}
               onClick={() => setPage(p)}
             >
               {PAGE_RANGES[p].label}

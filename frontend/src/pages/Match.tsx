@@ -25,57 +25,53 @@ const Match = () => {
 
   const [selectedRound, setSelectedRound] = useState<number | null>(null)
   const [expandedCompletedRound, setExpandedCompletedRound] = useState<number | null>(null)
-  const [positions, setPositions] = useState<Record<string, string>>({})
+  // Positions are indexed per round so switching rounds and returning preserves
+  // local entry state (cross-device late-joiners are still empty by design —
+  // ephemeral broadcast, no DB snapshot).
+  const [positionsByRound, setPositionsByRound] = useState<Record<number, Record<string, string>>>({})
 
-  // Grid mode derives its slot map (position → playerId) from `positions` so both modes
-  // share the same underlying state. Only integer positions 1..24 are considered.
-  const slots = useMemo<SlotAssignments>(() => {
-    const out: SlotAssignments = {}
-    for (const [playerId, posStr] of Object.entries(positions)) {
-      const position = Number.parseInt(posStr, 10)
-      if (position >= 1 && position <= 24 && !out[position]) {
-        out[position] = playerId
-      }
-    }
-    return out
-  }, [positions])
+  const positions = useMemo<Record<string, string>>(() => (selectedRound !== null ? (positionsByRound[selectedRound] ?? {}) : {}), [selectedRound, positionsByRound])
+
+  const slots = useMemo<SlotAssignments>(
+    () =>
+      Object.fromEntries(
+        Object.entries(positions)
+          .map(([playerId, posStr]) => [Number.parseInt(posStr, 10), playerId] as const)
+          .filter(([position]) => position >= 1 && position <= 24)
+      ),
+    [positions]
+  )
+
+  const updateRoundPositions = (round: number, update: (prev: Record<string, string>) => Record<string, string>) => {
+    setPositionsByRound((prev) => ({ ...prev, [round]: update(prev[round] ?? {}) }))
+  }
 
   const { publish } = useSlotAssignmentSync({
     matchId: matchId ?? null,
     roundNumber: selectedRound,
     onAssignment: (slotNumber, playerId) => {
-      setPositions((prev) => applyAssignment(prev, slotNumber, playerId))
+      if (selectedRound === null) return
+      updateRoundPositions(selectedRound, (prev) => applyAssignment(prev, slotNumber, playerId))
     },
   })
 
   const handleTogglePlayerInSlot = (slotNumber: number, playerId: string) => {
-    const prevPosStr = positions[playerId]
-    const prevSlot = prevPosStr ? Number.parseInt(prevPosStr, 10) : null
-    const tappingOwnSlot = prevSlot === slotNumber
+    if (selectedRound === null) return
+    const round = selectedRound
+    const prevSlot = positions[playerId] ? Number.parseInt(positions[playerId], 10) : null
+    const newPlayerId = prevSlot === slotNumber ? null : playerId
+    const snapshot = positions
 
-    setPositions((prev) => {
-      const next = { ...prev }
-      if (tappingOwnSlot) {
-        delete next[playerId]
-        return next
+    updateRoundPositions(round, (prev) => applyAssignment(prev, slotNumber, newPlayerId))
+
+    publish(slotNumber, newPlayerId).then((result) => {
+      if (!result.ok) {
+        // Best-effort revert: if a concurrent legitimate event landed during
+        // the round-trip, this restores the snapshot and overwrites that
+        // event. Acceptable for the small group / sub-second event scale.
+        updateRoundPositions(round, () => snapshot)
       }
-      for (const [otherPlayerId, otherPosStr] of Object.entries(next)) {
-        if (otherPlayerId !== playerId && Number.parseInt(otherPosStr, 10) === slotNumber) {
-          delete next[otherPlayerId]
-        }
-      }
-      next[playerId] = String(slotNumber)
-      return next
     })
-
-    if (tappingOwnSlot) {
-      publish(slotNumber, null)
-      return
-    }
-    if (prevSlot !== null && prevSlot !== slotNumber) {
-      publish(prevSlot, null)
-    }
-    publish(slotNumber, playerId)
   }
   const [error, setError] = useState('')
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
@@ -99,7 +95,9 @@ const Match = () => {
   const handleSelectRound = (roundNumber: number) => {
     setSelectedRound(roundNumber)
     setExpandedCompletedRound(null)
-    setPositions({})
+    // Don't clear positions — they're per-round, so leaving previous-round
+    // state in `positionsByRound` doesn't affect this round and lets the user
+    // bounce between rounds without losing local entry state.
     setError('')
   }
 
@@ -131,8 +129,12 @@ const Match = () => {
     })
 
     if (updated) {
+      const submittedRound = selectedRound
       setSelectedRound(null)
-      setPositions({})
+      setPositionsByRound((prev) => {
+        const { [submittedRound]: _submitted, ...rest } = prev
+        return rest
+      })
     }
   }
 

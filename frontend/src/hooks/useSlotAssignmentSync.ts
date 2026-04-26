@@ -10,7 +10,7 @@ type UseSlotAssignmentSyncArgs = {
 }
 
 type UseSlotAssignmentSyncResult = {
-  publish: (slotNumber: number, playerId: string | null) => void
+  publish: (slotNumber: number, playerId: string | null) => Promise<{ ok: boolean }>
 }
 
 export const useSlotAssignmentSync = ({ matchId, roundNumber, onAssignment }: UseSlotAssignmentSyncArgs): UseSlotAssignmentSyncResult => {
@@ -26,31 +26,42 @@ export const useSlotAssignmentSync = ({ matchId, roundNumber, onAssignment }: Us
 
   const canSync = matchId !== null && roundNumber !== null
 
-  const [subscription] = useSubscription({
-    query: slotAssignmentsUpdatedSubscription,
-    variables: { matchId: matchId ?? '', roundNumber: roundNumber ?? 0 },
-    pause: !canSync,
-  })
-
-  useEffect(() => {
-    const event = subscription.data?.slotAssignmentsUpdated
-    if (!event) return
-    if (event.sourceClientId === clientIdRef.current) return
-    onAssignmentRef.current(event.slotNumber, event.playerId ?? null)
-  }, [subscription.data])
+  // Process every event inside the urql subscription handler so back-to-back
+  // messages aren't coalesced by React's render batching (only the latest
+  // `subscription.data` would be visible to a `useEffect` watcher under
+  // contention).
+  useSubscription(
+    {
+      query: slotAssignmentsUpdatedSubscription,
+      variables: { matchId: matchId ?? '', roundNumber: roundNumber ?? 0 },
+      pause: !canSync,
+    },
+    (_acc, data) => {
+      const event = data.slotAssignmentsUpdated
+      if (event && event.sourceClientId !== clientIdRef.current) {
+        onAssignmentRef.current(event.slotNumber, event.playerId ?? null)
+      }
+      return data
+    }
+  )
 
   const [, executeMutation] = useMutation(assertSlotAssignmentMutation)
 
   const publish = useCallback(
-    (slotNumber: number, playerId: string | null) => {
-      if (!canSync || matchId === null || roundNumber === null) return
-      void executeMutation({
+    async (slotNumber: number, playerId: string | null) => {
+      if (!canSync || matchId === null || roundNumber === null) return { ok: false }
+      const result = await executeMutation({
         matchId,
         roundNumber,
         slotNumber,
         playerId,
         clientId: clientIdRef.current,
       })
+      if (result.error) {
+        console.error('Failed to sync slot assignment', { matchId, roundNumber, slotNumber, playerId, error: result.error.message })
+        return { ok: false }
+      }
+      return { ok: true }
     },
     [executeMutation, canSync, matchId, roundNumber]
   )
