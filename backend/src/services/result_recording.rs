@@ -556,9 +556,14 @@ pub async fn record_results_in_transaction(
         group_id
     );
 
-    notification_manager.notify(notification);
-
-    tracing::info!("NOTIFY STEP 1: Successfully broadcast notification");
+    if let Err(e) = notification_manager.publish(pool, notification).await {
+        tracing::error!(
+            "NOTIFY STEP 1: pg_notify failed (data is already committed; live update will be missed): {}",
+            e
+        );
+    } else {
+        tracing::info!("NOTIFY STEP 1: Successfully published pg_notify");
+    }
 
     Ok(updated_match)
 }

@@ -1,0 +1,90 @@
+mod common;
+
+use std::time::Duration;
+
+use mario_kart_leaderboard_backend::services::notification_manager::{
+    NotificationManager, RaceResultNotification,
+};
+use tokio::time::timeout;
+use uuid::Uuid;
+
+use common::setup::setup_test_db;
+
+/// Verifies the LISTEN/NOTIFY bridge: a `publish` round-trips through
+/// PostgreSQL and reaches local subscribers via the `start_listener` task.
+///
+/// This is the regression test for the bug where publishers only fanned out
+/// in-process and silently failed to reach subscribers on other instances.
+#[tokio::test]
+async fn publish_round_trips_to_local_subscriber() {
+    let ctx = setup_test_db().await;
+
+    let manager = NotificationManager::new();
+    manager
+        .clone()
+        .start_listener(&ctx.config.database_url)
+        .await
+        .expect("failed to start listener");
+
+    let mut receiver = manager.subscribe();
+
+    let expected = RaceResultNotification {
+        match_id: Uuid::new_v4(),
+        tournament_id: Uuid::new_v4(),
+        round_number: 3,
+        group_id: Uuid::new_v4(),
+    };
+
+    manager
+        .publish(&ctx.pool, expected.clone())
+        .await
+        .expect("publish failed");
+
+    let received = timeout(Duration::from_secs(5), receiver.recv())
+        .await
+        .expect("timed out waiting for notification")
+        .expect("receiver closed");
+
+    assert_eq!(received.match_id, expected.match_id);
+    assert_eq!(received.tournament_id, expected.tournament_id);
+    assert_eq!(received.round_number, expected.round_number);
+    assert_eq!(received.group_id, expected.group_id);
+}
+
+/// A second `NotificationManager` listening on the same database receives
+/// events published by the first — proves cross-instance delivery, which
+/// is the whole point of bridging through `pg_notify`.
+#[tokio::test]
+async fn publish_reaches_a_separate_manager_listening_on_the_same_db() {
+    let ctx = setup_test_db().await;
+
+    let publisher = NotificationManager::new();
+    let subscriber = NotificationManager::new();
+
+    subscriber
+        .clone()
+        .start_listener(&ctx.config.database_url)
+        .await
+        .expect("failed to start subscriber listener");
+
+    let mut receiver = subscriber.subscribe();
+
+    let expected = RaceResultNotification {
+        match_id: Uuid::new_v4(),
+        tournament_id: Uuid::new_v4(),
+        round_number: 1,
+        group_id: Uuid::new_v4(),
+    };
+
+    publisher
+        .publish(&ctx.pool, expected.clone())
+        .await
+        .expect("publish failed");
+
+    let received = timeout(Duration::from_secs(5), receiver.recv())
+        .await
+        .expect("timed out waiting for notification")
+        .expect("receiver closed");
+
+    assert_eq!(received.match_id, expected.match_id);
+}
