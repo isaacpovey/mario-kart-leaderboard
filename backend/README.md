@@ -23,6 +23,10 @@ A Rust GraphQL API backend for tracking Mario Kart tournament leaderboards with 
 cargo install sqlx-cli --no-default-features --features postgres
 ```
 
+### Optional: devbox
+
+If you have [devbox](https://www.jetpack.io/devbox) installed, `devbox shell` from the repo root provides pinned versions of Rust, Node, `pnpm`, and `sqlx-cli` without needing to install any of them manually. First invocation warms the Nix store and can take several minutes; subsequent shells are near-instant.
+
 ## Setup
 
 ### 1. Environment Configuration
@@ -39,6 +43,8 @@ ENABLE_PLAYGROUND=true
 
 ### 2. Database Setup
 
+#### Option A: Install Postgres locally
+
 Create the database:
 
 ```bash
@@ -48,6 +54,26 @@ createdb mario_kart
 # Or using SQL
 psql -U postgres -c "CREATE DATABASE mario_kart;"
 ```
+
+#### Option B: Run Postgres via Docker Compose
+
+Alternatively, start the bundled Postgres 16 service from `backend/docker-compose.yml`:
+
+```bash
+docker compose -f backend/docker-compose.yml up -d postgres
+# or, if you prefer Podman:
+podman compose -f backend/docker-compose.yml up -d postgres
+```
+
+Then copy the matching `.env` template:
+
+```bash
+cp .env.example .env
+```
+
+The credentials in `.env.example` match the compose service defaults. Data is persisted in the named volume `mario-kart-pgdata`; use `docker compose ... down -v` to wipe it. If port `5432` is already taken by a host-native Postgres, stop that service first or change the host port mapping in `docker-compose.yml` and update `DATABASE_URL` in your `.env` accordingly.
+
+Prefer a single command? If you have `devbox` installed, `devbox run db:bootstrap` starts Postgres, runs migrations, and seeds a sample group (`Dev Group` / `devpassword`) with four players (`Mario`, `Luigi`, `Peach`, `Bowser`). It is idempotent — safe to re-run. The seed prints an auto-login URL you can paste into the browser (`http://localhost:5173/?groupId=...&password=...`), plus a JWT for the GraphQL playground.
 
 ### 3. Run Migrations
 
