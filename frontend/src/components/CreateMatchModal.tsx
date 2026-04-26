@@ -25,15 +25,19 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
 
   const playerSelection = usePlayerSelection(initialSelectedIds)
 
-  // Re-seed selection only when the modal opens. Reacting to every
-  // `initialSelectedIds` change would overwrite manual edits when the lobby
-  // subscription fires a refetch mid-edit.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — only react to `open`
+  // Re-seed selection while it is still empty: covers both the initial open
+  // (selection starts empty until `initialSelectedIds` is non-empty) and the
+  // case where the lobby query is still in-flight when the modal first opens
+  // — once the lobby data arrives, the empty selection picks it up. As soon
+  // as the user toggles any player, the selection becomes non-empty and is
+  // no longer overwritten by lobby refetches mid-edit.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: setSelection is stable, playerSelection.selectedPlayerIds is read at effect time
   useEffect(() => {
-    if (open) {
-      playerSelection.setSelection(initialSelectedIds)
-    }
-  }, [open])
+    if (!open) return
+    if (playerSelection.selectedPlayerIds.length > 0) return
+    if (initialSelectedIds.length === 0) return
+    playerSelection.setSelection(initialSelectedIds)
+  }, [open, initialSelectedIds])
   const { createMatchWithRounds, isCreatingMatch } = useMatchManagement()
 
   const playersPerRace = Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE

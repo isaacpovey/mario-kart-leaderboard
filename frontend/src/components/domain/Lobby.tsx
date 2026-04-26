@@ -1,26 +1,19 @@
 import { Box, Button, Heading, HStack, Input, Text, VStack } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
-import { useEffect, useMemo, useState } from 'react'
-import { useClient } from 'urql'
+import { useMemo, useState } from 'react'
 import { useLobby } from '../../hooks/features/useLobby'
 import { usePlayerSelection } from '../../hooks/features/usePlayerSelection'
 import { useLobbySubscription } from '../../hooks/useLobbySubscription'
-import { lobbyQuery } from '../../queries/lobby.query'
 import { lobbyQueryAtom } from '../../store/queries'
 import { LobbyPlayerList } from './LobbyPlayerList'
 import { MeCheckInButton } from './MeCheckInButton'
 
 export const Lobby = () => {
-  const client = useClient()
   const result = useAtomValue(lobbyQueryAtom)
-  const subscriptionResult = useLobbySubscription()
-
-  // Refetch lobbyQuery whenever a subscription event arrives
-  useEffect(() => {
-    if (subscriptionResult.data || subscriptionResult.error) {
-      client.query(lobbyQuery, {}, { requestPolicy: 'network-only' }).toPromise()
-    }
-  }, [subscriptionResult.data, subscriptionResult.error, client])
+  // Subscription must be active so urql's cacheExchange sees `lobbyUpdated`
+  // events and invalidates `Query.currentGroup` (configured in lib/urql.ts).
+  // No manual refetch needed.
+  useLobbySubscription()
 
   const playerSelection = usePlayerSelection()
 
@@ -64,6 +57,8 @@ export const Lobby = () => {
         {addPlayerOpen && (
           <Box p={3} borderWidth="1px" borderRadius="md" borderColor="gray.200">
             <AddPlayerInline
+              isCreatingPlayer={playerSelection.isCreatingPlayer}
+              onCreatePlayerByName={playerSelection.createAndSelectPlayerByName}
               onCreated={async (player) => {
                 await checkIn(player.id)
                 setAddPlayerOpen(false)
@@ -78,16 +73,17 @@ export const Lobby = () => {
 }
 
 type AddPlayerInlineProps = {
+  isCreatingPlayer: boolean
+  onCreatePlayerByName: (name: string) => Promise<{ id: string; name: string } | null>
   onCreated: (player: { id: string; name: string }) => void | Promise<void>
   onCancel: () => void
 }
 
-const AddPlayerInline = ({ onCreated, onCancel }: AddPlayerInlineProps) => {
-  const playerSelection = usePlayerSelection()
+const AddPlayerInline = ({ isCreatingPlayer, onCreatePlayerByName, onCreated, onCancel }: AddPlayerInlineProps) => {
   const [name, setName] = useState('')
 
   const handleCreate = async () => {
-    const created = await playerSelection.createAndSelectPlayerByName(name)
+    const created = await onCreatePlayerByName(name)
     if (created) {
       await onCreated(created)
       setName('')
@@ -98,7 +94,7 @@ const AddPlayerInline = ({ onCreated, onCancel }: AddPlayerInlineProps) => {
     <VStack align="stretch" gap={2}>
       <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="New player name" size="sm" />
       <HStack>
-        <Button size="sm" onClick={handleCreate} disabled={!name.trim() || playerSelection.isCreatingPlayer}>
+        <Button size="sm" onClick={handleCreate} disabled={!name.trim() || isCreatingPlayer}>
           Create & check in
         </Button>
         <Button size="sm" variant="outline" onClick={onCancel}>

@@ -18,8 +18,7 @@ export const useMe = (groupId: string | null | undefined) => {
   const clearMe = useCallback(() => {
     if (!groupId) return
     setMap((prev) => {
-      const next = { ...prev }
-      delete next[groupId]
+      const { [groupId]: _removed, ...next } = prev
       return next
     })
   }, [groupId, setMap])
