@@ -37,7 +37,7 @@ impl Loader<Uuid> for LobbyByGroupLoader {
         let player_by_id: HashMap<Uuid, Player> =
             players.into_iter().map(|p| (p.id, p)).collect();
 
-        // Group entries by group_id, preserving order (entries are already ORDER BY checked_in_at ASC)
+        // Group entries by group_id, preserving order (entries are already ORDER BY p.name ASC)
         let grouped = entries.into_iter().fold(
             HashMap::<Uuid, Vec<Player>>::new(),
             |mut acc, entry| {

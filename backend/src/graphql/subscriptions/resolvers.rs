@@ -1,4 +1,5 @@
 use crate::graphql::context::GraphQLContext;
+use crate::graphql::lobby::fetch_lobby;
 use crate::graphql::players::types::Player;
 use crate::graphql::results::types::{PlayerMatchResult, PlayerRaceResult};
 use crate::graphql::subscriptions::types::RaceResultUpdate;
@@ -335,21 +336,3 @@ async fn fetch_teams(pool: &crate::db::DbPool, match_id: Uuid) -> Result<Vec<Tea
     Ok(teams.into_iter().map(Team::from).collect())
 }
 
-async fn fetch_lobby(
-    pool: &crate::db::DbPool,
-    group_id: Uuid,
-) -> Result<Vec<Player>> {
-    let entries = crate::models::LobbyEntry::find_by_group_id(pool, group_id).await?;
-    if entries.is_empty() {
-        return Ok(Vec::new());
-    }
-    let player_ids: Vec<Uuid> = entries.iter().map(|e| e.player_id).collect();
-    let players = crate::models::Player::find_by_ids(pool, &player_ids).await?;
-
-    let ordered: Vec<Player> = entries
-        .iter()
-        .filter_map(|e| players.iter().find(|p| p.id == e.player_id).cloned().map(Player::from))
-        .collect();
-
-    Ok(ordered)
-}

@@ -225,6 +225,56 @@ async fn test_check_out_missing_player_is_noop() {
 }
 
 #[tokio::test]
+async fn test_check_out_unknown_or_cross_group_player_is_noop() {
+    // The docstring on `check_out_player` promises idempotency. A client may
+    // hold a stale player id (deleted, or belonging to a different group)
+    // and need to clear it from local UI by issuing a check-out. The DELETE
+    // is bounded by the authenticated `group_id`, so this is safe; the
+    // mutation must not error.
+    let ctx = setup::setup_test_db().await;
+
+    let group_a = fixtures::create_test_group(&ctx.pool, "Group A", "password")
+        .await
+        .expect("create group A");
+    let group_b = fixtures::create_test_group(&ctx.pool, "Group B", "password")
+        .await
+        .expect("create group B");
+    // A player that exists, but in a different group.
+    let outsider =
+        mario_kart_leaderboard_backend::models::Player::create(&ctx.pool, group_b.id, "Zoe")
+            .await
+            .expect("create outsider");
+    // A player id that doesn't exist at all.
+    let phantom_id = uuid::Uuid::new_v4();
+
+    let mutation = r#"
+        mutation CheckOut($playerId: ID!) {
+            checkOutPlayer(playerId: $playerId) { id }
+        }
+    "#;
+
+    for target in [outsider.id, phantom_id] {
+        let request = Request::new(mutation)
+            .variables(Variables::from_value(value!({
+                "playerId": target.to_string()
+            })))
+            .data(ctx.config.clone());
+        let gql_ctx =
+            GraphQLContext::new(ctx.pool.clone(), Some(group_a.id), NotificationManager::new());
+        let response = ctx.schema.execute(request.data(gql_ctx)).await;
+        assert!(
+            response.errors.is_empty(),
+            "Expected no errors for {}, got: {:?}",
+            target,
+            response.errors
+        );
+        let data = response.data.into_json().expect("parse response");
+        let lobby = data.get("checkOutPlayer").unwrap().as_array().unwrap();
+        assert_eq!(lobby.len(), 0, "Expected group A's lobby to remain empty");
+    }
+}
+
+#[tokio::test]
 async fn test_group_lobby_ordered_by_name() {
     let ctx = setup::setup_test_db().await;
     let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")

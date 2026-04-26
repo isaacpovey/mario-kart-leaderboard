@@ -45,8 +45,10 @@ impl LobbyMutation {
 
     /// Check a player out of their group's lobby.
     ///
-    /// Idempotent: checking out a player not in the lobby is a no-op.
-    /// Returns the updated lobby.
+    /// Idempotent: checking out a player who isn't in the lobby — including a
+    /// player who no longer exists or belongs to a different group — is a
+    /// no-op. The DELETE is bounded by `group_id`, so cross-group writes are
+    /// not possible. Returns the updated lobby.
     async fn check_out_player(
         &self,
         ctx: &Context<'_>,
@@ -57,14 +59,6 @@ impl LobbyMutation {
 
         let player_uuid =
             Uuid::parse_str(&player_id).map_err(|_| Error::new("Invalid player ID"))?;
-
-        let player = models::Player::find_by_id(&gql_ctx.pool, player_uuid)
-            .await?
-            .ok_or_else(|| Error::new("Player not found"))?;
-
-        if player.group_id != group_id {
-            return Err(Error::new("Player not found"));
-        }
 
         models::LobbyEntry::check_out(&gql_ctx.pool, group_id, player_uuid).await?;
 
