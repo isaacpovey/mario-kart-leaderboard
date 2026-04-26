@@ -128,8 +128,9 @@ impl NotificationManager {
 
     /// Start listening to PostgreSQL NOTIFY events
     ///
-    /// Spawns a background task that listens to the `race_results_updates` channel
-    /// and broadcasts received notifications to all local subscribers
+    /// Spawns a background task that listens on [`RACE_RESULTS_CHANNEL`] and
+    /// re-broadcasts received notifications to all local subscribers via
+    /// [`Self::notify`].
     pub async fn start_listener(self, database_url: &str) -> Result<()> {
         let mut listener = PgListener::connect(database_url).await?;
         listener.listen(RACE_RESULTS_CHANNEL).await?;

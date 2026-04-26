@@ -540,7 +540,8 @@ pub async fn record_results_in_transaction(
 
     tracing::info!("NOTIFY STEP 1: Transaction committed successfully");
 
-    // Broadcast notification directly through NotificationManager
+    // Publish via pg_notify; each instance's LISTEN task fans out to local
+    // subscribers, so the publishing instance also receives its own event.
     let notification = crate::services::notification_manager::RaceResultNotification {
         match_id,
         tournament_id: updated_match.tournament_id,
@@ -549,7 +550,7 @@ pub async fn record_results_in_transaction(
     };
 
     tracing::info!(
-        "NOTIFY STEP 1: Broadcasting notification: match_id={}, tournament_id={}, round={}, group_id={}",
+        "NOTIFY STEP 1: Publishing pg_notify: match_id={}, tournament_id={}, round={}, group_id={}",
         match_id,
         updated_match.tournament_id,
         round_number,
