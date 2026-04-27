@@ -69,3 +69,18 @@ impl RaceResultUpdate {
         &self.teams
     }
 }
+
+/// Grid slot assignment event for the `slotAssignmentsUpdated` subscription.
+///
+/// Carries the asserted state of a single slot. Subscribers echo-filter
+/// using `source_client_id`.
+#[derive(SimpleObject, Clone, Debug)]
+pub struct SlotAssignmentEvent {
+    /// The slot being asserted (1..=24)
+    pub slot_number: i32,
+    /// The player now in this slot, or null if the slot was cleared
+    pub player_id: Option<ID>,
+    /// Opaque per-tab identifier; subscribers ignore events whose
+    /// source_client_id matches their own
+    pub source_client_id: String,
+}

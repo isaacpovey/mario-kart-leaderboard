@@ -8,11 +8,13 @@ import { ErrorState } from '../components/common/ErrorState'
 import { BottomNav, type BottomNavItem } from '../components/domain/BottomNav'
 import { RaceList } from '../components/domain/RaceList'
 import { RaceResultsDisplay } from '../components/domain/RaceResultsDisplay'
-import { RoundResultsForm } from '../components/domain/RoundResultsForm'
+import { ResultsGrid, type SlotAssignments } from '../components/domain/ResultsGrid'
 import { TeamCard } from '../components/domain/TeamCard'
 import { SwapPlayerModal } from '../components/SwapPlayerModal'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
 import { useRaceResultsSubscription } from '../hooks/useRaceResultsSubscription'
+import { useSlotAssignmentSync } from '../hooks/useSlotAssignmentSync'
+import { applyAssignment } from '../lib/slotAssignments'
 import { matchQueryAtom } from '../store/queries'
 
 const Match = () => {
@@ -24,7 +26,54 @@ const Match = () => {
 
   const [selectedRound, setSelectedRound] = useState<number | null>(null)
   const [expandedCompletedRound, setExpandedCompletedRound] = useState<number | null>(null)
-  const [positions, setPositions] = useState<Record<string, string>>({})
+  // Positions are indexed per round so switching rounds and returning preserves
+  // local entry state (cross-device late-joiners are still empty by design —
+  // ephemeral broadcast, no DB snapshot).
+  const [positionsByRound, setPositionsByRound] = useState<Record<number, Record<string, string>>>({})
+
+  const positions = useMemo<Record<string, string>>(() => (selectedRound !== null ? (positionsByRound[selectedRound] ?? {}) : {}), [selectedRound, positionsByRound])
+
+  const slots = useMemo<SlotAssignments>(
+    () =>
+      Object.fromEntries(
+        Object.entries(positions)
+          .map(([playerId, posStr]) => [Number.parseInt(posStr, 10), playerId] as const)
+          .filter(([position]) => position >= 1 && position <= 24)
+      ),
+    [positions]
+  )
+
+  const updateRoundPositions = (round: number, update: (prev: Record<string, string>) => Record<string, string>) => {
+    setPositionsByRound((prev) => ({ ...prev, [round]: update(prev[round] ?? {}) }))
+  }
+
+  const { publish } = useSlotAssignmentSync({
+    matchId: matchId ?? null,
+    roundNumber: selectedRound,
+    onAssignment: (slotNumber, playerId) => {
+      if (selectedRound === null) return
+      updateRoundPositions(selectedRound, (prev) => applyAssignment(prev, slotNumber, playerId))
+    },
+  })
+
+  const handleTogglePlayerInSlot = (slotNumber: number, playerId: string) => {
+    if (selectedRound === null) return
+    const round = selectedRound
+    const prevSlot = positions[playerId] ? Number.parseInt(positions[playerId], 10) : null
+    const newPlayerId = prevSlot === slotNumber ? null : playerId
+    const snapshot = positions
+
+    updateRoundPositions(round, (prev) => applyAssignment(prev, slotNumber, newPlayerId))
+
+    publish(slotNumber, newPlayerId).then((result) => {
+      if (!result.ok) {
+        // Best-effort revert: if a concurrent legitimate event landed during
+        // the round-trip, this restores the snapshot and overwrites that
+        // event. Acceptable for the small group / sub-second event scale.
+        updateRoundPositions(round, () => snapshot)
+      }
+    })
+  }
   const [error, setError] = useState('')
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [swapModalOpen, setSwapModalOpen] = useState(false)
@@ -47,7 +96,9 @@ const Match = () => {
   const handleSelectRound = (roundNumber: number) => {
     setSelectedRound(roundNumber)
     setExpandedCompletedRound(null)
-    setPositions({})
+    // Don't clear positions — they're per-round, so leaving previous-round
+    // state in `positionsByRound` doesn't affect this round and lets the user
+    // bounce between rounds without losing local entry state.
     setError('')
   }
 
@@ -56,22 +107,10 @@ const Match = () => {
     setSelectedRound(null)
   }
 
-  const handlePositionChange = (playerId: string, position: string) => {
-    setPositions((prev) => ({ ...prev, [playerId]: position }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (selectedRound === null || !selectedRoundData) return
+  const handleSubmitResults = async (results: Array<{ playerId: string; position: number }>) => {
+    if (selectedRound === null) return
 
     setError('')
-
-    const results = selectedRoundData.players
-      .map((player) => ({
-        playerId: player.id,
-        position: Number.parseInt(positions[player.id] || '0', 10),
-      }))
-      .filter((result) => result.position > 0)
 
     if (results.length === 0) {
       setError('Please enter at least one position')
@@ -91,12 +130,15 @@ const Match = () => {
     })
 
     if (updated) {
+      const submittedRound = selectedRound
       setSelectedRound(null)
-      setPositions({})
+      setPositionsByRound((prev) => {
+        const { [submittedRound]: _submitted, ...rest } = prev
+        return rest
+      })
     }
   }
 
-  const selectedRoundData = match.rounds.find((r) => r.roundNumber === selectedRound)
   const hasAnyResults = match.rounds.some((r) => r.completed)
   const canCancelMatch = !match.completed && !hasAnyResults
 
@@ -178,13 +220,13 @@ const Match = () => {
                 }
 
                 return (
-                  <RoundResultsForm
+                  <ResultsGrid
                     round={roundData}
-                    positions={positions}
-                    onPositionChange={handlePositionChange}
-                    onSubmit={handleSubmit}
+                    slots={slots}
+                    onTogglePlayer={handleTogglePlayerInSlot}
                     error={error}
                     submitting={isRecordingResults}
+                    onSubmit={handleSubmitResults}
                     onSwapPlayer={(player) => handleSwapPlayer(player, roundNumber)}
                   />
                 )
