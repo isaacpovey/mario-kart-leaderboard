@@ -1,8 +1,15 @@
 //! Notification Manager Service
 //!
-//! This module provides a pub/sub system for GraphQL subscriptions using PostgreSQL LISTEN/NOTIFY.
-//! It enables real-time updates across multiple backend instances by leveraging PostgreSQL's
-//! built-in notification system combined with in-memory broadcast channels for active subscribers.
+//! Pub/sub for GraphQL subscriptions. Runs three independent `tokio::sync::broadcast` channels:
+//!
+//! - **Race results** (`sender`) — bridged to PostgreSQL LISTEN/NOTIFY via `start_listener`,
+//!   so race-result events propagate across backend instances.
+//! - **Lobby updates** (`lobby_sender`) — in-process only. Lobby state changes fast and small,
+//!   and the current deployment runs a single backend instance; cross-instance propagation
+//!   can be added later by extending `start_listener` to also subscribe to a
+//!   `lobby_updates` Postgres channel.
+//! - **Slot assignments** (`slot_assignment_sender`) — in-process only, ephemeral grid-slot
+//!   assertions with no DB persistence.
 
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
@@ -34,29 +41,32 @@ pub struct SlotAssignmentNotification {
     pub source_client_id: String,
 }
 
+/// Notification payload for lobby updates (check-in / check-out)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LobbyNotification {
+    pub group_id: Uuid,
+}
+
 /// Manager for handling GraphQL subscription notifications
-///
-/// Uses a broadcast channel for in-memory pub/sub and PostgreSQL LISTEN
-/// for cross-instance communication
 #[derive(Clone)]
 pub struct NotificationManager {
     sender: broadcast::Sender<RaceResultNotification>,
     slot_assignment_sender: broadcast::Sender<SlotAssignmentNotification>,
+    lobby_sender: broadcast::Sender<LobbyNotification>,
 }
 
 impl NotificationManager {
-    /// Creates a new notification manager with a broadcast channel
-    ///
-    /// Channel capacity is set to 100 to handle bursts of notifications
     pub fn new() -> Self {
         let (sender, _) = broadcast::channel(100);
         let (slot_assignment_sender, _) = broadcast::channel(100);
-        Self { sender, slot_assignment_sender }
+        let (lobby_sender, _) = broadcast::channel(100);
+        Self {
+            sender,
+            slot_assignment_sender,
+            lobby_sender,
+        }
     }
 
-    /// Subscribe to race result notifications
-    ///
-    /// Returns a receiver that will get all future notifications
     pub fn subscribe(&self) -> broadcast::Receiver<RaceResultNotification> {
         self.sender.subscribe()
     }
@@ -86,32 +96,33 @@ impl NotificationManager {
         }
     }
 
-    /// Manually notify subscribers (used for local broadcasting)
-    ///
-    /// This is called when the current instance publishes a notification
-    pub fn notify(&self, notification: RaceResultNotification) {
-        let subscriber_count = self.sender.receiver_count();
-        tracing::info!(
-            "NOTIFY STEP 2: Broadcasting to {} active subscribers - match_id={}, tournament_id={}",
-            subscriber_count,
-            notification.match_id,
-            notification.tournament_id
-        );
+    pub fn subscribe_lobby(&self) -> broadcast::Receiver<LobbyNotification> {
+        self.lobby_sender.subscribe()
+    }
 
-        match self.sender.send(notification) {
-            Ok(_) => {
-                tracing::info!("NOTIFY STEP 2: Successfully broadcast notification");
-            }
-            Err(e) => {
-                tracing::error!("NOTIFY STEP 2: Failed to broadcast - no receivers: {:?}", e);
-            }
+    pub fn notify(&self, notification: RaceResultNotification) {
+        tracing::debug!(
+            match_id = %notification.match_id,
+            tournament_id = %notification.tournament_id,
+            subscribers = self.sender.receiver_count(),
+            "broadcasting race result notification"
+        );
+        if let Err(e) = self.sender.send(notification) {
+            tracing::error!("failed to broadcast race result notification (no receivers): {:?}", e);
         }
     }
 
-    /// Start listening to PostgreSQL NOTIFY events
-    ///
-    /// Spawns a background task that listens to the `race_results_updates` channel
-    /// and broadcasts received notifications to all local subscribers
+    pub fn notify_lobby(&self, notification: LobbyNotification) {
+        tracing::debug!(
+            group_id = %notification.group_id,
+            subscribers = self.lobby_sender.receiver_count(),
+            "broadcasting lobby notification"
+        );
+        if let Err(e) = self.lobby_sender.send(notification) {
+            tracing::error!("failed to broadcast lobby notification (no receivers): {:?}", e);
+        }
+    }
+
     pub async fn start_listener(self, database_url: &str) -> Result<()> {
         let mut listener = PgListener::connect(database_url).await?;
         listener.listen("race_results_updates").await?;
@@ -122,39 +133,16 @@ impl NotificationManager {
             loop {
                 match listener.recv().await {
                     Ok(notification) => {
-                        tracing::info!(
-                            "NOTIFY STEP 2: PostgreSQL listener received notification payload: {}",
-                            notification.payload()
-                        );
-
-                        match serde_json::from_str::<RaceResultNotification>(notification.payload())
-                        {
+                        match serde_json::from_str::<RaceResultNotification>(notification.payload()) {
                             Ok(data) => {
-                                tracing::info!(
-                                    "NOTIFY STEP 2: Parsed notification - match_id={}, tournament_id={}, round={}, group_id={}",
-                                    data.match_id,
-                                    data.tournament_id,
-                                    data.round_number,
-                                    data.group_id
-                                );
-
-                                match self.sender.send(data) {
-                                    Ok(_) => {
-                                        tracing::info!("NOTIFY STEP 2: Broadcast notification to {} subscribers", self.sender.receiver_count());
-                                    }
-                                    Err(e) => {
-                                        tracing::error!("NOTIFY STEP 2: Failed to broadcast notification: {}", e);
-                                    }
+                                if let Err(e) = self.sender.send(data) {
+                                    tracing::error!("Failed to broadcast race notification: {}", e);
                                 }
                             }
-                            Err(e) => {
-                                tracing::error!("Failed to parse notification payload: {}", e);
-                            }
+                            Err(e) => tracing::error!("Failed to parse race notification payload: {}", e),
                         }
                     }
-                    Err(e) => {
-                        tracing::error!("Error receiving PostgreSQL notification: {}", e);
-                    }
+                    Err(e) => tracing::error!("Error receiving PostgreSQL notification: {}", e),
                 }
             }
         });

@@ -1,5 +1,6 @@
 use crate::db::DbPool;
 use crate::graphql::groups::GroupLoader;
+use crate::graphql::lobby::LobbyByGroupLoader;
 use crate::graphql::matches::MatchesByTournamentLoader;
 use crate::graphql::players::{PlayerActiveTournamentEloLoader, PlayerLoader, PlayersByGroupLoader};
 use crate::graphql::results::{PlayerMatchScoresByMatchLoader, PlayerRaceScoresByRoundLoader, PlayerTeammateContributionLoader};
@@ -30,6 +31,7 @@ pub struct GraphQLContext {
         Arc<DataLoader<PlayerMatchScoresByMatchLoader, HashMapCache>>,
     pub player_teammate_contribution_loader:
         Arc<DataLoader<PlayerTeammateContributionLoader, HashMapCache>>,
+    pub lobby_by_group_loader: Arc<DataLoader<LobbyByGroupLoader, HashMapCache>>,
 }
 
 impl GraphQLContext {
@@ -91,6 +93,11 @@ impl GraphQLContext {
             )),
             player_teammate_contribution_loader: Arc::new(DataLoader::with_cache(
                 PlayerTeammateContributionLoader::new(pool.clone()),
+                tokio::spawn,
+                HashMapCache::default(),
+            )),
+            lobby_by_group_loader: Arc::new(DataLoader::with_cache(
+                LobbyByGroupLoader::new(pool.clone()),
                 tokio::spawn,
                 HashMapCache::default(),
             )),

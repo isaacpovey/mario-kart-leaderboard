@@ -1,5 +1,5 @@
 import { Box, Button, Dialog, Field, Portal, Switch, Tabs, Text, VStack } from '@chakra-ui/react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
 import { usePlayerSelection } from '../hooks/features/usePlayerSelection'
@@ -12,8 +12,8 @@ const DEFAULT_PLAYERS_PER_RACE = 4
 const FALLBACK_NUM_RACES = 4
 const FALLBACK_PLAYERS_PER_RACE = 4
 
-export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (open: boolean) => void; tournamentId: string }) => {
-  const { open, onOpenChange, tournamentId } = dependencies
+export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (open: boolean) => void; tournamentId: string; initialSelectedIds?: string[] }) => {
+  const { open, onOpenChange, tournamentId, initialSelectedIds = [] } = dependencies
   const navigate = useNavigate()
   const { formState, updateField, resetForm } = useFormState({
     numRaces: String(DEFAULT_NUM_RACES),
@@ -23,20 +23,39 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('players')
 
-  const playerSelection = usePlayerSelection()
+  const playerSelection = usePlayerSelection(initialSelectedIds)
+
+  // Re-seed selection while it is still empty: covers both the initial open
+  // (selection starts empty until `initialSelectedIds` is non-empty) and the
+  // case where the lobby query is still in-flight when the modal first opens
+  // — once the lobby data arrives, the empty selection picks it up. As soon
+  // as the user toggles any player, the selection becomes non-empty and is
+  // no longer overwritten by lobby refetches mid-edit.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: setSelection is stable, playerSelection.selectedPlayerIds is read at effect time
+  useEffect(() => {
+    if (!open) return
+    if (playerSelection.selectedPlayerIds.length > 0) return
+    if (initialSelectedIds.length === 0) return
+    playerSelection.setSelection(initialSelectedIds)
+  }, [open, initialSelectedIds])
   const { createMatchWithRounds, isCreatingMatch } = useMatchManagement()
 
-  const totalSlots = (Number.parseInt(formState.numRaces, 10) || FALLBACK_NUM_RACES) * (Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE)
+  const playersPerRace = Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE
+  const numRaces = Number.parseInt(formState.numRaces, 10) || FALLBACK_NUM_RACES
+  const totalSlots = numRaces * playersPerRace
   const selectedCount = playerSelection.selectedPlayerIds.length
-  const isValidAllocation = selectedCount > 0 && totalSlots >= selectedCount
+  const isValidAllocation = selectedCount > 0 && selectedCount >= playersPerRace && totalSlots >= selectedCount
 
   const validationMessage = useMemo(() => {
     if (selectedCount === 0) return 'Select at least one player'
+    if (selectedCount < playersPerRace) {
+      return `Need at least ${playersPerRace} players for ${playersPerRace} per race (selected ${selectedCount})`
+    }
     if (totalSlots < selectedCount) {
       return `Total slots (${totalSlots}) must be at least equal to player count (${selectedCount})`
     }
     return ''
-  }, [totalSlots, selectedCount])
+  }, [totalSlots, selectedCount, playersPerRace])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,8 +69,8 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
     const match = await createMatchWithRounds({
       tournamentId,
       playerIds: playerSelection.selectedPlayerIds,
-      numRaces: Number.parseInt(formState.numRaces, 10) || FALLBACK_NUM_RACES,
-      playersPerRace: Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE,
+      numRaces,
+      playersPerRace,
       randomTeams: formState.randomTeams,
     })
 

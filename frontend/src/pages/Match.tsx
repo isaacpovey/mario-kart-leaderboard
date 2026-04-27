@@ -1,10 +1,11 @@
-import { Badge, Box, Button, Container, Heading, HStack, Text, VStack } from '@chakra-ui/react'
+import { Badge, Box, Button, Container, Heading, Text, VStack } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
 import { useEffect, useMemo, useState } from 'react'
-import { LuCheck } from 'react-icons/lu'
+import { LuCheck, LuFlag, LuHouse, LuUsers } from 'react-icons/lu'
 import { useNavigate, useParams } from 'react-router'
 import { CancelMatchModal } from '../components/CancelMatchModal'
 import { ErrorState } from '../components/common/ErrorState'
+import { BottomNav, type BottomNavItem } from '../components/domain/BottomNav'
 import { RaceList } from '../components/domain/RaceList'
 import { RaceResultsDisplay } from '../components/domain/RaceResultsDisplay'
 import { ResultsGrid, type SlotAssignments } from '../components/domain/ResultsGrid'
@@ -168,33 +169,26 @@ const Match = () => {
     }
   }
 
+  const navItems: BottomNavItem[] = [
+    { id: 'home', label: 'Home', icon: LuHouse, onClick: () => navigate('/'), dividerAfter: true },
+    { id: 'teams', label: 'Teams', icon: LuUsers, targetId: 'teams-section' },
+    { id: 'races', label: 'Races', icon: LuFlag, targetId: 'races-section' },
+  ]
+
   return (
-    <Box minH="100vh" bg="bg.canvas">
+    <Box minH="100vh" bg="bg.canvas" pb={{ base: '80px', md: '88px' }}>
       <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
         <VStack gap={{ base: 6, md: 8 }} align="stretch">
-          <HStack justify="space-between" flexWrap="wrap" gap={{ base: 3, md: 4 }}>
-            <VStack align="start" gap={1} flex={1}>
-              <Heading size={{ base: 'lg', md: 'xl', lg: '2xl' }} color="gray.900">
-                Match Details
-              </Heading>
-              <Text color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>
-                {new Date(match.time).toLocaleString()}
-              </Text>
-            </VStack>
-            <Button
-              onClick={() => navigate('/')}
-              variant="outline"
-              size={{ base: 'sm', md: 'md' }}
-              borderRadius="button"
-              borderWidth="2px"
-              flexShrink={0}
-              _hover={{ bg: 'gray.50' }}
-            >
-              ← Back to Home
-            </Button>
-          </HStack>
+          <VStack align="start" gap={1}>
+            <Heading size={{ base: 'lg', md: 'xl', lg: '2xl' }} color="gray.900">
+              Match Details
+            </Heading>
+            <Text color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>
+              {new Date(match.time).toLocaleString()}
+            </Text>
+          </VStack>
 
-          <VStack gap={{ base: 3, md: 4 }} align="stretch">
+          <VStack id="teams-section" scrollMarginTop={{ base: 4, md: 6 }} gap={{ base: 3, md: 4 }} align="stretch">
             <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
               Teams
             </Heading>
@@ -207,7 +201,7 @@ const Match = () => {
 
           <Box h="1px" bg="gray.200" />
 
-          <VStack gap={{ base: 3, md: 4 }} align="stretch">
+          <VStack id="races-section" scrollMarginTop={{ base: 4, md: 6 }} gap={{ base: 3, md: 4 }} align="stretch">
             <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
               Races
             </Heading>
@@ -258,6 +252,8 @@ const Match = () => {
           )}
         </VStack>
       </Container>
+
+      <BottomNav items={navItems} />
 
       <CancelMatchModal open={cancelModalOpen} onOpenChange={setCancelModalOpen} matchId={matchId || ''} onSuccess={handleCancelSuccess} />
 

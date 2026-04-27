@@ -39,4 +39,16 @@ impl Group {
 
         Ok(players.into_iter().map(Player::from).collect())
     }
+
+    async fn lobby(&self, ctx: &Context<'_>) -> Result<Vec<Player>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+
+        let players = gql_ctx
+            .lobby_by_group_loader
+            .load_one(self.id)
+            .await?
+            .unwrap_or_default();
+
+        Ok(players.into_iter().map(Player::from).collect())
+    }
 }

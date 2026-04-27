@@ -1,4 +1,6 @@
 use crate::graphql::context::GraphQLContext;
+use crate::graphql::lobby::fetch_lobby;
+use crate::graphql::players::types::Player;
 use crate::graphql::results::types::{PlayerMatchResult, PlayerRaceResult};
 use crate::graphql::subscriptions::types::{RaceResultUpdate, SlotAssignmentEvent};
 use crate::graphql::teams::types::Team;
@@ -198,6 +200,59 @@ impl Subscription {
 
         Ok(stream)
     }
+
+    /// Subscribe to lobby updates for the authenticated group.
+    ///
+    /// Receives real-time updates when players are checked in or out of the
+    /// authenticated group's lobby. Each event yields the full current lobby.
+    ///
+    /// # Authorization
+    ///
+    /// Filters notifications by the authenticated group's id; subscribers never
+    /// see events for other groups.
+    async fn lobby_updated(
+        &self,
+        ctx: &Context<'_>,
+    ) -> Result<impl Stream<Item = Result<Vec<Player>>>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+        let group_id = gql_ctx.authenticated_group_id()?;
+
+        let notification_manager = gql_ctx.notification_manager.clone();
+        let pool = gql_ctx.pool.clone();
+
+        let stream = async_stream::stream! {
+            let mut receiver = notification_manager.subscribe_lobby();
+
+            loop {
+                tokio::select! {
+                    notification = receiver.recv() => {
+                        match notification {
+                            Ok(notif) => {
+                                if notif.group_id == group_id {
+                                    match fetch_lobby(&pool, group_id).await {
+                                        Ok(players) => yield Ok(players),
+                                        Err(e) => yield Err(e),
+                                    }
+                                }
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                                tracing::warn!("Lobby subscription lagged, skipped {}", skipped);
+                                continue;
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                                break;
+                            }
+                        }
+                    }
+                    _ = tokio::time::sleep(Duration::from_secs(30)) => {
+                        continue;
+                    }
+                }
+            }
+        };
+
+        Ok(stream)
+    }
 }
 
 async fn fetch_race_result_data(
@@ -342,3 +397,4 @@ async fn fetch_teams(pool: &crate::db::DbPool, match_id: Uuid) -> Result<Vec<Tea
 
     Ok(teams.into_iter().map(Team::from).collect())
 }
+
