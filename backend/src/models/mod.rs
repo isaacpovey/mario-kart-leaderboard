@@ -1,4 +1,5 @@
 pub mod group;
+pub mod lobby_entry;
 pub mod r#match;
 pub mod player;
 pub mod player_match_score;
@@ -12,6 +13,7 @@ pub mod tournament_stat;
 pub mod track;
 
 pub use group::Group;
+pub use lobby_entry::LobbyEntry;
 pub use r#match::Match;
 pub use player::Player;
 pub use player_match_score::{PlayerMatchScore, PlayerMatchWithTime};
