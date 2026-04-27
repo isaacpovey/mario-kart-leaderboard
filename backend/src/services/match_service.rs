@@ -198,7 +198,12 @@ pub async fn create_match_with_rounds(
         group_id,
     };
 
-    notification_manager.notify(notification);
+    if let Err(e) = notification_manager.publish(pool, notification).await {
+        tracing::error!(
+            "pg_notify failed for match creation (match is already committed; live update will be missed): {}",
+            e
+        );
+    }
 
     Ok(match_record)
 }
