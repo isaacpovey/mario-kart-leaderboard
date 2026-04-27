@@ -1,22 +1,23 @@
 //! Notification Manager Service
 //!
-//! Pub/sub for GraphQL subscriptions. Three `tokio::sync::broadcast` channels:
+//! Pub/sub for GraphQL subscriptions. Three `tokio::sync::broadcast` channels,
+//! all bridged across backend instances via PostgreSQL LISTEN/NOTIFY:
 //!
-//! - **Race results** (`sender`) — bridged across backend instances via
-//!   PostgreSQL LISTEN/NOTIFY. Publishers call [`NotificationManager::publish`].
-//! - **Lobby updates** (`lobby_sender`) — bridged the same way via
+//! - **Race results** (`sender`) — published via [`NotificationManager::publish`].
+//! - **Lobby updates** (`lobby_sender`) — published via
 //!   [`NotificationManager::publish_lobby`].
-//! - **Slot assignments** (`slot_assignment_sender`) — currently in-process
-//!   only; ephemeral grid-slot assertions with no DB persistence. Will be
-//!   moved to the same pg_notify bridge in a follow-up.
+//! - **Slot assignments** (`slot_assignment_sender`) — published via
+//!   [`NotificationManager::publish_slot_assignment`]. Ephemeral grid-slot
+//!   assertions with no DB persistence; pg_notify is used purely as a fan-out
+//!   mechanism.
 //!
-//! For the bridged channels, each publisher executes `pg_notify` on the
-//! database. Every backend instance has a single [`PgListener`] open via
-//! [`NotificationManager::start_listener`] that subscribes to both bridged
-//! channels; on receipt it dispatches by channel name and fans the event out
-//! to local subscribers through the corresponding broadcast channel. The
-//! publishing instance receives its own notification through the same path
-//! (~ms round-trip), so there is no separate self-delivery code path.
+//! Each publisher executes `pg_notify` on the database. Every backend instance
+//! has a single [`PgListener`] open via [`NotificationManager::start_listener`]
+//! that subscribes to all three channels; on receipt it dispatches by channel
+//! name and fans the event out to local subscribers through the corresponding
+//! broadcast channel. The publishing instance receives its own notification
+//! through the same path (~ms round-trip), so there is no separate
+//! self-delivery code path.
 
 use crate::db::DbPool;
 use crate::error::{AppError, Result};
@@ -27,6 +28,7 @@ use uuid::Uuid;
 
 const RACE_RESULTS_CHANNEL: &str = "race_results_updates";
 const LOBBY_CHANNEL: &str = "lobby_updates";
+const SLOT_ASSIGNMENT_CHANNEL: &str = "slot_assignment_updates";
 
 /// Notification payload for race result updates
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -39,9 +41,10 @@ pub struct RaceResultNotification {
 
 /// Notification payload for grid slot assignment events.
 ///
-/// Ephemeral: in-process broadcast only, no DB persistence. Carries the
-/// asserted state of a single slot in a round of a match. The
+/// Carries the asserted state of a single slot in a round of a match. The
 /// `source_client_id` lets subscribers echo-filter their own publishes.
+/// Bridged across instances via pg_notify; the underlying assertion has no
+/// DB persistence — pg_notify is used purely as a fan-out bus.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SlotAssignmentNotification {
     pub group_id: Uuid,
@@ -87,29 +90,8 @@ impl NotificationManager {
         self.sender.subscribe()
     }
 
-    /// Subscribe to slot assignment notifications.
-    ///
-    /// In-process only — these events are not bridged to PostgreSQL.
     pub fn subscribe_slot_assignments(&self) -> broadcast::Receiver<SlotAssignmentNotification> {
         self.slot_assignment_sender.subscribe()
-    }
-
-    /// Broadcast a slot assignment notification to all in-process subscribers.
-    pub fn notify_slot_assignment(&self, notification: SlotAssignmentNotification) {
-        tracing::debug!(
-            group_id = %notification.group_id,
-            match_id = %notification.match_id,
-            round_number = notification.round_number,
-            slot_number = notification.slot_number,
-            subscribers = self.slot_assignment_sender.receiver_count(),
-            "broadcasting slot assignment notification"
-        );
-        if let Err(e) = self.slot_assignment_sender.send(notification) {
-            tracing::error!(
-                "failed to broadcast slot assignment notification (no receivers): {:?}",
-                e
-            );
-        }
     }
 
     pub fn subscribe_lobby(&self) -> broadcast::Receiver<LobbyNotification> {
@@ -188,6 +170,41 @@ impl NotificationManager {
         Ok(())
     }
 
+    /// Publish a slot assignment notification to all backend instances.
+    ///
+    /// Mirror of [`Self::publish`] for the slot-assignment channel; see its
+    /// docs for semantics and error handling. The underlying slot-assignment
+    /// assertion is not persisted in the database, so this is effectively a
+    /// fan-out bus rather than a durability mechanism.
+    pub async fn publish_slot_assignment(
+        &self,
+        pool: &DbPool,
+        notification: SlotAssignmentNotification,
+    ) -> Result<()> {
+        let payload = serde_json::to_string(&notification).map_err(|e| {
+            AppError::Internal(format!(
+                "Failed to serialize slot assignment notification payload: {e}"
+            ))
+        })?;
+
+        tracing::debug!(
+            group_id = %notification.group_id,
+            match_id = %notification.match_id,
+            round_number = notification.round_number,
+            slot_number = notification.slot_number,
+            "publishing slot assignment pg_notify on {}",
+            SLOT_ASSIGNMENT_CHANNEL
+        );
+
+        sqlx::query("SELECT pg_notify($1, $2)")
+            .bind(SLOT_ASSIGNMENT_CHANNEL)
+            .bind(&payload)
+            .execute(pool)
+            .await?;
+
+        Ok(())
+    }
+
     /// Broadcast a race result notification to local subscribers only.
     ///
     /// Used by the [`Self::start_listener`] task once an event has been
@@ -233,22 +250,48 @@ impl NotificationManager {
         }
     }
 
+    /// Broadcast a slot assignment notification to local subscribers only.
+    ///
+    /// Counterpart to [`Self::notify`] for the slot-assignment channel; called
+    /// by the listener loop and by tests. Production code paths should call
+    /// [`Self::publish_slot_assignment`] instead.
+    pub fn notify_slot_assignment(&self, notification: SlotAssignmentNotification) {
+        tracing::debug!(
+            group_id = %notification.group_id,
+            match_id = %notification.match_id,
+            round_number = notification.round_number,
+            slot_number = notification.slot_number,
+            subscribers = self.slot_assignment_sender.receiver_count(),
+            "broadcasting slot assignment notification"
+        );
+        if let Err(e) = self.slot_assignment_sender.send(notification) {
+            tracing::error!(
+                "failed to broadcast slot assignment notification (no receivers): {:?}",
+                e
+            );
+        }
+    }
+
     /// Start listening to PostgreSQL NOTIFY events
     ///
-    /// Spawns a background task that listens on both [`RACE_RESULTS_CHANNEL`]
-    /// and [`LOBBY_CHANNEL`] and dispatches received notifications to the
-    /// matching local broadcast channel via [`Self::notify`] /
-    /// [`Self::notify_lobby`].
+    /// Spawns a background task that listens on [`RACE_RESULTS_CHANNEL`],
+    /// [`LOBBY_CHANNEL`], and [`SLOT_ASSIGNMENT_CHANNEL`] and dispatches
+    /// received notifications to the matching local broadcast channel.
     pub async fn start_listener(self, database_url: &str) -> Result<()> {
         let mut listener = PgListener::connect(database_url).await?;
         listener
-            .listen_all([RACE_RESULTS_CHANNEL, LOBBY_CHANNEL])
+            .listen_all([
+                RACE_RESULTS_CHANNEL,
+                LOBBY_CHANNEL,
+                SLOT_ASSIGNMENT_CHANNEL,
+            ])
             .await?;
 
         tracing::info!(
-            "PostgreSQL LISTEN started for channels: {}, {}",
+            "PostgreSQL LISTEN started for channels: {}, {}, {}",
             RACE_RESULTS_CHANNEL,
-            LOBBY_CHANNEL
+            LOBBY_CHANNEL,
+            SLOT_ASSIGNMENT_CHANNEL
         );
 
         tokio::spawn(async move {
@@ -280,6 +323,19 @@ impl NotificationManager {
                                 Err(e) => {
                                     tracing::error!(
                                         "Failed to parse lobby notification payload: {}",
+                                        e
+                                    );
+                                }
+                            }
+                        }
+                        SLOT_ASSIGNMENT_CHANNEL => {
+                            match serde_json::from_str::<SlotAssignmentNotification>(
+                                notification.payload(),
+                            ) {
+                                Ok(data) => self.notify_slot_assignment(data),
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to parse slot assignment notification payload: {}",
                                         e
                                     );
                                 }

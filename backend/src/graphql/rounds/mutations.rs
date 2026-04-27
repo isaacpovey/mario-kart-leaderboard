@@ -251,16 +251,30 @@ impl RoundsMutation {
             None => None,
         };
 
-        gql_ctx
+        if let Err(e) = gql_ctx
             .notification_manager
-            .notify_slot_assignment(SlotAssignmentNotification {
-                group_id,
-                match_id: match_uuid,
+            .publish_slot_assignment(
+                &gql_ctx.pool,
+                SlotAssignmentNotification {
+                    group_id,
+                    match_id: match_uuid,
+                    round_number,
+                    slot_number,
+                    player_id: player_uuid_opt,
+                    source_client_id: client_id,
+                },
+            )
+            .await
+        {
+            tracing::error!(
+                group_id = %group_id,
+                match_id = %match_uuid,
                 round_number,
                 slot_number,
-                player_id: player_uuid_opt,
-                source_client_id: client_id,
-            });
+                "slot assignment pg_notify failed; live update will be missed: {}",
+                e
+            );
+        }
 
         Ok(true)
     }

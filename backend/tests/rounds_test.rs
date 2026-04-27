@@ -1262,6 +1262,11 @@ async fn test_assert_slot_assignment_publishes_for_valid_request() {
         .expect("add players to round");
 
     let notification_manager = NotificationManager::new();
+    notification_manager
+        .clone()
+        .start_listener(&ctx.config.database_url)
+        .await
+        .expect("start listener");
     let mut receiver = notification_manager.subscribe_slot_assignments();
 
     let request = Request::new(ASSERT_SLOT_MUTATION)
@@ -1282,7 +1287,7 @@ async fn test_assert_slot_assignment_publishes_for_valid_request() {
     let data = response.data.into_json().expect("parse response");
     assert_eq!(data.get("assertSlotAssignment").and_then(|v| v.as_bool()), Some(true));
 
-    let received = tokio::time::timeout(std::time::Duration::from_secs(1), receiver.recv())
+    let received = tokio::time::timeout(std::time::Duration::from_secs(5), receiver.recv())
         .await
         .expect("timed out waiting for notification")
         .expect("broadcast receive failed");
@@ -1324,6 +1329,11 @@ async fn test_assert_slot_assignment_accepts_null_player_as_clear() {
         .expect("add players");
 
     let notification_manager = NotificationManager::new();
+    notification_manager
+        .clone()
+        .start_listener(&ctx.config.database_url)
+        .await
+        .expect("start listener");
     let mut receiver = notification_manager.subscribe_slot_assignments();
 
     let request = Request::new(ASSERT_SLOT_MUTATION)
@@ -1341,7 +1351,7 @@ async fn test_assert_slot_assignment_accepts_null_player_as_clear() {
     let response = ctx.schema.execute(request.data(gql_ctx)).await;
     assert!(response.errors.is_empty(), "Unexpected errors: {:?}", response.errors);
 
-    let received = tokio::time::timeout(std::time::Duration::from_secs(1), receiver.recv())
+    let received = tokio::time::timeout(std::time::Duration::from_secs(5), receiver.recv())
         .await
         .expect("timed out")
         .expect("broadcast receive");
