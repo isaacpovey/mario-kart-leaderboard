@@ -36,9 +36,17 @@ impl LobbyMutation {
 
         models::LobbyEntry::check_in(&gql_ctx.pool, group_id, player_uuid).await?;
 
-        gql_ctx
+        if let Err(e) = gql_ctx
             .notification_manager
-            .notify_lobby(LobbyNotification { group_id });
+            .publish_lobby(&gql_ctx.pool, LobbyNotification { group_id })
+            .await
+        {
+            tracing::error!(
+                group_id = %group_id,
+                "lobby pg_notify failed (data is already committed; live update will be missed): {}",
+                e
+            );
+        }
 
         fetch_lobby(&gql_ctx.pool, group_id).await
     }
@@ -62,9 +70,17 @@ impl LobbyMutation {
 
         models::LobbyEntry::check_out(&gql_ctx.pool, group_id, player_uuid).await?;
 
-        gql_ctx
+        if let Err(e) = gql_ctx
             .notification_manager
-            .notify_lobby(LobbyNotification { group_id });
+            .publish_lobby(&gql_ctx.pool, LobbyNotification { group_id })
+            .await
+        {
+            tracing::error!(
+                group_id = %group_id,
+                "lobby pg_notify failed (data is already committed; live update will be missed): {}",
+                e
+            );
+        }
 
         fetch_lobby(&gql_ctx.pool, group_id).await
     }

@@ -3,7 +3,7 @@ mod common;
 use std::time::Duration;
 
 use mario_kart_leaderboard_backend::services::notification_manager::{
-    NotificationManager, RaceResultNotification,
+    LobbyNotification, NotificationManager, RaceResultNotification,
 };
 use tokio::time::timeout;
 use uuid::Uuid;
@@ -87,4 +87,70 @@ async fn publish_reaches_a_separate_manager_listening_on_the_same_db() {
         .expect("receiver closed");
 
     assert_eq!(received.match_id, expected.match_id);
+}
+
+/// Lobby counterpart of `publish_round_trips_to_local_subscriber`: confirms the
+/// LISTEN/NOTIFY bridge is wired up for the lobby channel as well.
+#[tokio::test]
+async fn publish_lobby_round_trips_to_local_subscriber() {
+    let ctx = setup_test_db().await;
+
+    let manager = NotificationManager::new();
+    manager
+        .clone()
+        .start_listener(&ctx.config.database_url)
+        .await
+        .expect("failed to start listener");
+
+    let mut receiver = manager.subscribe_lobby();
+
+    let expected = LobbyNotification {
+        group_id: Uuid::new_v4(),
+    };
+
+    manager
+        .publish_lobby(&ctx.pool, expected.clone())
+        .await
+        .expect("publish_lobby failed");
+
+    let received = timeout(Duration::from_secs(5), receiver.recv())
+        .await
+        .expect("timed out waiting for lobby notification")
+        .expect("receiver closed");
+
+    assert_eq!(received.group_id, expected.group_id);
+}
+
+/// A second `NotificationManager` receives lobby events published by the first,
+/// proving cross-instance delivery for the lobby channel.
+#[tokio::test]
+async fn publish_lobby_reaches_a_separate_manager_listening_on_the_same_db() {
+    let ctx = setup_test_db().await;
+
+    let publisher = NotificationManager::new();
+    let subscriber = NotificationManager::new();
+
+    subscriber
+        .clone()
+        .start_listener(&ctx.config.database_url)
+        .await
+        .expect("failed to start subscriber listener");
+
+    let mut receiver = subscriber.subscribe_lobby();
+
+    let expected = LobbyNotification {
+        group_id: Uuid::new_v4(),
+    };
+
+    publisher
+        .publish_lobby(&ctx.pool, expected.clone())
+        .await
+        .expect("publish_lobby failed");
+
+    let received = timeout(Duration::from_secs(5), receiver.recv())
+        .await
+        .expect("timed out waiting for lobby notification")
+        .expect("receiver closed");
+
+    assert_eq!(received.group_id, expected.group_id);
 }

@@ -3,16 +3,17 @@
 //! Pub/sub for GraphQL subscriptions. Two `tokio::sync::broadcast` channels:
 //!
 //! - **Race results** (`sender`) — bridged across backend instances via
-//!   PostgreSQL LISTEN/NOTIFY. Publishers call [`NotificationManager::publish`],
-//!   which executes `pg_notify` on the database. Every backend instance has a
-//!   [`PgListener`] open via [`NotificationManager::start_listener`]; on receipt
-//!   it fans the event out to local subscribers through the broadcast channel.
-//!   The publishing instance receives its own notification through the same
-//!   path (~ms round-trip), so there is no separate self-delivery code path.
-//! - **Lobby updates** (`lobby_sender`) — in-process only. Lobby state changes
-//!   fast and small, and the current deployment runs a single backend instance;
-//!   cross-instance propagation can be added later by extending `start_listener`
-//!   to also subscribe to a `lobby_updates` Postgres channel.
+//!   PostgreSQL LISTEN/NOTIFY. Publishers call [`NotificationManager::publish`].
+//! - **Lobby updates** (`lobby_sender`) — bridged the same way via
+//!   [`NotificationManager::publish_lobby`].
+//!
+//! Each publisher executes `pg_notify` on the database. Every backend instance
+//! has a single [`PgListener`] open via [`NotificationManager::start_listener`]
+//! that subscribes to both channels; on receipt it dispatches by channel name
+//! and fans the event out to local subscribers through the corresponding
+//! broadcast channel. The publishing instance receives its own notification
+//! through the same path (~ms round-trip), so there is no separate
+//! self-delivery code path.
 
 use crate::db::DbPool;
 use crate::error::{AppError, Result};
@@ -22,6 +23,7 @@ use tokio::sync::broadcast;
 use uuid::Uuid;
 
 const RACE_RESULTS_CHANNEL: &str = "race_results_updates";
+const LOBBY_CHANNEL: &str = "lobby_updates";
 
 /// Notification payload for race result updates
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -41,10 +43,9 @@ pub struct LobbyNotification {
 /// Manager for handling GraphQL subscription notifications
 ///
 /// Holds `tokio::sync::broadcast` channels that deliver events to every local
-/// subscriber. For the race-results channel, cross-instance delivery is handled
-/// by [`Self::publish`] (which executes `pg_notify`) and [`Self::start_listener`]
-/// (which receives via `LISTEN` and re-broadcasts locally). The lobby channel
-/// is currently in-process only.
+/// subscriber. Cross-instance delivery is handled by the `publish_*` methods
+/// (which execute `pg_notify`) and [`Self::start_listener`] (which receives via
+/// `LISTEN` and re-broadcasts locally).
 #[derive(Clone)]
 pub struct NotificationManager {
     sender: broadcast::Sender<RaceResultNotification>,
@@ -110,6 +111,34 @@ impl NotificationManager {
         Ok(())
     }
 
+    /// Publish a lobby notification to all backend instances.
+    ///
+    /// Mirror of [`Self::publish`] for the lobby channel; see its docs for
+    /// semantics, ordering, and error handling.
+    pub async fn publish_lobby(
+        &self,
+        pool: &DbPool,
+        notification: LobbyNotification,
+    ) -> Result<()> {
+        let payload = serde_json::to_string(&notification).map_err(|e| {
+            AppError::Internal(format!("Failed to serialize lobby notification payload: {e}"))
+        })?;
+
+        tracing::debug!(
+            group_id = %notification.group_id,
+            "publishing lobby pg_notify on {}",
+            LOBBY_CHANNEL
+        );
+
+        sqlx::query("SELECT pg_notify($1, $2)")
+            .bind(LOBBY_CHANNEL)
+            .bind(&payload)
+            .execute(pool)
+            .await?;
+
+        Ok(())
+    }
+
     /// Broadcast a race result notification to local subscribers only.
     ///
     /// Used by the [`Self::start_listener`] task once an event has been
@@ -139,6 +168,11 @@ impl NotificationManager {
         }
     }
 
+    /// Broadcast a lobby notification to local subscribers only.
+    ///
+    /// Counterpart to [`Self::notify`] for the lobby channel; called by the
+    /// listener loop and by tests. Production code paths should call
+    /// [`Self::publish_lobby`] instead.
     pub fn notify_lobby(&self, notification: LobbyNotification) {
         tracing::debug!(
             group_id = %notification.group_id,
@@ -152,35 +186,63 @@ impl NotificationManager {
 
     /// Start listening to PostgreSQL NOTIFY events
     ///
-    /// Spawns a background task that listens on [`RACE_RESULTS_CHANNEL`] and
-    /// re-broadcasts received notifications to all local subscribers via
-    /// [`Self::notify`].
+    /// Spawns a background task that listens on both [`RACE_RESULTS_CHANNEL`]
+    /// and [`LOBBY_CHANNEL`] and dispatches received notifications to the
+    /// matching local broadcast channel via [`Self::notify`] /
+    /// [`Self::notify_lobby`].
     pub async fn start_listener(self, database_url: &str) -> Result<()> {
         let mut listener = PgListener::connect(database_url).await?;
-        listener.listen(RACE_RESULTS_CHANNEL).await?;
+        listener
+            .listen_all([RACE_RESULTS_CHANNEL, LOBBY_CHANNEL])
+            .await?;
 
         tracing::info!(
-            "PostgreSQL LISTEN started for {} channel",
-            RACE_RESULTS_CHANNEL
+            "PostgreSQL LISTEN started for channels: {}, {}",
+            RACE_RESULTS_CHANNEL,
+            LOBBY_CHANNEL
         );
 
         tokio::spawn(async move {
             loop {
                 match listener.recv().await {
-                    Ok(notification) => {
-                        tracing::info!(
-                            "NOTIFY STEP 2: PostgreSQL listener received notification payload: {}",
-                            notification.payload()
-                        );
+                    Ok(notification) => match notification.channel() {
+                        RACE_RESULTS_CHANNEL => {
+                            tracing::info!(
+                                "NOTIFY STEP 2: PostgreSQL listener received notification payload: {}",
+                                notification.payload()
+                            );
 
-                        match serde_json::from_str::<RaceResultNotification>(notification.payload())
-                        {
-                            Ok(data) => self.notify(data),
-                            Err(e) => {
-                                tracing::error!("Failed to parse notification payload: {}", e);
+                            match serde_json::from_str::<RaceResultNotification>(
+                                notification.payload(),
+                            ) {
+                                Ok(data) => self.notify(data),
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to parse race result notification payload: {}",
+                                        e
+                                    );
+                                }
                             }
                         }
-                    }
+                        LOBBY_CHANNEL => {
+                            match serde_json::from_str::<LobbyNotification>(notification.payload())
+                            {
+                                Ok(data) => self.notify_lobby(data),
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to parse lobby notification payload: {}",
+                                        e
+                                    );
+                                }
+                            }
+                        }
+                        other => {
+                            tracing::warn!(
+                                "Received notification on unexpected channel: {}",
+                                other
+                            );
+                        }
+                    },
                     Err(e) => tracing::error!("Error receiving PostgreSQL notification: {}", e),
                 }
             }
