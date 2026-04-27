@@ -1,19 +1,29 @@
 //! Notification Manager Service
 //!
-//! Pub/sub for GraphQL subscriptions. Runs two independent `tokio::sync::broadcast` channels:
+//! Pub/sub for GraphQL subscriptions. Two `tokio::sync::broadcast` channels:
 //!
-//! - **Race results** (`sender`) — bridged to PostgreSQL LISTEN/NOTIFY via `start_listener`,
-//!   so race-result events propagate across backend instances.
-//! - **Lobby updates** (`lobby_sender`) — in-process only. Lobby state changes fast and small,
-//!   and the current deployment runs a single backend instance; cross-instance propagation
-//!   can be added later by extending `start_listener` to also subscribe to a
-//!   `lobby_updates` Postgres channel.
+//! - **Race results** (`sender`) — bridged across backend instances via
+//!   PostgreSQL LISTEN/NOTIFY. Publishers call [`NotificationManager::publish`].
+//! - **Lobby updates** (`lobby_sender`) — bridged the same way via
+//!   [`NotificationManager::publish_lobby`].
+//!
+//! Each publisher executes `pg_notify` on the database. Every backend instance
+//! has a single [`PgListener`] open via [`NotificationManager::start_listener`]
+//! that subscribes to both channels; on receipt it dispatches by channel name
+//! and fans the event out to local subscribers through the corresponding
+//! broadcast channel. The publishing instance receives its own notification
+//! through the same path (~ms round-trip), so there is no separate
+//! self-delivery code path.
 
-use crate::error::Result;
+use crate::db::DbPool;
+use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgListener;
 use tokio::sync::broadcast;
 use uuid::Uuid;
+
+const RACE_RESULTS_CHANNEL: &str = "race_results_updates";
+const LOBBY_CHANNEL: &str = "lobby_updates";
 
 /// Notification payload for race result updates
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -31,6 +41,11 @@ pub struct LobbyNotification {
 }
 
 /// Manager for handling GraphQL subscription notifications
+///
+/// Holds `tokio::sync::broadcast` channels that deliver events to every local
+/// subscriber. Cross-instance delivery is handled by the `publish_*` methods
+/// (which execute `pg_notify`) and [`Self::start_listener`] (which receives via
+/// `LISTEN` and re-broadcasts locally).
 #[derive(Clone)]
 pub struct NotificationManager {
     sender: broadcast::Sender<RaceResultNotification>,
@@ -52,18 +67,112 @@ impl NotificationManager {
         self.lobby_sender.subscribe()
     }
 
-    pub fn notify(&self, notification: RaceResultNotification) {
-        tracing::debug!(
-            match_id = %notification.match_id,
-            tournament_id = %notification.tournament_id,
-            subscribers = self.sender.receiver_count(),
-            "broadcasting race result notification"
+    /// Publish a race result notification to all backend instances.
+    ///
+    /// Executes `SELECT pg_notify(...)` on the supplied pool. Every backend
+    /// instance with [`Self::start_listener`] running — including the caller —
+    /// will receive the event via `LISTEN` and re-broadcast it to its local
+    /// subscribers.
+    ///
+    /// Should be called *after* the originating transaction has committed:
+    /// the notification is fire-and-observe, and re-firing it on rollback
+    /// would mislead listeners.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if JSON serialization fails or the `pg_notify` query
+    /// fails. Callers typically log and continue, since the underlying data
+    /// has already been committed and a missed live update is recoverable
+    /// (the next refetch / reconnect resyncs from the database).
+    pub async fn publish(
+        &self,
+        pool: &DbPool,
+        notification: RaceResultNotification,
+    ) -> Result<()> {
+        let payload = serde_json::to_string(&notification).map_err(|e| {
+            AppError::Internal(format!("Failed to serialize notification payload: {e}"))
+        })?;
+
+        tracing::info!(
+            "NOTIFY STEP 1.5: Publishing pg_notify on {} - match_id={}, tournament_id={}, round={}, group_id={}",
+            RACE_RESULTS_CHANNEL,
+            notification.match_id,
+            notification.tournament_id,
+            notification.round_number,
+            notification.group_id,
         );
-        if let Err(e) = self.sender.send(notification) {
-            tracing::error!("failed to broadcast race result notification (no receivers): {:?}", e);
+
+        sqlx::query("SELECT pg_notify($1, $2)")
+            .bind(RACE_RESULTS_CHANNEL)
+            .bind(&payload)
+            .execute(pool)
+            .await?;
+
+        Ok(())
+    }
+
+    /// Publish a lobby notification to all backend instances.
+    ///
+    /// Mirror of [`Self::publish`] for the lobby channel; see its docs for
+    /// semantics, ordering, and error handling.
+    pub async fn publish_lobby(
+        &self,
+        pool: &DbPool,
+        notification: LobbyNotification,
+    ) -> Result<()> {
+        let payload = serde_json::to_string(&notification).map_err(|e| {
+            AppError::Internal(format!("Failed to serialize lobby notification payload: {e}"))
+        })?;
+
+        tracing::debug!(
+            group_id = %notification.group_id,
+            "publishing lobby pg_notify on {}",
+            LOBBY_CHANNEL
+        );
+
+        sqlx::query("SELECT pg_notify($1, $2)")
+            .bind(LOBBY_CHANNEL)
+            .bind(&payload)
+            .execute(pool)
+            .await?;
+
+        Ok(())
+    }
+
+    /// Broadcast a race result notification to local subscribers only.
+    ///
+    /// Used by the [`Self::start_listener`] task once an event has been
+    /// received from PostgreSQL, and by tests that want to simulate event
+    /// delivery without a real listener. Production code paths should call
+    /// [`Self::publish`] instead so that other backend instances also receive
+    /// the event.
+    pub fn notify(&self, notification: RaceResultNotification) {
+        let subscriber_count = self.sender.receiver_count();
+        tracing::info!(
+            "NOTIFY STEP 2: Broadcasting to {} active subscribers - match_id={}, tournament_id={}",
+            subscriber_count,
+            notification.match_id,
+            notification.tournament_id
+        );
+
+        match self.sender.send(notification) {
+            Ok(_) => {
+                tracing::info!("NOTIFY STEP 2: Successfully broadcast notification");
+            }
+            Err(e) => {
+                tracing::debug!(
+                    "NOTIFY STEP 2: No local subscribers for notification: {:?}",
+                    e
+                );
+            }
         }
     }
 
+    /// Broadcast a lobby notification to local subscribers only.
+    ///
+    /// Counterpart to [`Self::notify`] for the lobby channel; called by the
+    /// listener loop and by tests. Production code paths should call
+    /// [`Self::publish_lobby`] instead.
     pub fn notify_lobby(&self, notification: LobbyNotification) {
         tracing::debug!(
             group_id = %notification.group_id,
@@ -75,25 +184,65 @@ impl NotificationManager {
         }
     }
 
+    /// Start listening to PostgreSQL NOTIFY events
+    ///
+    /// Spawns a background task that listens on both [`RACE_RESULTS_CHANNEL`]
+    /// and [`LOBBY_CHANNEL`] and dispatches received notifications to the
+    /// matching local broadcast channel via [`Self::notify`] /
+    /// [`Self::notify_lobby`].
     pub async fn start_listener(self, database_url: &str) -> Result<()> {
         let mut listener = PgListener::connect(database_url).await?;
-        listener.listen("race_results_updates").await?;
+        listener
+            .listen_all([RACE_RESULTS_CHANNEL, LOBBY_CHANNEL])
+            .await?;
 
-        tracing::info!("PostgreSQL LISTEN started for race_results_updates channel");
+        tracing::info!(
+            "PostgreSQL LISTEN started for channels: {}, {}",
+            RACE_RESULTS_CHANNEL,
+            LOBBY_CHANNEL
+        );
 
         tokio::spawn(async move {
             loop {
                 match listener.recv().await {
-                    Ok(notification) => {
-                        match serde_json::from_str::<RaceResultNotification>(notification.payload()) {
-                            Ok(data) => {
-                                if let Err(e) = self.sender.send(data) {
-                                    tracing::error!("Failed to broadcast race notification: {}", e);
+                    Ok(notification) => match notification.channel() {
+                        RACE_RESULTS_CHANNEL => {
+                            tracing::info!(
+                                "NOTIFY STEP 2: PostgreSQL listener received notification payload: {}",
+                                notification.payload()
+                            );
+
+                            match serde_json::from_str::<RaceResultNotification>(
+                                notification.payload(),
+                            ) {
+                                Ok(data) => self.notify(data),
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to parse race result notification payload: {}",
+                                        e
+                                    );
                                 }
                             }
-                            Err(e) => tracing::error!("Failed to parse race notification payload: {}", e),
                         }
-                    }
+                        LOBBY_CHANNEL => {
+                            match serde_json::from_str::<LobbyNotification>(notification.payload())
+                            {
+                                Ok(data) => self.notify_lobby(data),
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to parse lobby notification payload: {}",
+                                        e
+                                    );
+                                }
+                            }
+                        }
+                        other => {
+                            tracing::warn!(
+                                "Received notification on unexpected channel: {}",
+                                other
+                            );
+                        }
+                    },
                     Err(e) => tracing::error!("Error receiving PostgreSQL notification: {}", e),
                 }
             }
