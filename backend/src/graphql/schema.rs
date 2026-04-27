@@ -1,8 +1,7 @@
 use async_graphql::*;
 use async_graphql::extensions::OpenTelemetry;
 
-// Import all feature modules
-use crate::graphql::{auth, groups, matches, players, rounds, subscriptions, tournaments, tracks};
+use crate::graphql::{auth, groups, lobby, matches, players, rounds, subscriptions, tournaments, tracks};
 
 /// Root Query combining all feature queries
 #[derive(MergedObject, Default)]
@@ -23,6 +22,7 @@ pub struct Mutation(
     tournaments::TournamentsMutation,
     matches::MatchesMutation,
     rounds::RoundsMutation,
+    lobby::LobbyMutation,
 );
 
 /// Root Subscription for real-time updates

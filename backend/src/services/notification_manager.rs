@@ -1,12 +1,18 @@
 //! Notification Manager Service
 //!
-//! Pub/sub for GraphQL subscriptions, bridged across backend instances via
-//! PostgreSQL LISTEN/NOTIFY. Publishers call [`NotificationManager::publish`],
-//! which executes `pg_notify` on the database. Every backend instance has a
-//! [`PgListener`] open via [`NotificationManager::start_listener`]; on receipt
-//! it fans the event out to local subscribers through a `tokio::sync::broadcast`
-//! channel. The publishing instance receives its own notification through the
-//! same path (~ms round-trip), so there is no separate self-delivery code path.
+//! Pub/sub for GraphQL subscriptions. Two `tokio::sync::broadcast` channels:
+//!
+//! - **Race results** (`sender`) — bridged across backend instances via
+//!   PostgreSQL LISTEN/NOTIFY. Publishers call [`NotificationManager::publish`],
+//!   which executes `pg_notify` on the database. Every backend instance has a
+//!   [`PgListener`] open via [`NotificationManager::start_listener`]; on receipt
+//!   it fans the event out to local subscribers through the broadcast channel.
+//!   The publishing instance receives its own notification through the same
+//!   path (~ms round-trip), so there is no separate self-delivery code path.
+//! - **Lobby updates** (`lobby_sender`) — in-process only. Lobby state changes
+//!   fast and small, and the current deployment runs a single backend instance;
+//!   cross-instance propagation can be added later by extending `start_listener`
+//!   to also subscribe to a `lobby_updates` Postgres channel.
 
 use crate::db::DbPool;
 use crate::error::{AppError, Result};
@@ -26,31 +32,38 @@ pub struct RaceResultNotification {
     pub group_id: Uuid,
 }
 
+/// Notification payload for lobby updates (check-in / check-out)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LobbyNotification {
+    pub group_id: Uuid,
+}
+
 /// Manager for handling GraphQL subscription notifications
 ///
-/// Holds a `tokio::sync::broadcast` channel that delivers events to every local
-/// subscriber. Cross-instance delivery is handled by [`Self::publish`] (which
-/// executes `pg_notify`) and [`Self::start_listener`] (which receives via
-/// `LISTEN` and re-broadcasts locally).
+/// Holds `tokio::sync::broadcast` channels that deliver events to every local
+/// subscriber. For the race-results channel, cross-instance delivery is handled
+/// by [`Self::publish`] (which executes `pg_notify`) and [`Self::start_listener`]
+/// (which receives via `LISTEN` and re-broadcasts locally). The lobby channel
+/// is currently in-process only.
 #[derive(Clone)]
 pub struct NotificationManager {
     sender: broadcast::Sender<RaceResultNotification>,
+    lobby_sender: broadcast::Sender<LobbyNotification>,
 }
 
 impl NotificationManager {
-    /// Creates a new notification manager with a broadcast channel
-    ///
-    /// Channel capacity is set to 100 to handle bursts of notifications
     pub fn new() -> Self {
         let (sender, _) = broadcast::channel(100);
-        Self { sender }
+        let (lobby_sender, _) = broadcast::channel(100);
+        Self { sender, lobby_sender }
     }
 
-    /// Subscribe to race result notifications
-    ///
-    /// Returns a receiver that will get all future notifications
     pub fn subscribe(&self) -> broadcast::Receiver<RaceResultNotification> {
         self.sender.subscribe()
+    }
+
+    pub fn subscribe_lobby(&self) -> broadcast::Receiver<LobbyNotification> {
+        self.lobby_sender.subscribe()
     }
 
     /// Publish a race result notification to all backend instances.
@@ -97,7 +110,7 @@ impl NotificationManager {
         Ok(())
     }
 
-    /// Broadcast a notification to local subscribers only.
+    /// Broadcast a race result notification to local subscribers only.
     ///
     /// Used by the [`Self::start_listener`] task once an event has been
     /// received from PostgreSQL, and by tests that want to simulate event
@@ -123,6 +136,17 @@ impl NotificationManager {
                     e
                 );
             }
+        }
+    }
+
+    pub fn notify_lobby(&self, notification: LobbyNotification) {
+        tracing::debug!(
+            group_id = %notification.group_id,
+            subscribers = self.lobby_sender.receiver_count(),
+            "broadcasting lobby notification"
+        );
+        if let Err(e) = self.lobby_sender.send(notification) {
+            tracing::error!("failed to broadcast lobby notification (no receivers): {:?}", e);
         }
     }
 
@@ -157,9 +181,7 @@ impl NotificationManager {
                             }
                         }
                     }
-                    Err(e) => {
-                        tracing::error!("Error receiving PostgreSQL notification: {}", e);
-                    }
+                    Err(e) => tracing::error!("Error receiving PostgreSQL notification: {}", e),
                 }
             }
         });

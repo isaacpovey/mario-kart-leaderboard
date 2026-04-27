@@ -4,9 +4,9 @@ import { createPlayerMutation } from '@/queries/createPlayer.mutation.ts'
 import { playersQueryAtom } from '@/store/queries.ts'
 import { useMutationWithRefresh } from '../patterns/useMutationWithRefresh'
 
-export const usePlayerSelection = () => {
+export const usePlayerSelection = (initialSelectedIds: string[] = []) => {
   const playersResult = useAtomValue(playersQueryAtom)
-  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>(initialSelectedIds)
   const [searchTerm, setSearchTerm] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
 

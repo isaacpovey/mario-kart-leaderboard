@@ -77,6 +77,22 @@ export const urqlClient = createClient({
                 cache.invalidate('Query', field.fieldName, field.arguments)
               })
           },
+          checkInPlayer: (_result, _args, cache, _info) => {
+            cache
+              .inspectFields('Query')
+              .filter((field) => field.fieldName === 'currentGroup')
+              .forEach((field) => {
+                cache.invalidate('Query', field.fieldName, field.arguments)
+              })
+          },
+          checkOutPlayer: (_result, _args, cache, _info) => {
+            cache
+              .inspectFields('Query')
+              .filter((field) => field.fieldName === 'currentGroup')
+              .forEach((field) => {
+                cache.invalidate('Query', field.fieldName, field.arguments)
+              })
+          },
         },
         Subscription: {
           raceResultsUpdated: (_result, _args, cache, _info) => {
@@ -84,6 +100,14 @@ export const urqlClient = createClient({
             cache
               .inspectFields('Query')
               .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'activeTournament' || field.fieldName === 'players' || field.fieldName === 'matchById')
+              .forEach((field) => {
+                cache.invalidate('Query', field.fieldName, field.arguments)
+              })
+          },
+          lobbyUpdated: (_result, _args, cache, _info) => {
+            cache
+              .inspectFields('Query')
+              .filter((field) => field.fieldName === 'currentGroup')
               .forEach((field) => {
                 cache.invalidate('Query', field.fieldName, field.arguments)
               })
