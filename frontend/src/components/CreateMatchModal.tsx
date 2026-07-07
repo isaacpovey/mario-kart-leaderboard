@@ -27,12 +27,15 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
 
   // The modal is mounted for the lifetime of the page (see Home.tsx), so its
   // `useState`-based selection would otherwise stick to whatever the lobby
-  // looked like at first mount. Re-seed from the current lobby on every
-  // closed→open transition.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally only re-syncs on open transition; mid-session lobby refetches must not overwrite user edits
+  // Looked like at first mount. Re-seed from the current lobby on every
+  // Closed→open transition.
+  /* oxlint-disable react-hooks/exhaustive-deps -- intentionally only re-syncs on open transition; mid-session lobby refetches must not overwrite user edits */
   useEffect(() => {
-    if (open) playerSelection.setSelection(initialSelectedIds)
+    if (open) {
+      playerSelection.setSelection(initialSelectedIds)
+    }
   }, [open])
+  /* oxlint-enable react-hooks/exhaustive-deps */
   const { createMatchWithRounds, isCreatingMatch } = useMatchManagement()
 
   const playersPerRace = Number.parseInt(formState.playersPerRace, 10) || FALLBACK_PLAYERS_PER_RACE
@@ -42,7 +45,9 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
   const isValidAllocation = selectedCount > 0 && selectedCount >= playersPerRace && totalSlots >= selectedCount
 
   const validationMessage = useMemo(() => {
-    if (selectedCount === 0) return 'Select at least one player'
+    if (selectedCount === 0) {
+      return 'Select at least one player'
+    }
     if (selectedCount < playersPerRace) {
       return `Need at least ${playersPerRace} players for ${playersPerRace} per race (selected ${selectedCount})`
     }
@@ -62,11 +67,11 @@ export const CreateMatchModal = (dependencies: { open: boolean; onOpenChange: (o
     }
 
     const match = await createMatchWithRounds({
-      tournamentId,
-      playerIds: playerSelection.selectedPlayerIds,
       numRaces,
+      playerIds: playerSelection.selectedPlayerIds,
       playersPerRace,
       randomTeams: formState.randomTeams,
+      tournamentId,
     })
 
     if (match) {

@@ -8,40 +8,40 @@ import { playersQuery } from '../queries/players.query'
 import { tournamentsQuery } from '../queries/tournaments.query'
 
 export const playersQueryAtom = atomWithQuery({
-  query: playersQuery,
   getContext: () => ({ requestPolicy: 'cache-first' }),
+  query: playersQuery,
 })
 
 export const tournamentsQueryAtom = atomWithQuery({
-  query: tournamentsQuery,
   getContext: () => ({ requestPolicy: 'cache-first' }),
+  query: tournamentsQuery,
 })
 
 export const activeTournamentQueryAtom = atomWithQuery({
-  query: activeTournamentQuery,
   getContext: () => ({ requestPolicy: 'cache-and-network' }),
+  query: activeTournamentQuery,
 })
 
 export const matchQueryAtom = (matchId: string) =>
   atomWithQuery({
-    query: matchQuery,
-    getVariables: () => ({ matchId }),
     getContext: () => ({ requestPolicy: 'cache-and-network' }),
+    getVariables: () => ({ matchId }),
+    query: matchQuery,
   })
 
 export const playerByIdQueryAtom = (playerId: string) =>
   atomWithQuery({
-    query: playerByIdQuery,
-    getVariables: () => ({ playerId }),
     getContext: () => ({ requestPolicy: 'cache-and-network' }),
+    getVariables: () => ({ playerId }),
+    query: playerByIdQuery,
   })
 
 export const currentGroupQueryAtom = atomWithQuery({
-  query: currentGroupQuery,
   getContext: () => ({ requestPolicy: 'cache-first' }),
+  query: currentGroupQuery,
 })
 
 export const lobbyQueryAtom = atomWithQuery({
-  query: lobbyQuery,
   getContext: () => ({ requestPolicy: 'cache-and-network' }),
+  query: lobbyQuery,
 })

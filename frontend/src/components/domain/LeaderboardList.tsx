@@ -21,14 +21,20 @@ type LeaderboardEntryCardProps = {
 }
 
 const getCrownColor = (position: number): string => {
-  if (position === 1) return 'yellow.500'
-  if (position === 2) return 'gray.500'
-  if (position === 3) return 'orange.500'
+  if (position === 1) {
+    return 'yellow.500'
+  }
+  if (position === 2) {
+    return 'gray.500'
+  }
+  if (position === 3) {
+    return 'orange.500'
+  }
   return 'gray.500'
 }
 
 const LeaderboardEntryCard = ({ entry, index }: LeaderboardEntryCardProps) => (
-  <Link to={`/player/${entry.playerId}`} style={{ width: '100%', textDecoration: 'none' }}>
+  <Link to={`/player/${entry.playerId}`} style={{ textDecoration: 'none', width: '100%' }}>
     <Box
       p={{ base: 4, md: 5 }}
       bg={index === 0 ? 'brand.50' : 'bg.panel'}
@@ -37,7 +43,7 @@ const LeaderboardEntryCard = ({ entry, index }: LeaderboardEntryCardProps) => (
       borderColor={index === 0 ? 'brand.400' : 'gray.200'}
       boxShadow="card"
       cursor="pointer"
-      _hover={{ boxShadow: 'card-hover', transform: 'translateY(-2px)', borderColor: 'brand.400' }}
+      _hover={{ borderColor: 'brand.400', boxShadow: 'card-hover', transform: 'translateY(-2px)' }}
       transition="all 0.2s"
     >
       <HStack justify="space-between" gap={{ base: 3, md: 4 }}>

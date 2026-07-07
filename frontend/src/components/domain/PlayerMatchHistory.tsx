@@ -21,13 +21,19 @@ const formatMatchDate = (dateString: string) => {
   if (diffInHours < 24) {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleDateString([], { day: 'numeric', hour: '2-digit', minute: '2-digit', month: 'short' })
 }
 
 const getPositionColor = (position: number): string => {
-  if (position === 1) return 'yellow'
-  if (position === 2) return 'gray'
-  if (position === 3) return 'orange'
+  if (position === 1) {
+    return 'yellow'
+  }
+  if (position === 2) {
+    return 'gray'
+  }
+  if (position === 3) {
+    return 'orange'
+  }
   return 'gray'
 }
 
@@ -52,7 +58,7 @@ export const PlayerMatchHistory = ({ matches }: PlayerMatchHistoryProps) => {
   return (
     <VStack gap={{ base: 3, md: 4 }} align="stretch">
       {matches.map((match) => (
-        <Link key={match.matchId} to={`/match/${match.matchId}`} style={{ width: '100%', textDecoration: 'none' }}>
+        <Link key={match.matchId} to={`/match/${match.matchId}`} style={{ textDecoration: 'none', width: '100%' }}>
           <Box
             p={{ base: 4, md: 5 }}
             bg="bg.panel"
@@ -61,7 +67,7 @@ export const PlayerMatchHistory = ({ matches }: PlayerMatchHistoryProps) => {
             borderColor="gray.200"
             boxShadow="card"
             cursor="pointer"
-            _hover={{ boxShadow: 'card-hover', transform: 'translateY(-2px)', borderColor: 'brand.400' }}
+            _hover={{ borderColor: 'brand.400', boxShadow: 'card-hover', transform: 'translateY(-2px)' }}
             transition="all 0.2s"
           >
             <HStack justify="space-between" gap={{ base: 3, md: 4 }}>

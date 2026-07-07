@@ -1,4 +1,4 @@
-import { Box, Heading, HStack, Text, VStack } from '@chakra-ui/react'
+import { Box, HStack, Heading, Text, VStack } from '@chakra-ui/react'
 import { Avatar } from '../common/Avatar'
 
 type PlayerHeaderProps = {

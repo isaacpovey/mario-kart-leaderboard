@@ -19,7 +19,7 @@ const formatMatchDate = (dateString: string) => {
   if (diffInHours < 24) {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleDateString([], { day: 'numeric', hour: '2-digit', minute: '2-digit', month: 'short' })
 }
 
 export const MatchList = ({ matches }: MatchListProps) => {
@@ -30,7 +30,7 @@ export const MatchList = ({ matches }: MatchListProps) => {
   return (
     <VStack gap={{ base: 3, md: 4 }} align="stretch">
       {matches.map((match) => (
-        <Link key={match.id} to={`/match/${match.id}`} style={{ width: '100%', textDecoration: 'none' }}>
+        <Link key={match.id} to={`/match/${match.id}`} style={{ textDecoration: 'none', width: '100%' }}>
           <Box
             p={{ base: 4, md: 5 }}
             bg="bg.panel"
@@ -39,7 +39,7 @@ export const MatchList = ({ matches }: MatchListProps) => {
             borderColor="gray.200"
             boxShadow="card"
             cursor="pointer"
-            _hover={{ boxShadow: 'card-hover', transform: 'translateY(-2px)', borderColor: 'brand.400' }}
+            _hover={{ borderColor: 'brand.400', boxShadow: 'card-hover', transform: 'translateY(-2px)' }}
             transition="all 0.2s"
           >
             <HStack justify="space-between" gap={{ base: 3, md: 4 }}>

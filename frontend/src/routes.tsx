@@ -7,31 +7,31 @@ import PlayerStats from './pages/PlayerStats'
 
 export const router = createBrowserRouter([
   {
-    path: '/',
     element: (
       <ProtectedRoute>
         <Home />
       </ProtectedRoute>
     ),
+    path: '/',
   },
   {
-    path: '/match/:matchId',
     element: (
       <ProtectedRoute>
         <Match />
       </ProtectedRoute>
     ),
+    path: '/match/:matchId',
   },
   {
-    path: '/player/:playerId',
     element: (
       <ProtectedRoute>
         <PlayerStats />
       </ProtectedRoute>
     ),
+    path: '/player/:playerId',
   },
   {
-    path: '/login',
     element: <Login />,
+    path: '/login',
   },
 ])

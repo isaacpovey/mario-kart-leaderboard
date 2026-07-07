@@ -4,15 +4,15 @@ import { useFormState } from '../hooks/patterns/useFormState'
 
 export const CreateTournamentModal = (dependencies: { open: boolean; onOpenChange: (open: boolean) => void }) => {
   const { open, onOpenChange } = dependencies
-  const { formState, updateField, resetForm } = useFormState({ startDate: '', endDate: '' })
+  const { formState, updateField, resetForm } = useFormState({ endDate: '', startDate: '' })
   const { createTournament, isCreating, createError } = useTournamentManagement()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     const tournament = await createTournament({
-      startDate: formState.startDate || null,
       endDate: formState.endDate || null,
+      startDate: formState.startDate || null,
     })
 
     if (tournament) {

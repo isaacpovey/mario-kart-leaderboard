@@ -12,7 +12,7 @@ export const usePlayerSelection = (initialSelectedIds: string[] = []) => {
 
   const { execute: createPlayer, isLoading: isCreatingPlayer, error: createPlayerError } = useMutationWithRefresh(createPlayerMutation)
 
-  const players = playersResult.data?.players || []
+  const players = useMemo(() => playersResult.data?.players ?? [], [playersResult.data?.players])
   const selectedPlayers = useMemo(() => players.filter((player) => selectedPlayerIds.includes(player.id)), [players, selectedPlayerIds])
 
   const filteredPlayers = useMemo(
@@ -27,7 +27,9 @@ export const usePlayerSelection = (initialSelectedIds: string[] = []) => {
   }, [])
 
   const createAndSelectPlayer = useCallback(async () => {
-    if (!canCreateNewPlayer || isCreatingPlayer) return null
+    if (!canCreateNewPlayer || isCreatingPlayer) {
+      return null
+    }
 
     const result = await createPlayer({ name: searchTerm.trim() })
 
@@ -44,12 +46,18 @@ export const usePlayerSelection = (initialSelectedIds: string[] = []) => {
 
   const createAndSelectPlayerByName = useCallback(
     async (name: string) => {
-      if (isCreatingPlayer) return null
+      if (isCreatingPlayer) {
+        return null
+      }
       const trimmedName = name.trim()
-      if (!trimmedName) return null
+      if (!trimmedName) {
+        return null
+      }
 
       const exactMatchExists = players.some((p) => p.name.toLowerCase() === trimmedName.toLowerCase())
-      if (exactMatchExists) return null
+      if (exactMatchExists) {
+        return null
+      }
 
       const result = await createPlayer({ name: trimmedName })
 
@@ -73,21 +81,21 @@ export const usePlayerSelection = (initialSelectedIds: string[] = []) => {
   }, [])
 
   return {
-    players,
-    selectedPlayerIds,
-    selectedPlayers,
-    filteredPlayers,
-    searchTerm,
-    setSearchTerm,
-    showDropdown,
-    setShowDropdown,
     canCreateNewPlayer,
-    isCreatingPlayer,
-    createPlayerError,
-    togglePlayer,
+    clearSelection,
     createAndSelectPlayer,
     createAndSelectPlayerByName,
-    clearSelection,
+    createPlayerError,
+    filteredPlayers,
+    isCreatingPlayer,
+    players,
+    searchTerm,
+    selectedPlayerIds,
+    selectedPlayers,
+    setSearchTerm,
     setSelection,
+    setShowDropdown,
+    showDropdown,
+    togglePlayer,
   }
 }

@@ -29,11 +29,11 @@ export const useTournamentManagement = () => {
   )
 
   return {
-    createTournament,
-    isCreating,
-    createError,
-    completeTournament,
-    isCompleting,
     completeError,
+    completeTournament,
+    createError,
+    createTournament,
+    isCompleting,
+    isCreating,
   }
 }

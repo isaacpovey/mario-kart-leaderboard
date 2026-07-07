@@ -5,10 +5,12 @@ import { LuCheck, LuFlag, LuHouse, LuUsers } from 'react-icons/lu'
 import { useNavigate, useParams } from 'react-router'
 import { CancelMatchModal } from '../components/CancelMatchModal'
 import { ErrorState } from '../components/common/ErrorState'
-import { BottomNav, type BottomNavItem } from '../components/domain/BottomNav'
+import { BottomNav } from '../components/domain/BottomNav'
+import type { BottomNavItem } from '../components/domain/BottomNav'
 import { RaceList } from '../components/domain/RaceList'
 import { RaceResultsDisplay } from '../components/domain/RaceResultsDisplay'
-import { ResultsGrid, type SlotAssignments } from '../components/domain/ResultsGrid'
+import { ResultsGrid } from '../components/domain/ResultsGrid'
+import type { SlotAssignments } from '../components/domain/ResultsGrid'
 import { TeamCard } from '../components/domain/TeamCard'
 import { SwapPlayerModal } from '../components/SwapPlayerModal'
 import { useMatchManagement } from '../hooks/features/useMatchManagement'
@@ -27,8 +29,8 @@ const Match = () => {
   const [selectedRound, setSelectedRound] = useState<number | null>(null)
   const [expandedCompletedRound, setExpandedCompletedRound] = useState<number | null>(null)
   // Positions are indexed per round so switching rounds and returning preserves
-  // local entry state (cross-device late-joiners are still empty by design —
-  // ephemeral broadcast, no DB snapshot).
+  // Local entry state (cross-device late-joiners are still empty by design —
+  // Ephemeral broadcast, no DB snapshot).
   const [positionsByRound, setPositionsByRound] = useState<Record<number, Record<string, string>>>({})
 
   const positions = useMemo<Record<string, string>>(() => (selectedRound !== null ? (positionsByRound[selectedRound] ?? {}) : {}), [selectedRound, positionsByRound])
@@ -49,15 +51,19 @@ const Match = () => {
 
   const { publish } = useSlotAssignmentSync({
     matchId: matchId ?? null,
-    roundNumber: selectedRound,
     onAssignment: (slotNumber, playerId) => {
-      if (selectedRound === null) return
+      if (selectedRound === null) {
+        return
+      }
       updateRoundPositions(selectedRound, (prev) => applyAssignment(prev, slotNumber, playerId))
     },
+    roundNumber: selectedRound,
   })
 
   const handleTogglePlayerInSlot = (slotNumber: number, playerId: string) => {
-    if (selectedRound === null) return
+    if (selectedRound === null) {
+      return
+    }
     const round = selectedRound
     const prevSlot = positions[playerId] ? Number.parseInt(positions[playerId], 10) : null
     const newPlayerId = prevSlot === slotNumber ? null : playerId
@@ -68,8 +74,8 @@ const Match = () => {
     publish(slotNumber, newPlayerId).then((result) => {
       if (!result.ok) {
         // Best-effort revert: if a concurrent legitimate event landed during
-        // the round-trip, this restores the snapshot and overwrites that
-        // event. Acceptable for the small group / sub-second event scale.
+        // The round-trip, this restores the snapshot and overwrites that
+        // Event. Acceptable for the small group / sub-second event scale.
         updateRoundPositions(round, () => snapshot)
       }
     })
@@ -97,8 +103,8 @@ const Match = () => {
     setSelectedRound(roundNumber)
     setExpandedCompletedRound(null)
     // Don't clear positions — they're per-round, so leaving previous-round
-    // state in `positionsByRound` doesn't affect this round and lets the user
-    // bounce between rounds without losing local entry state.
+    // State in `positionsByRound` doesn't affect this round and lets the user
+    // Bounce between rounds without losing local entry state.
     setError('')
   }
 
@@ -108,7 +114,9 @@ const Match = () => {
   }
 
   const handleSubmitResults = async (results: Array<{ playerId: string; position: number }>) => {
-    if (selectedRound === null) return
+    if (selectedRound === null) {
+      return
+    }
 
     setError('')
 
@@ -125,8 +133,8 @@ const Match = () => {
 
     const updated = await recordResults({
       matchId: matchId || '',
-      roundNumber: selectedRound,
       results,
+      roundNumber: selectedRound,
     })
 
     if (updated) {
@@ -147,7 +155,9 @@ const Match = () => {
   }
 
   const handleSwapPlayer = (player: { id: string; name: string; avatarFilename?: string | null; teamId?: string | unknown }, roundNumber: number) => {
-    if (!player.teamId) return
+    if (!player.teamId) {
+      return
+    }
     const teamId = typeof player.teamId === 'string' ? player.teamId : String(player.teamId)
     setPlayerToSwap({ ...player, teamId })
     setRoundToSwap(roundNumber)
@@ -155,12 +165,14 @@ const Match = () => {
   }
 
   const handleSwapConfirm = async (newPlayerId: string) => {
-    if (!playerToSwap || roundToSwap === null || !matchId) return
+    if (!playerToSwap || roundToSwap === null || !matchId) {
+      return
+    }
     const result = await swapRoundPlayer({
-      matchId,
-      roundNumber: roundToSwap,
       currentPlayerId: playerToSwap.id,
+      matchId,
       newPlayerId,
+      roundNumber: roundToSwap,
     })
     if (result) {
       setSwapModalOpen(false)
@@ -170,17 +182,17 @@ const Match = () => {
   }
 
   const navItems: BottomNavItem[] = [
-    { id: 'home', label: 'Home', icon: LuHouse, onClick: () => navigate('/'), dividerAfter: true },
-    { id: 'teams', label: 'Teams', icon: LuUsers, targetId: 'teams-section' },
-    { id: 'races', label: 'Races', icon: LuFlag, targetId: 'races-section' },
+    { dividerAfter: true, icon: LuHouse, id: 'home', label: 'Home', onClick: () => navigate('/') },
+    { icon: LuUsers, id: 'teams', label: 'Teams', targetId: 'teams-section' },
+    { icon: LuFlag, id: 'races', label: 'Races', targetId: 'races-section' },
   ]
 
   return (
     <Box minH="100vh" bg="bg.canvas" pb={{ base: '80px', md: '88px' }}>
-      <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
+      <Container maxW="4xl" py={{ base: 4, lg: 8, md: 6 }}>
         <VStack gap={{ base: 6, md: 8 }} align="stretch">
           <VStack align="start" gap={1}>
-            <Heading size={{ base: 'lg', md: 'xl', lg: '2xl' }} color="gray.900">
+            <Heading size={{ base: 'lg', lg: '2xl', md: 'xl' }} color="gray.900">
               Match Details
             </Heading>
             <Text color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>
@@ -213,7 +225,9 @@ const Match = () => {
               onToggleExpanded={handleToggleExpanded}
               renderFormForRound={(roundNumber) => {
                 const roundData = match.rounds.find((r) => r.roundNumber === roundNumber)
-                if (!roundData) return null
+                if (!roundData) {
+                  return null
+                }
 
                 if (roundData.completed && roundData.results) {
                   return <RaceResultsDisplay results={roundData.results} trackName={roundData.track?.name} />

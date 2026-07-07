@@ -34,7 +34,9 @@ export const SwapPlayerModal = (props: SwapPlayerModalProps) => {
   const eligiblePlayers = currentTeam?.players.filter((p) => p.id !== currentPlayer.id && !roundPlayerIds.includes(p.id)) ?? []
 
   const handleConfirm = async () => {
-    if (!selectedPlayerId) return
+    if (!selectedPlayerId) {
+      return
+    }
     await onSwap(selectedPlayerId)
   }
 

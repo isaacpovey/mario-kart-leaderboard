@@ -18,21 +18,35 @@ type RaceResultsDisplayProps = {
 }
 
 const getPositionBadgeColor = (position: number): string => {
-  if (position === 1) return 'yellow'
-  if (position === 2) return 'gray'
-  if (position === 3) return 'orange'
+  if (position === 1) {
+    return 'yellow'
+  }
+  if (position === 2) {
+    return 'gray'
+  }
+  if (position === 3) {
+    return 'orange'
+  }
   return 'gray'
 }
 
 const formatEloChange = (change: number): string => {
-  if (change > 0) return `+${change}`
+  if (change > 0) {
+    return `+${change}`
+  }
   return String(change)
 }
 
 const getCrownColor = (position: number): string => {
-  if (position === 1) return 'yellow.500'
-  if (position === 2) return 'gray.500'
-  if (position === 3) return 'orange.500'
+  if (position === 1) {
+    return 'yellow.500'
+  }
+  if (position === 2) {
+    return 'gray.500'
+  }
+  if (position === 3) {
+    return 'orange.500'
+  }
   return 'gray.500'
 }
 

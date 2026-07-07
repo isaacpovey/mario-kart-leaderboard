@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn",
+    "style": "warn",
+    "nursery": "off",
+    "pedantic": "off",
+    "restriction": "off"
+  },
+  "plugins": ["react", "jsx-a11y", "import"],
+  "ignorePatterns": ["**/graphql-env.d.ts"],
+  "rules": {
+    "no-unused-vars": "error",
+    "no-param-reassign": "error",
+    "prefer-const": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-explicit-any": "warn",
+    "react/react-in-jsx-scope": "off",
+    "react-hooks/exhaustive-deps": "warn",
+    "react/jsx-max-depth": "off",
+    "react/react-compiler": "off",
+    "import/prefer-default-export": "off",
+    "import/no-named-export": "off",
+    "import/group-exports": "off",
+    "import/exports-last": "off",
+    "sort-imports": "off",
+    "no-magic-numbers": "off",
+    "max-statements": "off",
+    "max-params": "off",
+    "id-length": "off",
+    "no-ternary": "off",
+    "no-nested-ternary": "off",
+    "no-duplicate-imports": "off",
+    "arrow-body-style": "off",
+    "react/jsx-handler-names": "off"
+  }
+}

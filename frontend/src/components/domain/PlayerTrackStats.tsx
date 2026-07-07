@@ -1,4 +1,4 @@
-import { Badge, Box, Grid, Heading, HStack, Text, VStack } from '@chakra-ui/react'
+import { Badge, Box, Grid, HStack, Heading, Text, VStack } from '@chakra-ui/react'
 
 type TrackStat = {
   readonly trackName: string
@@ -13,10 +13,18 @@ type PlayerTrackStatsProps = {
 const MIN_RACES = 2
 
 const getPositionColor = (avgPosition: number): string => {
-  if (avgPosition <= 1.5) return 'green.500'
-  if (avgPosition <= 2.5) return 'green.600'
-  if (avgPosition <= 3.0) return 'gray.700'
-  if (avgPosition <= 3.5) return 'orange.500'
+  if (avgPosition <= 1.5) {
+    return 'green.500'
+  }
+  if (avgPosition <= 2.5) {
+    return 'green.600'
+  }
+  if (avgPosition <= 3.0) {
+    return 'gray.700'
+  }
+  if (avgPosition <= 3.5) {
+    return 'orange.500'
+  }
   return 'red.500'
 }
 

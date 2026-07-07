@@ -1,4 +1,4 @@
-import { Box, Button, Heading, HStack, Input, Text, VStack } from '@chakra-ui/react'
+import { Box, Button, HStack, Heading, Input, Text, VStack } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
 import { useMemo, useState } from 'react'
 import { useLobby } from '../../hooks/features/useLobby'
@@ -11,7 +11,7 @@ import { MeCheckInButton } from './MeCheckInButton'
 export const Lobby = () => {
   const result = useAtomValue(lobbyQueryAtom)
   // Subscription must be active so urql's cacheExchange sees `lobbyUpdated`
-  // events and invalidates `Query.currentGroup` (configured in lib/urql.ts).
+  // Events and invalidates `Query.currentGroup` (configured in lib/urql.ts).
   // No manual refetch needed.
   useLobbySubscription()
 
@@ -26,7 +26,9 @@ export const Lobby = () => {
 
   const [addPlayerOpen, setAddPlayerOpen] = useState(false)
 
-  if (!group) return null
+  if (!group) {
+    return null
+  }
 
   return (
     <Box p={{ base: 3, md: 4 }} bg="bg.panel" borderRadius="card" borderWidth="1px" borderColor="gray.200">
