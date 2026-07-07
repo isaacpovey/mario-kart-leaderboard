@@ -45,14 +45,22 @@ type RaceCardProps = {
 }
 
 const getBadgeIcon = (completed: boolean, isSelected: boolean) => {
-  if (completed) return LuCheck
-  if (isSelected) return LuPencil
+  if (completed) {
+    return LuCheck
+  }
+  if (isSelected) {
+    return LuPencil
+  }
   return LuClock
 }
 
 const getBadgeColorScheme = (completed: boolean, isSelected: boolean): string => {
-  if (completed) return 'green'
-  if (isSelected) return 'yellow'
+  if (completed) {
+    return 'green'
+  }
+  if (isSelected) {
+    return 'yellow'
+  }
   return 'gray'
 }
 
@@ -65,22 +73,36 @@ const PendingRacePlayers = ({ players }: { players: Player[] }) => (
 )
 
 const getTopFinisher = (results?: RaceResult[]): RaceResult | undefined => {
-  if (!results || results.length === 0) return undefined
+  if (!results || results.length === 0) {
+    return undefined
+  }
   const sorted = [...results].sort((a, b) => a.position - b.position)
   return sorted[0]
 }
 
 const getFinisherBorderColor = (position: number): string => {
-  if (position === 1) return 'yellow.400'
-  if (position === 2) return 'gray.400'
-  if (position === 3) return 'orange.400'
+  if (position === 1) {
+    return 'yellow.400'
+  }
+  if (position === 2) {
+    return 'gray.400'
+  }
+  if (position === 3) {
+    return 'orange.400'
+  }
   return 'gray.300'
 }
 
 const getCrownColor = (position: number): string => {
-  if (position === 1) return 'yellow.500'
-  if (position === 2) return 'gray.500'
-  if (position === 3) return 'orange.500'
+  if (position === 1) {
+    return 'yellow.500'
+  }
+  if (position === 2) {
+    return 'gray.500'
+  }
+  if (position === 3) {
+    return 'orange.500'
+  }
   return 'gray.500'
 }
 
@@ -147,9 +169,9 @@ const RaceCard = ({ round, selectedRound, expandedCompletedRound, onSelectRound,
         cursor="pointer"
         onClick={handleClick}
         _hover={{
+          borderColor: 'brand.400',
           boxShadow: 'card-hover',
           transform: 'translateX(4px)',
-          borderColor: 'brand.400',
         }}
         transition="all 0.2s"
       >

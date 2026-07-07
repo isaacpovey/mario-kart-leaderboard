@@ -1,4 +1,4 @@
-import { Box, Button, Container, Heading, HStack, Spinner, Stack, Text, VStack } from '@chakra-ui/react'
+import { Box, Button, Container, HStack, Heading, Spinner, Stack, Text, VStack } from '@chakra-ui/react'
 import type { ResultOf } from 'gql.tada'
 import { useAtomValue } from 'jotai'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -8,7 +8,8 @@ import { CompleteTournamentModal } from '../components/CompleteTournamentModal'
 import { CreateMatchModal } from '../components/CreateMatchModal'
 import { CreateTournamentModal } from '../components/CreateTournamentModal'
 import { ErrorState } from '../components/common/ErrorState'
-import { BottomNav, type BottomNavItem } from '../components/domain/BottomNav'
+import { BottomNav } from '../components/domain/BottomNav'
+import type { BottomNavItem } from '../components/domain/BottomNav'
 import { HeroBanner } from '../components/domain/HeroBanner'
 import { LeaderboardList } from '../components/domain/LeaderboardList'
 import { Lobby } from '../components/domain/Lobby'
@@ -71,9 +72,9 @@ const useQueryRetry = ({ urqlClient, hasError, error, hasData }: UseQueryRetryPa
   }, [urqlClient])
 
   return {
-    isRetrying: hasError && retryCount < MAX_RETRIES,
-    hasFailedCompletely: hasError && retryCount >= MAX_RETRIES,
     handleManualRetry,
+    hasFailedCompletely: hasError && retryCount >= MAX_RETRIES,
+    isRetrying: hasError && retryCount < MAX_RETRIES,
   }
 }
 
@@ -86,13 +87,13 @@ type BuildNavItemsArgs = {
 
 const buildNavItems = ({ hasActiveTournament, onStartRace }: BuildNavItemsArgs): BottomNavItem[] => {
   if (!hasActiveTournament) {
-    return [{ id: 'lobby', label: 'Lobby', icon: LuUsers, targetId: 'lobby-section' }]
+    return [{ icon: LuUsers, id: 'lobby', label: 'Lobby', targetId: 'lobby-section' }]
   }
   return [
-    { id: 'lobby', label: 'Lobby', icon: LuUsers, targetId: 'lobby-section' },
-    { id: 'leaderboard', label: 'Leaderboard', icon: LuTrophy, targetId: 'leaderboard-section' },
-    { id: 'races', label: 'Races', icon: LuFlag, targetId: 'races-section', dividerAfter: true },
-    { id: 'start-race', label: 'Start Race', icon: LuPlay, onClick: onStartRace },
+    { icon: LuUsers, id: 'lobby', label: 'Lobby', targetId: 'lobby-section' },
+    { icon: LuTrophy, id: 'leaderboard', label: 'Leaderboard', targetId: 'leaderboard-section' },
+    { dividerAfter: true, icon: LuFlag, id: 'races', label: 'Races', targetId: 'races-section' },
+    { icon: LuPlay, id: 'start-race', label: 'Start Race', onClick: onStartRace },
   ]
 }
 
@@ -146,7 +147,7 @@ const EmptyState = ({ onStartTournament }: EmptyStateProps) => (
 
 const LoadingState = () => (
   <Box minH="100vh" bg="bg.canvas">
-    <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
+    <Container maxW="4xl" py={{ base: 4, lg: 8, md: 6 }}>
       <VStack gap={4} align="center" justify="center" minH="50vh">
         <Spinner size="xl" color="blue.500" />
         <Text color="gray.600">Loading tournament data...</Text>
@@ -167,23 +168,23 @@ const Home = () => {
   const hasError = activeTournamentResult?.error !== undefined
 
   const { isRetrying, hasFailedCompletely, handleManualRetry } = useQueryRetry({
-    urqlClient,
-    hasError,
     error: activeTournamentResult?.error,
     hasData: activeTournamentResult?.data !== undefined,
+    hasError,
+    urqlClient,
   })
 
   const [tournamentsResult] = useQuery({
-    query: tournamentsQuery,
     pause: currentTournament !== null,
+    query: tournamentsQuery,
   })
 
   const mostRecentCompletedTournament = tournamentsResult.data?.tournaments?.find((t) => t.winnerId !== null) ?? null
 
   const [completedTournamentResult] = useQuery({
+    pause: !mostRecentCompletedTournament,
     query: tournamentByIdQuery,
     variables: { id: mostRecentCompletedTournament?.id ?? '' },
-    pause: !mostRecentCompletedTournament,
   })
 
   const completedTournamentData = completedTournamentResult.data?.tournamentById ?? null
@@ -229,7 +230,7 @@ const Home = () => {
 
   return (
     <Box minH="100vh" bg="bg.canvas" pb={{ base: '80px', md: '88px' }}>
-      <Container maxW="4xl" py={{ base: 4, md: 6, lg: 8 }}>
+      <Container maxW="4xl" py={{ base: 4, lg: 8, md: 6 }}>
         <VStack gap={{ base: 6, md: 8 }} align="stretch">
           <HeroBanner onStartRace={() => setIsMatchModalOpen(true)} showStartButton={currentTournament !== null} />
 
@@ -239,7 +240,7 @@ const Home = () => {
 
           {currentTournament && <ActiveTournamentContent tournament={currentTournament} />}
           {!currentTournament && completedTournamentData && (
-            <TournamentSummary tournament={completedTournamentData} showStartButton={true} onStartTournament={() => setIsTournamentModalOpen(true)} />
+            <TournamentSummary tournament={completedTournamentData} showStartButton onStartTournament={() => setIsTournamentModalOpen(true)} />
           )}
           {!currentTournament && !completedTournamentData && <EmptyState onStartTournament={() => setIsTournamentModalOpen(true)} />}
 

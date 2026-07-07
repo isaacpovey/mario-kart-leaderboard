@@ -15,5 +15,5 @@ export const useModal = (initialState = false) => {
     setIsOpen((prev) => !prev)
   }, [])
 
-  return { isOpen, open, close, toggle, setIsOpen }
+  return { close, isOpen, open, setIsOpen, toggle }
 }

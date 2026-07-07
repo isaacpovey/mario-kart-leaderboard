@@ -36,9 +36,9 @@ export const PlayerSelectorDrawer = (props: PlayerSelectorDrawerProps) => {
     const showCreateOption = trimmedSearch !== '' && !exactMatchExists
 
     return {
-      selectedPlayers: selected,
       availablePlayers: available,
       canCreate: showCreateOption,
+      selectedPlayers: selected,
     }
   }, [allPlayers, selectedPlayerIds, searchTerm])
 
@@ -103,7 +103,7 @@ export const PlayerSelectorDrawer = (props: PlayerSelectorDrawerProps) => {
                       </Text>
                     </Box>
                     {selectedPlayers.map((player) => (
-                      <PlayerRow key={player.id} player={player} isSelected={true} onToggle={() => onTogglePlayer(player.id)} />
+                      <PlayerRow key={player.id} player={player} isSelected onToggle={() => onTogglePlayer(player.id)} />
                     ))}
                   </Box>
                 )}

@@ -24,5 +24,5 @@ export const useLobby = (checkedInPlayerIds: string[]) => {
   const isLoading = checkInResult.fetching || checkOutResult.fetching
   const error = checkInResult.error ?? checkOutResult.error
 
-  return { checkIn, checkOut, toggle, isLoading, error }
+  return { checkIn, checkOut, error, isLoading, toggle }
 }

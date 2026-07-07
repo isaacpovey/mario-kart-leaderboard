@@ -25,5 +25,5 @@ export const useFormState = <T extends Record<string, unknown>>(initialState: T)
     setFormState(newState)
   }, [])
 
-  return { formState, updateField, setField, resetForm, setForm }
+  return { formState, resetForm, setField, setForm, updateField }
 }

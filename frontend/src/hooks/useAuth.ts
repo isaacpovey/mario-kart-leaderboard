@@ -17,7 +17,7 @@ export const useAuth = () => {
       const result = await client.query(loginQuery, { groupId, password }).toPromise()
 
       if (result.error) {
-        return { success: false, error: result.error.message }
+        return { error: result.error.message, success: false }
       }
 
       if (result.data?.login) {
@@ -25,7 +25,7 @@ export const useAuth = () => {
         return { success: true }
       }
 
-      return { success: false, error: 'Login failed' }
+      return { error: 'Login failed', success: false }
     },
     [client, setToken]
   )
@@ -37,7 +37,7 @@ export const useAuth = () => {
       const result = await client.mutation(createGroupMutation, { name, password }).toPromise()
 
       if (result.error) {
-        return { success: false, error: result.error.message }
+        return { error: result.error.message, success: false }
       }
 
       if (result.data?.createGroup) {
@@ -45,7 +45,7 @@ export const useAuth = () => {
         return { success: true }
       }
 
-      return { success: false, error: 'Group creation failed' }
+      return { error: 'Group creation failed', success: false }
     },
     [client, setToken]
   )
@@ -55,10 +55,10 @@ export const useAuth = () => {
   }, [setToken])
 
   return {
-    token,
+    createGroup,
     isAuthenticated,
     login,
-    createGroup,
     logout,
+    token,
   }
 }

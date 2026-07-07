@@ -21,15 +21,15 @@ type TournamentHighlightsProps = {
 }
 
 const statTypeMap: Record<string, string> = {
+  BestMatch: 'BEST_MATCH',
   BestRace: 'BEST_RACE',
-  WorstRace: 'WORST_RACE',
-  BiggestSwing: 'BIGGEST_SWING',
   BestTeammate: 'BEST_TEAMMATE',
-  WorstTeammate: 'WORST_TEAMMATE',
+  BiggestSwing: 'BIGGEST_SWING',
   MostHelped: 'MOST_HELPED',
   MostHurt: 'MOST_HURT',
-  BestMatch: 'BEST_MATCH',
   WorstMatch: 'WORST_MATCH',
+  WorstRace: 'WORST_RACE',
+  WorstTeammate: 'WORST_TEAMMATE',
 }
 
 const normalizeStatType = (statType: string): string => statTypeMap[statType] ?? statType
@@ -37,7 +37,7 @@ const normalizeStatType = (statType: string): string => statTypeMap[statType] ??
 export const TournamentHighlights = ({ stats, leaderboard }: TournamentHighlightsProps) => {
   const playerMap = Object.fromEntries(leaderboard.map((entry) => [entry.playerId, entry]))
 
-  const getPlayer = (playerId: string): LeaderboardEntry => playerMap[playerId] ?? { playerId, playerName: 'Unknown Player', avatarFilename: null }
+  const getPlayer = (playerId: string): LeaderboardEntry => playerMap[playerId] ?? { avatarFilename: null, playerId, playerName: 'Unknown Player' }
 
   return (
     <SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>

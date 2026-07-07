@@ -9,19 +9,23 @@ export const useMe = (groupId: string | null | undefined) => {
 
   const setMe = useCallback(
     (nextPlayerId: string) => {
-      if (!groupId) return
+      if (!groupId) {
+        return
+      }
       setMap((prev) => ({ ...prev, [groupId]: nextPlayerId }))
     },
     [groupId, setMap]
   )
 
   const clearMe = useCallback(() => {
-    if (!groupId) return
+    if (!groupId) {
+      return
+    }
     setMap((prev) => {
       const { [groupId]: _removed, ...next } = prev
       return next
     })
   }, [groupId, setMap])
 
-  return { playerId, setMe, clearMe }
+  return { clearMe, playerId, setMe }
 }

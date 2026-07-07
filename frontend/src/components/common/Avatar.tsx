@@ -8,9 +8,9 @@ type AvatarProps = {
 }
 
 const sizeMap = {
-  sm: { box: '32px', text: 'sm' },
-  md: { box: '40px', text: 'md' },
   lg: { box: '56px', text: 'lg' },
+  md: { box: '40px', text: 'md' },
+  sm: { box: '32px', text: 'sm' },
 }
 
 const colorMap = ['red.500', 'orange.500', 'yellow.500', 'green.500', 'teal.500', 'blue.500', 'cyan.500', 'purple.500', 'pink.500']

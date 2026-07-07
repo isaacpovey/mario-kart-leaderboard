@@ -37,15 +37,15 @@ const RoundButton = ({ round, selectedRound, onSelectRound }: RoundButtonProps) 
       borderWidth="2px"
       disabled={round.completed}
       _hover={{
-        transform: round.completed ? 'none' : 'translateY(-2px)',
         boxShadow: round.completed ? 'none' : 'md',
+        transform: round.completed ? 'none' : 'translateY(-2px)',
       }}
       transition="all 0.2s"
       bg={isSelected ? 'brand.400' : round.completed ? 'green.50' : 'white'}
       color={isSelected ? 'gray.900' : round.completed ? 'green.700' : 'gray.700'}
       _disabled={{
-        opacity: 0.7,
         cursor: 'not-allowed',
+        opacity: 0.7,
       }}
     >
       <VStack gap={0}>

@@ -27,14 +27,14 @@ export const useSlotAssignmentSync = ({ matchId, roundNumber, onAssignment }: Us
   const canSync = matchId !== null && roundNumber !== null
 
   // Process every event inside the urql subscription handler so back-to-back
-  // messages aren't coalesced by React's render batching (only the latest
+  // Messages aren't coalesced by React's render batching (only the latest
   // `subscription.data` would be visible to a `useEffect` watcher under
-  // contention).
+  // Contention).
   useSubscription(
     {
+      pause: !canSync,
       query: slotAssignmentsUpdatedSubscription,
       variables: { matchId: matchId ?? '', roundNumber: roundNumber ?? 0 },
-      pause: !canSync,
     },
     (_acc, data) => {
       const event = data.slotAssignmentsUpdated
@@ -49,16 +49,18 @@ export const useSlotAssignmentSync = ({ matchId, roundNumber, onAssignment }: Us
 
   const publish = useCallback(
     async (slotNumber: number, playerId: string | null) => {
-      if (!canSync || matchId === null || roundNumber === null) return { ok: false }
+      if (!canSync || matchId === null || roundNumber === null) {
+        return { ok: false }
+      }
       const result = await executeMutation({
+        clientId: clientIdRef.current,
         matchId,
+        playerId,
         roundNumber,
         slotNumber,
-        playerId,
-        clientId: clientIdRef.current,
       })
       if (result.error) {
-        console.error('Failed to sync slot assignment', { matchId, roundNumber, slotNumber, playerId, error: result.error.message })
+        console.error('Failed to sync slot assignment', { error: result.error.message, matchId, playerId, roundNumber, slotNumber })
         return { ok: false }
       }
       return { ok: true }

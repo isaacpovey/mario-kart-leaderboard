@@ -1,4 +1,4 @@
-import { Box, Button, Heading, HStack, SimpleGrid, Text, VStack } from '@chakra-ui/react'
+import { Box, Button, HStack, Heading, SimpleGrid, Text, VStack } from '@chakra-ui/react'
 import { useMemo, useState } from 'react'
 import { LuArrowLeftRight } from 'react-icons/lu'
 
@@ -33,18 +33,26 @@ type ResultsGridProps = {
 type Page = 'assigned' | 'top' | 'middle' | 'bottom'
 
 const PAGE_RANGES: Record<'top' | 'middle' | 'bottom', { start: number; end: number; label: string }> = {
-  top: { start: 1, end: 8, label: '1 – 8' },
-  middle: { start: 9, end: 16, label: '9 – 16' },
-  bottom: { start: 17, end: 24, label: '17 – 24' },
+  bottom: { end: 24, label: '17 – 24', start: 17 },
+  middle: { end: 16, label: '9 – 16', start: 9 },
+  top: { end: 8, label: '1 – 8', start: 1 },
 }
 
 const ordinal = (n: number): string => {
   const mod100 = n % 100
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`
+  if (mod100 >= 11 && mod100 <= 13) {
+    return `${n}th`
+  }
   const mod10 = n % 10
-  if (mod10 === 1) return `${n}st`
-  if (mod10 === 2) return `${n}nd`
-  if (mod10 === 3) return `${n}rd`
+  if (mod10 === 1) {
+    return `${n}st`
+  }
+  if (mod10 === 2) {
+    return `${n}nd`
+  }
+  if (mod10 === 3) {
+    return `${n}rd`
+  }
   return `${n}th`
 }
 
@@ -73,13 +81,15 @@ export const ResultsGrid = ({ round, slots, onTogglePlayer, error, submitting, o
   )
 
   // Derive the rendered page rather than mirroring it via state + useEffect:
-  // if the user previously selected "Assigned" and the assignment count drops
-  // to zero, we render the "top" page instead. The `page` state still records
-  // the user's chosen tab so re-assignments restore the Assigned view.
+  // If the user previously selected "Assigned" and the assignment count drops
+  // To zero, we render the "top" page instead. The `page` state still records
+  // The user's chosen tab so re-assignments restore the Assigned view.
   const effectivePage: Page = page === 'assigned' && assignedSlotNumbers.length === 0 ? 'top' : page
 
   const visibleSlots = useMemo(() => {
-    if (effectivePage === 'assigned') return assignedSlotNumbers
+    if (effectivePage === 'assigned') {
+      return assignedSlotNumbers
+    }
     return fullPageSlots(effectivePage)
   }, [effectivePage, assignedSlotNumbers])
 

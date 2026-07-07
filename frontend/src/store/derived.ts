@@ -9,10 +9,12 @@ export const currentTournamentAtom = atom(async (get) => {
   }
 
   const tournaments = tournamentsResult.data.tournaments
-    // biome-ignore lint/suspicious/noDoubleEquals: != is fine for undefined as this will only check !== undefined and !== null
+    // oxlint-disable-next-line eqeqeq -- != is fine for undefined as this will only check !== undefined and !== null
     .filter((tournament: { startDate?: string | null }) => tournament.startDate != undefined)
     .sort((a: { startDate?: string | null }, b: { startDate?: string | null }) => {
-      if (!a.startDate || !b.startDate) return 0
+      if (!a.startDate || !b.startDate) {
+        return 0
+      }
       return b.startDate.localeCompare(a.startDate)
     })
 

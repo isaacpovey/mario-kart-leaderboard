@@ -13,59 +13,59 @@ type StatConfig = {
 }
 
 const statConfigs: Record<StatType, StatConfig> = {
+  BEST_MATCH: {
+    borderColor: 'green.400',
+    icon: <LuMedal />,
+    iconBg: 'green.100',
+    label: 'Best Match Performance',
+  },
   BEST_RACE: {
-    label: 'Best Single Race',
-    icon: <LuTrophy />,
     borderColor: 'orange.400',
+    icon: <LuTrophy />,
     iconBg: 'orange.100',
-  },
-  WORST_RACE: {
-    label: 'Worst Single Race',
-    icon: <LuChevronsRight />,
-    borderColor: 'red.400',
-    iconBg: 'red.100',
-  },
-  BIGGEST_SWING: {
-    label: 'Biggest ELO Swing',
-    icon: <LuX />,
-    borderColor: 'purple.400',
-    iconBg: 'purple.100',
+    label: 'Best Single Race',
   },
   BEST_TEAMMATE: {
-    label: 'Best Teammate',
-    icon: <LuHeart />,
     borderColor: 'pink.400',
+    icon: <LuHeart />,
     iconBg: 'pink.100',
+    label: 'Best Teammate',
   },
-  WORST_TEAMMATE: {
-    label: 'Worst Teammate',
-    icon: <LuFrown />,
-    borderColor: 'orange.400',
-    iconBg: 'orange.100',
+  BIGGEST_SWING: {
+    borderColor: 'purple.400',
+    icon: <LuX />,
+    iconBg: 'purple.100',
+    label: 'Biggest ELO Swing',
   },
   MOST_HELPED: {
-    label: 'Most Helped Player',
-    icon: <LuUsers />,
     borderColor: 'teal.400',
+    icon: <LuUsers />,
     iconBg: 'teal.100',
+    label: 'Most Helped Player',
   },
   MOST_HURT: {
-    label: 'Most Hurt Player',
-    icon: <LuTarget />,
     borderColor: 'red.400',
+    icon: <LuTarget />,
     iconBg: 'red.100',
-  },
-  BEST_MATCH: {
-    label: 'Best Match Performance',
-    icon: <LuMedal />,
-    borderColor: 'green.400',
-    iconBg: 'green.100',
+    label: 'Most Hurt Player',
   },
   WORST_MATCH: {
-    label: 'Worst Match Performance',
-    icon: <LuChevronDown />,
     borderColor: 'red.400',
+    icon: <LuChevronDown />,
     iconBg: 'red.100',
+    label: 'Worst Match Performance',
+  },
+  WORST_RACE: {
+    borderColor: 'red.400',
+    icon: <LuChevronsRight />,
+    iconBg: 'red.100',
+    label: 'Worst Single Race',
+  },
+  WORST_TEAMMATE: {
+    borderColor: 'orange.400',
+    icon: <LuFrown />,
+    iconBg: 'orange.100',
+    label: 'Worst Teammate',
   },
 }
 

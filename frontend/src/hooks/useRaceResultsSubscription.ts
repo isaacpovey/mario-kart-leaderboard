@@ -3,9 +3,9 @@ import { raceResultsUpdatedSubscription } from '../subscriptions/raceResults.sub
 
 export const useRaceResultsSubscription = (tournamentId: string | null | undefined) => {
   const [result] = useSubscription({
+    pause: !tournamentId,
     query: raceResultsUpdatedSubscription,
     variables: { tournamentId: tournamentId || '' },
-    pause: !tournamentId,
   })
 
   return result

@@ -8,7 +8,9 @@ const graphqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:8080/gr
 // Get auth token for SSE subscriptions
 const getAuthToken = () => {
   const stored = localStorage.getItem('mario-kart-auth-token')
-  if (!stored) return null
+  if (!stored) {
+    return null
+  }
   try {
     return JSON.parse(stored)
   } catch {
@@ -18,8 +20,6 @@ const getAuthToken = () => {
 
 // Create SSE client for subscriptions
 const sseClient = createSSEClient({
-  url: graphqlUrl,
-  singleConnection: false,
   credentials: 'include',
   headers: (): Record<string, string> => {
     const token = getAuthToken()
@@ -28,15 +28,11 @@ const sseClient = createSSEClient({
     }
     return {}
   },
+  singleConnection: false,
+  url: graphqlUrl,
 })
 
 export const urqlClient = createClient({
-  url: graphqlUrl,
-  preferGetMethod: false,
-  fetchOptions: {
-    method: 'POST',
-    credentials: 'include',
-  },
   exchanges: [
     cacheExchange({
       keys: {
@@ -44,39 +40,6 @@ export const urqlClient = createClient({
       },
       updates: {
         Mutation: {
-          recordRoundResults: (_result, _args, cache, _info) => {
-            // Invalidate all relevant queries to force refetch
-            cache
-              .inspectFields('Query')
-              .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'activeTournament' || field.fieldName === 'players' || field.fieldName === 'matchById')
-              .forEach((field) => {
-                cache.invalidate('Query', field.fieldName, field.arguments)
-              })
-          },
-          createMatchWithRounds: (_result, _args, cache, _info) => {
-            cache
-              .inspectFields('Query')
-              .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'activeTournament')
-              .forEach((field) => {
-                cache.invalidate('Query', field.fieldName, field.arguments)
-              })
-          },
-          createTournament: (_result, _args, cache, _info) => {
-            cache
-              .inspectFields('Query')
-              .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'activeTournament')
-              .forEach((field) => {
-                cache.invalidate('Query', field.fieldName, field.arguments)
-              })
-          },
-          createPlayer: (_result, _args, cache, _info) => {
-            cache
-              .inspectFields('Query')
-              .filter((field) => field.fieldName === 'players')
-              .forEach((field) => {
-                cache.invalidate('Query', field.fieldName, field.arguments)
-              })
-          },
           checkInPlayer: (_result, _args, cache, _info) => {
             cache
               .inspectFields('Query')
@@ -93,8 +56,49 @@ export const urqlClient = createClient({
                 cache.invalidate('Query', field.fieldName, field.arguments)
               })
           },
+          createMatchWithRounds: (_result, _args, cache, _info) => {
+            cache
+              .inspectFields('Query')
+              .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'activeTournament')
+              .forEach((field) => {
+                cache.invalidate('Query', field.fieldName, field.arguments)
+              })
+          },
+          createPlayer: (_result, _args, cache, _info) => {
+            cache
+              .inspectFields('Query')
+              .filter((field) => field.fieldName === 'players')
+              .forEach((field) => {
+                cache.invalidate('Query', field.fieldName, field.arguments)
+              })
+          },
+          createTournament: (_result, _args, cache, _info) => {
+            cache
+              .inspectFields('Query')
+              .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'activeTournament')
+              .forEach((field) => {
+                cache.invalidate('Query', field.fieldName, field.arguments)
+              })
+          },
+          recordRoundResults: (_result, _args, cache, _info) => {
+            // Invalidate all relevant queries to force refetch
+            cache
+              .inspectFields('Query')
+              .filter((field) => field.fieldName === 'tournaments' || field.fieldName === 'activeTournament' || field.fieldName === 'players' || field.fieldName === 'matchById')
+              .forEach((field) => {
+                cache.invalidate('Query', field.fieldName, field.arguments)
+              })
+          },
         },
         Subscription: {
+          lobbyUpdated: (_result, _args, cache, _info) => {
+            cache
+              .inspectFields('Query')
+              .filter((field) => field.fieldName === 'currentGroup')
+              .forEach((field) => {
+                cache.invalidate('Query', field.fieldName, field.arguments)
+              })
+          },
           raceResultsUpdated: (_result, _args, cache, _info) => {
             // Invalidate all relevant queries when subscription data arrives
             cache
@@ -104,20 +108,11 @@ export const urqlClient = createClient({
                 cache.invalidate('Query', field.fieldName, field.arguments)
               })
           },
-          lobbyUpdated: (_result, _args, cache, _info) => {
-            cache
-              .inspectFields('Query')
-              .filter((field) => field.fieldName === 'currentGroup')
-              .forEach((field) => {
-                cache.invalidate('Query', field.fieldName, field.arguments)
-              })
-          },
         },
       },
     }),
     subscriptionExchange({
       enableAllOperations: false,
-      isSubscriptionOperation: (op) => op.kind === 'subscription',
       forwardSubscription: (operation) => ({
         subscribe: (sink) => ({
           unsubscribe: sseClient.subscribe(
@@ -129,8 +124,15 @@ export const urqlClient = createClient({
           ),
         }),
       }),
+      isSubscriptionOperation: (op) => op.kind === 'subscription',
     }),
     createAuthExchange(),
     fetchExchange,
   ],
+  fetchOptions: {
+    credentials: 'include',
+    method: 'POST',
+  },
+  preferGetMethod: false,
+  url: graphqlUrl,
 })

@@ -16,9 +16,15 @@ type FinalStandingsProps = {
 }
 
 const getCrownColor = (position: number): string => {
-  if (position === 1) return 'yellow.500'
-  if (position === 2) return 'gray.500'
-  if (position === 3) return 'orange.700'
+  if (position === 1) {
+    return 'yellow.500'
+  }
+  if (position === 2) {
+    return 'gray.500'
+  }
+  if (position === 3) {
+    return 'orange.700'
+  }
   return 'gray.500'
 }
 

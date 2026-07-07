@@ -20,13 +20,17 @@ export const NewMatchNotification = ({ matches, tournamentId }: NewMatchNotifica
   const [isOpen, setIsOpen] = useState(false)
   const [newMatchId, setNewMatchId] = useState<string | null>(null)
   const [lastSeenMatchCount, setLastSeenMatchCount] = useState<number>(() => {
-    if (!tournamentId) return 0
+    if (!tournamentId) {
+      return 0
+    }
     const stored = localStorage.getItem(`lastSeenMatchCount_${tournamentId}`)
     return stored ? Number.parseInt(stored, 10) : 0
   })
 
   useEffect(() => {
-    if (!tournamentId) return
+    if (!tournamentId) {
+      return
+    }
 
     const currentMatchCount = matches.length
 

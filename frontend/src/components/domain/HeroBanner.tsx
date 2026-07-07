@@ -9,7 +9,7 @@ export const HeroBanner = ({ onStartRace, showStartButton = true }: HeroBannerPr
   <Box
     position="relative"
     w="full"
-    h={{ base: '200px', md: '280px', lg: '320px' }}
+    h={{ base: '200px', lg: '320px', md: '280px' }}
     borderRadius="card"
     overflow="hidden"
     bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
@@ -18,7 +18,7 @@ export const HeroBanner = ({ onStartRace, showStartButton = true }: HeroBannerPr
     <Box position="absolute" top={0} left={0} right={0} bottom={0} backgroundImage="url('/hero_banner.jpg')" backgroundSize="cover" backgroundPosition="center" opacity={0.8} />
 
     <VStack position="relative" h="full" justify="center" align="center" gap={{ base: 4, md: 6 }} px={4}>
-      <Heading size={{ base: '2xl', md: '3xl', lg: '4xl' }} color="white" textAlign="center" textShadow="0 2px 4px rgba(0,0,0,0.3)">
+      <Heading size={{ base: '2xl', lg: '4xl', md: '3xl' }} color="white" textAlign="center" textShadow="0 2px 4px rgba(0,0,0,0.3)">
         Mario Kart Leaderboard
       </Heading>
 

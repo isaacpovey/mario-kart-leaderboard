@@ -20,15 +20,15 @@ type EloProgressionChartProps = {
 }
 
 const playerColors = [
-  '#f97316', // orange
-  '#ef4444', // red
-  '#84cc16', // lime
-  '#06b6d4', // cyan
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#14b8a6', // teal
-  '#f59e0b', // amber
-  '#6366f1', // indigo
+  '#f97316', // Orange
+  '#ef4444', // Red
+  '#84cc16', // Lime
+  '#06b6d4', // Cyan
+  '#8b5cf6', // Violet
+  '#ec4899', // Pink
+  '#14b8a6', // Teal
+  '#f59e0b', // Amber
+  '#6366f1', // Indigo
 ]
 
 const getPlayerColor = (index: number): string => playerColors[index % playerColors.length]
@@ -66,13 +66,15 @@ export const EloProgressionChart = ({ playerEloHistory }: EloProgressionChartPro
 
   const { eloMin, eloMax } = useMemo(() => {
     const allElos = playerEloHistory.flatMap((p) => p.dataPoints.map((d) => d.elo))
-    if (allElos.length === 0) return { eloMin: 1100, eloMax: 1300 }
+    if (allElos.length === 0) {
+      return { eloMax: 1300, eloMin: 1100 }
+    }
     const min = Math.min(...allElos)
     const max = Math.max(...allElos)
     const padding = Math.max(20, (max - min) * 0.1)
     return {
-      eloMin: Math.floor(min - padding),
       eloMax: Math.ceil(max + padding),
+      eloMin: Math.floor(min - padding),
     }
   }, [playerEloHistory])
 
@@ -113,7 +115,9 @@ export const EloProgressionChart = ({ playerEloHistory }: EloProgressionChartPro
   }, [uniqueTimestamps.length, totalDuration, animationKey])
 
   const currentPlayers = useMemo((): PlayerState[] => {
-    if (uniqueTimestamps.length === 0) return []
+    if (uniqueTimestamps.length === 0) {
+      return []
+    }
 
     const numSteps = uniqueTimestamps.length - 1
     const exactStep = animationProgress * numSteps
@@ -130,23 +134,25 @@ export const EloProgressionChart = ({ playerEloHistory }: EloProgressionChartPro
         const interpolatedElo = Math.round(lerp(currentElo, nextElo, stepProgress))
 
         return {
+          avatarFilename: player.avatarFilename,
+          colorIndex: playerColorMap[player.playerId] ?? 0,
+          elo: interpolatedElo,
           playerId: player.playerId,
           playerName: player.playerName,
-          avatarFilename: player.avatarFilename,
-          elo: interpolatedElo,
-          colorIndex: playerColorMap[player.playerId] ?? 0,
         }
       })
       .sort((a, b) => b.elo - a.elo)
   }, [playerEloHistory, uniqueTimestamps, animationProgress, playerColorMap])
 
   const currentDate = useMemo(() => {
-    if (uniqueTimestamps.length === 0) return ''
+    if (uniqueTimestamps.length === 0) {
+      return ''
+    }
     const numSteps = Math.max(1, uniqueTimestamps.length - 1)
     const currentIndex = Math.min(Math.floor(animationProgress * numSteps), uniqueTimestamps.length - 1)
     const timestamp = uniqueTimestamps[currentIndex]
     const date = new Date(timestamp)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
   }, [uniqueTimestamps, animationProgress])
 
   if (playerEloHistory.length === 0 || playerEloHistory.every((p) => p.dataPoints.length === 0)) {

@@ -1,4 +1,4 @@
-import { Box, Button, Heading, HStack, Text, VStack } from '@chakra-ui/react'
+import { Box, Button, HStack, Heading, Text, VStack } from '@chakra-ui/react'
 import { useMemo } from 'react'
 import { useLobby } from '../../hooks/features/useLobby'
 

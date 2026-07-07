@@ -68,17 +68,17 @@ export const useMatchManagement = () => {
   )
 
   return {
-    createMatchWithRounds,
-    isCreatingMatch,
-    createMatchError,
-    recordResults,
-    isRecordingResults,
-    recordResultsError,
     cancelMatch,
-    isCancellingMatch,
     cancelMatchError,
-    swapRoundPlayer,
+    createMatchError,
+    createMatchWithRounds,
+    isCancellingMatch,
+    isCreatingMatch,
+    isRecordingResults,
     isSwappingPlayer,
+    recordResults,
+    recordResultsError,
     swapPlayerError,
+    swapRoundPlayer,
   }
 }

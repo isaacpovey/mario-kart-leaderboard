@@ -37,7 +37,9 @@ type TeamCardProps = {
 const getPlayerResult = (playerId: string, playerResults?: PlayerResult[]) => playerResults?.find((result) => result.player.id === playerId)
 
 const formatEloChange = (change: number): string => {
-  if (change > 0) return `+${change}`
+  if (change > 0) {
+    return `+${change}`
+  }
   return String(change)
 }
 

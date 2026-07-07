@@ -1,5 +1,6 @@
-import { Box, chakra, HStack, Icon, Text } from '@chakra-ui/react'
-import { type ComponentType, Fragment } from 'react'
+import { Box, HStack, Icon, Text, chakra } from '@chakra-ui/react'
+import { Fragment } from 'react'
+import type { ComponentType } from 'react'
 
 export type BottomNavItem = {
   id: string
@@ -12,7 +13,9 @@ export type BottomNavItem = {
 
 const scrollToSection = (targetId: string) => {
   const el = document.getElementById(targetId)
-  if (!el) return
+  if (!el) {
+    return
+  }
   el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
@@ -21,7 +24,9 @@ const handleItemClick = (item: BottomNavItem) => {
     item.onClick()
     return
   }
-  if (item.targetId) scrollToSection(item.targetId)
+  if (item.targetId) {
+    scrollToSection(item.targetId)
+  }
 }
 
 type BottomNavProps = {
@@ -29,7 +34,9 @@ type BottomNavProps = {
 }
 
 export const BottomNav = ({ items }: BottomNavProps) => {
-  if (items.length === 0) return null
+  if (items.length === 0) {
+    return null
+  }
 
   return (
     <Box

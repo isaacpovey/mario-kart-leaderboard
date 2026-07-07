@@ -42,5 +42,5 @@ export const useMutationWithRefresh = <Data, Variables extends AnyVariables>(mut
     setError(null)
   }, [])
 
-  return { execute, isLoading, error, clearError }
+  return { clearError, error, execute, isLoading }
 }

@@ -12,7 +12,7 @@ Modern React frontend for the Mario Kart Leaderboard application, built with the
 - **Jotai** - Atomic state management
 - **Tailwind CSS 4** - Utility-first CSS with the latest features
 - **shadcn/ui** - High-quality, accessible components
-- **Biome** - Fast linting and formatting with all recommended rules
+- **Oxlint + Oxfmt** - Fast linting and formatting (Oxc toolchain)
 
 ## Project Structure
 
@@ -29,7 +29,8 @@ frontend/
 │   ├── App.tsx          # Main application component
 │   ├── root.tsx         # Application entry point
 │   └── index.css        # Global styles with Tailwind
-├── biome.json           # Biome linting configuration
+├── .oxlintrc.json       # Oxlint configuration
+├── .oxfmtrc.jsonc       # Oxfmt formatting configuration
 ├── components.json      # shadcn/ui configuration
 ├── tailwind.config.js   # Tailwind CSS configuration
 ├── tsconfig.json        # TypeScript configuration
