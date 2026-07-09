@@ -10,13 +10,14 @@ pub struct Player {
     pub name: String,
     pub elo_rating: i32,
     pub avatar_filename: Option<String>,
+    pub disabled: bool,
 }
 
 impl Player {
     #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_id(pool: &DbPool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
-            "SELECT id, group_id, name, elo_rating, avatar_filename FROM players WHERE id = $1",
+            "SELECT id, group_id, name, elo_rating, avatar_filename, disabled FROM players WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(pool)
@@ -26,7 +27,7 @@ impl Player {
     #[instrument(level = "debug", skip(pool), fields(batch_size = ids.len()))]
     pub async fn find_by_ids(pool: &DbPool, ids: &[Uuid]) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
-            "SELECT id, group_id, name, elo_rating, avatar_filename FROM players WHERE id = ANY($1)",
+            "SELECT id, group_id, name, elo_rating, avatar_filename, disabled FROM players WHERE id = ANY($1)",
         )
         .bind(ids)
         .fetch_all(pool)
@@ -39,7 +40,7 @@ impl Player {
         group_id: Uuid,
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
-            "SELECT id, group_id, name, elo_rating, avatar_filename FROM players WHERE group_id = $1 ORDER BY elo_rating DESC"
+            "SELECT id, group_id, name, elo_rating, avatar_filename, disabled FROM players WHERE group_id = $1 AND disabled = FALSE ORDER BY elo_rating DESC"
         )
         .bind(group_id)
         .fetch_all(pool)
@@ -52,7 +53,7 @@ impl Player {
         group_ids: &[Uuid],
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
-            "SELECT id, group_id, name, elo_rating, avatar_filename FROM players WHERE group_id = ANY($1) ORDER BY elo_rating DESC"
+            "SELECT id, group_id, name, elo_rating, avatar_filename, disabled FROM players WHERE group_id = ANY($1) AND disabled = FALSE ORDER BY elo_rating DESC"
         )
         .bind(group_ids)
         .fetch_all(pool)
@@ -66,7 +67,7 @@ impl Player {
         name: &str,
     ) -> Result<Self, sqlx::Error> {
         sqlx::query_as::<_, Self>(
-            "INSERT INTO players (group_id, name) VALUES ($1, $2) RETURNING id, group_id, name, elo_rating, avatar_filename"
+            "INSERT INTO players (group_id, name) VALUES ($1, $2) RETURNING id, group_id, name, elo_rating, avatar_filename, disabled"
         )
         .bind(group_id)
         .bind(name)
@@ -79,8 +80,8 @@ impl Player {
         pool: &DbPool,
         team_ids: &[Uuid],
     ) -> Result<Vec<(Uuid, Self)>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, (Uuid, Uuid, Uuid, String, i32, Option<String>)>(
-            "SELECT tp.team_id, p.id, p.group_id, p.name, p.elo_rating, p.avatar_filename
+        let rows = sqlx::query_as::<_, (Uuid, Uuid, Uuid, String, i32, Option<String>, bool)>(
+            "SELECT tp.team_id, p.id, p.group_id, p.name, p.elo_rating, p.avatar_filename, p.disabled
              FROM team_players tp
              JOIN players p ON tp.player_id = p.id
              WHERE tp.team_id = ANY($1)
@@ -92,18 +93,21 @@ impl Player {
 
         Ok(rows
             .into_iter()
-            .map(|(team_id, id, group_id, name, elo_rating, avatar_filename)| {
-                (
-                    team_id,
-                    Player {
-                        id,
-                        group_id,
-                        name,
-                        elo_rating,
-                        avatar_filename,
-                    },
-                )
-            })
+            .map(
+                |(team_id, id, group_id, name, elo_rating, avatar_filename, disabled)| {
+                    (
+                        team_id,
+                        Player {
+                            id,
+                            group_id,
+                            name,
+                            elo_rating,
+                            avatar_filename,
+                            disabled,
+                        },
+                    )
+                },
+            )
             .collect())
     }
 
@@ -118,8 +122,8 @@ impl Player {
             .map(|(_, round_number)| *round_number)
             .collect();
 
-        let rows = sqlx::query_as::<_, (Uuid, i32, Uuid, Uuid, String, i32, Option<String>)>(
-            "SELECT rp.match_id, rp.round_number, p.id, p.group_id, p.name, p.elo_rating, p.avatar_filename
+        let rows = sqlx::query_as::<_, (Uuid, i32, Uuid, Uuid, String, i32, Option<String>, bool)>(
+            "SELECT rp.match_id, rp.round_number, p.id, p.group_id, p.name, p.elo_rating, p.avatar_filename, p.disabled
              FROM round_players rp
              JOIN players p ON rp.player_id = p.id
              WHERE rp.match_id = ANY($1) AND rp.round_number = ANY($2)
@@ -132,18 +136,21 @@ impl Player {
 
         Ok(rows
             .into_iter()
-            .map(|(match_id, round_number, id, group_id, name, elo_rating, avatar_filename)| {
-                (
-                    (match_id, round_number),
-                    Player {
-                        id,
-                        group_id,
-                        name,
-                        elo_rating,
-                        avatar_filename,
-                    },
-                )
-            })
+            .map(
+                |(match_id, round_number, id, group_id, name, elo_rating, avatar_filename, disabled)| {
+                    (
+                        (match_id, round_number),
+                        Player {
+                            id,
+                            group_id,
+                            name,
+                            elo_rating,
+                            avatar_filename,
+                            disabled,
+                        },
+                    )
+                },
+            )
             .collect())
     }
 }

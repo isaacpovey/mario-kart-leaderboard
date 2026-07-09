@@ -10,6 +10,7 @@ fn create_test_player(name: &str, elo_rating: i32) -> Player {
         name: name.to_string(),
         elo_rating,
         avatar_filename: None,
+        disabled: false,
     }
 }
 

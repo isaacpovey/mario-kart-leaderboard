@@ -54,6 +54,10 @@ impl MatchesMutation {
             return Err(Error::new("One or more players cound not be found"));
         }
 
+        if players.iter().any(|p| p.disabled) {
+            return Err(Error::new("One or more players are disabled"));
+        }
+
         let match_result = match_service::create_match_with_rounds(
             &gql_ctx.pool,
             group_id,

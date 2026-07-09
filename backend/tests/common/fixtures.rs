@@ -27,6 +27,15 @@ pub async fn create_test_player(
     Player::create(pool, group_id, name).await
 }
 
+/// Disable a player (simulates manual DB update)
+pub async fn disable_player(pool: &PgPool, player_id: Uuid) -> Result<(), sqlx::Error> {
+    sqlx::query("UPDATE players SET disabled = TRUE WHERE id = $1")
+        .bind(player_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 /// Create multiple test players for a group
 pub async fn create_test_players(
     pool: &PgPool,

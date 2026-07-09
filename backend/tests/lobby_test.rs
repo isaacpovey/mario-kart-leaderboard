@@ -461,3 +461,84 @@ async fn test_lobby_updated_subscription_fires_on_check_in_and_filters_by_group(
     );
     assert_eq!(lobby[0].get("name").and_then(|v| v.as_str()), Some("Alice"));
 }
+
+#[tokio::test]
+async fn test_check_in_rejects_disabled_player() {
+    let ctx = setup::setup_test_db().await;
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test players");
+    let alice = &players[0];
+
+    fixtures::disable_player(&ctx.pool, alice.id)
+        .await
+        .expect("Failed to disable player");
+
+    let mutation = r#"
+        mutation CheckIn($playerId: ID!) {
+            checkInPlayer(playerId: $playerId) { id }
+        }
+    "#;
+
+    let request = Request::new(mutation)
+        .variables(Variables::from_value(value!({
+            "playerId": alice.id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(
+        !response.errors.is_empty(),
+        "Expected an error for disabled player check-in"
+    );
+    assert_eq!(
+        response.errors[0].message, "Player is disabled",
+        "Expected 'Player is disabled' error"
+    );
+}
+
+#[tokio::test]
+async fn test_disabled_player_excluded_from_group_players() {
+    let ctx = setup::setup_test_db().await;
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 2)
+        .await
+        .expect("Failed to create test players");
+
+    fixtures::disable_player(&ctx.pool, players[0].id)
+        .await
+        .expect("Failed to disable player");
+
+    let query = r#"
+        query {
+            currentGroup {
+                players { id name }
+            }
+        }
+    "#;
+
+    let request = Request::new(query).data(ctx.config.clone());
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(response.errors.is_empty(), "Expected no errors: {:?}", response.errors);
+
+    let data = response.data.into_json().expect("Failed to parse response");
+    let group_players = data
+        .get("currentGroup").unwrap()
+        .get("players").unwrap()
+        .as_array().unwrap();
+
+    assert_eq!(group_players.len(), 1);
+    assert_eq!(
+        group_players[0].get("id").and_then(|v| v.as_str()),
+        Some(players[1].id.to_string().as_str())
+    );
+}
