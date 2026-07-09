@@ -37,10 +37,10 @@ impl Team {
         pool: &DbPool,
         match_id: Uuid,
     ) -> Result<Vec<(Team, Vec<Player>)>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, (Uuid, Uuid, Uuid, i32, Option<i32>, Uuid, Uuid, String, i32, Option<String>)>(
+        let rows = sqlx::query_as::<_, (Uuid, Uuid, Uuid, i32, Option<i32>, Uuid, Uuid, String, i32, Option<String>, bool)>(
             "SELECT
                 t.id, t.group_id, t.match_id, t.team_num, t.score,
-                p.id, p.group_id, p.name, p.elo_rating, p.avatar_filename
+                p.id, p.group_id, p.name, p.elo_rating, p.avatar_filename, p.disabled
              FROM teams t
              JOIN team_players tp ON tp.team_id = t.id
              JOIN players p ON p.id = tp.player_id
@@ -54,7 +54,7 @@ impl Team {
         let grouped = rows.into_iter().fold(
             HashMap::<Uuid, (Team, Vec<Player>)>::new(),
             |mut acc, (team_id, team_group_id, team_match_id, team_num, score,
-                       player_id, player_group_id, player_name, player_elo, player_avatar)| {
+                       player_id, player_group_id, player_name, player_elo, player_avatar, disabled)| {
                 let team = Team {
                     id: team_id,
                     group_id: team_group_id,
@@ -68,6 +68,7 @@ impl Team {
                     name: player_name,
                     elo_rating: player_elo,
                     avatar_filename: player_avatar,
+                    disabled,
                 };
 
                 acc.entry(team_id)

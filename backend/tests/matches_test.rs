@@ -723,6 +723,146 @@ async fn test_create_match_with_rounds_tournament_not_found() {
 }
 
 #[tokio::test]
+async fn test_create_match_with_rounds_rejects_disabled_player() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("Failed to create test players");
+
+    fixtures::disable_player(&ctx.pool, players[0].id)
+        .await
+        .expect("Failed to disable player");
+
+    let player_ids: Vec<String> = players.iter().map(|p| p.id.to_string()).collect();
+
+    let query = r#"
+        mutation CreateMatch($tournamentId: ID!, $playerIds: [ID!]!, $numRaces: Int!) {
+            createMatchWithRounds(
+                tournamentId: $tournamentId
+                playerIds: $playerIds
+                numRaces: $numRaces
+            ) {
+                id
+            }
+        }
+    "#;
+
+    let request = Request::new(query)
+        .variables(Variables::from_value(value!({
+            "tournamentId": tournament.id.to_string(),
+            "playerIds": player_ids,
+            "numRaces": 2
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(!response.errors.is_empty(), "Expected validation error");
+    assert_eq!(
+        response.errors[0].message, "One or more players are disabled",
+        "Expected disabled player error"
+    );
+}
+
+#[tokio::test]
+async fn test_disabled_player_still_visible_in_match() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 2)
+        .await
+        .expect("Failed to create test teams");
+
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 2)
+        .await
+        .expect("Failed to create test players");
+
+    for (i, (team, player)) in teams.iter().zip(players.iter()).enumerate() {
+        sqlx::query("INSERT INTO team_players (group_id, team_id, player_id, rank) VALUES ($1, $2, $3, $4)")
+            .bind(group.id)
+            .bind(team.id)
+            .bind(player.id)
+            .bind(i as i32 + 1)
+            .execute(&ctx.pool)
+            .await
+            .expect("Failed to add player to team");
+    }
+
+    fixtures::disable_player(&ctx.pool, players[0].id)
+        .await
+        .expect("Failed to disable player");
+
+    let query = r#"
+        query MatchById($matchId: ID!) {
+            matchById(matchId: $matchId) {
+                teams {
+                    players { id name }
+                }
+            }
+        }
+    "#;
+
+    let request = Request::new(query)
+        .variables(Variables::from_value(value!({
+            "matchId": match_record.id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(
+        response.errors.is_empty(),
+        "Expected no errors: {:?}",
+        response.errors
+    );
+
+    let data = response.data.into_json().expect("Failed to parse response");
+    let teams_data = data
+        .get("matchById")
+        .unwrap()
+        .get("teams")
+        .unwrap()
+        .as_array()
+        .unwrap();
+
+    let match_player_ids: Vec<&str> = teams_data
+        .iter()
+        .flat_map(|team| team.get("players").unwrap().as_array().unwrap())
+        .filter_map(|p| p.get("id").and_then(|v| v.as_str()))
+        .collect();
+
+    assert_eq!(match_player_ids.len(), 2);
+    assert!(
+        match_player_ids.contains(&players[0].id.to_string().as_str()),
+        "Disabled player should still appear in match teams"
+    );
+}
+
+#[tokio::test]
 async fn test_create_match_with_rounds_uneven_slot_distribution() {
     let ctx = setup::setup_test_db().await;
 

@@ -12,6 +12,7 @@ fn create_test_player(id: Uuid, group_id: Uuid, name: &str, elo_rating: i32) -> 
         name: name.to_string(),
         elo_rating,
         avatar_filename: None,
+        disabled: false,
     }
 }
 

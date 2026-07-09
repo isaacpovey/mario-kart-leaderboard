@@ -34,6 +34,10 @@ impl LobbyMutation {
             return Err(Error::new("Player not found"));
         }
 
+        if player.disabled {
+            return Err(Error::new("Player is disabled"));
+        }
+
         models::LobbyEntry::check_in(&gql_ctx.pool, group_id, player_uuid).await?;
 
         if let Err(e) = gql_ctx

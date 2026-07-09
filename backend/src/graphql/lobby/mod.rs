@@ -28,6 +28,12 @@ pub async fn fetch_lobby(pool: &DbPool, group_id: Uuid) -> Result<Vec<Player>> {
 
     Ok(entries
         .iter()
-        .filter_map(|e| players.iter().find(|p| p.id == e.player_id).cloned().map(Player::from))
+        .filter_map(|e| {
+            players
+                .iter()
+                .find(|p| p.id == e.player_id && !p.disabled)
+                .cloned()
+                .map(Player::from)
+        })
         .collect())
 }

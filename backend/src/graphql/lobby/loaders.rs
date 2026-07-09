@@ -42,7 +42,9 @@ impl Loader<Uuid> for LobbyByGroupLoader {
             HashMap::<Uuid, Vec<Player>>::new(),
             |mut acc, entry| {
                 if let Some(player) = player_by_id.get(&entry.player_id).cloned() {
-                    acc.entry(entry.group_id).or_default().push(player);
+                    if !player.disabled {
+                        acc.entry(entry.group_id).or_default().push(player);
+                    }
                 }
                 acc
             },
