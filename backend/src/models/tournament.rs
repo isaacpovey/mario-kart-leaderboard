@@ -13,6 +13,17 @@ pub struct Tournament {
     pub winner: Option<Uuid>,
 }
 
+#[derive(Debug, Clone, FromRow)]
+pub struct CompletedTournamentRow {
+    pub id: Uuid,
+    pub start_date: Option<NaiveDate>,
+    pub end_date: Option<NaiveDate>,
+    pub winner: Option<Uuid>,
+    pub winner_name: Option<String>,
+    pub winner_avatar_filename: Option<String>,
+    pub participant_count: i64,
+}
+
 impl Tournament {
     #[instrument(level = "debug", skip(pool))]
     pub async fn find_by_id(pool: &DbPool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
@@ -46,6 +57,44 @@ impl Tournament {
              ORDER BY start_date DESC NULLS LAST",
         )
         .bind(group_id)
+        .fetch_all(pool)
+        .await
+    }
+
+    #[instrument(level = "debug", skip(pool))]
+    pub async fn count_completed_by_group_id(
+        pool: &DbPool,
+        group_id: Uuid,
+    ) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM tournaments WHERE group_id = $1 AND winner IS NOT NULL",
+        )
+        .bind(group_id)
+        .fetch_one(pool)
+        .await
+    }
+
+    #[instrument(level = "debug", skip(pool))]
+    pub async fn find_completed_by_group_id_paginated(
+        pool: &DbPool,
+        group_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<CompletedTournamentRow>, sqlx::Error> {
+        sqlx::query_as::<_, CompletedTournamentRow>(
+            "SELECT t.id, t.start_date, t.end_date, t.winner,
+                    p.name AS winner_name, p.avatar_filename AS winner_avatar_filename,
+                    (SELECT COUNT(*)::bigint FROM player_tournament_scores pts
+                     WHERE pts.tournament_id = t.id) AS participant_count
+             FROM tournaments t
+             LEFT JOIN players p ON p.id = t.winner
+             WHERE t.group_id = $1 AND t.winner IS NOT NULL
+             ORDER BY t.start_date DESC NULLS LAST, t.end_date DESC NULLS LAST
+             LIMIT $2 OFFSET $3",
+        )
+        .bind(group_id)
+        .bind(limit)
+        .bind(offset)
         .fetch_all(pool)
         .await
     }

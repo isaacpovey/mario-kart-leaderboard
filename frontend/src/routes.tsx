@@ -4,6 +4,8 @@ import Home from './pages/Home'
 import { Login } from './pages/Login'
 import Match from './pages/Match'
 import PlayerStats from './pages/PlayerStats'
+import TournamentDetail from './pages/TournamentDetail'
+import TournamentHistory from './pages/TournamentHistory'
 
 export const router = createBrowserRouter([
   {
@@ -13,6 +15,22 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     path: '/',
+  },
+  {
+    element: (
+      <ProtectedRoute>
+        <TournamentHistory />
+      </ProtectedRoute>
+    ),
+    path: '/tournaments',
+  },
+  {
+    element: (
+      <ProtectedRoute>
+        <TournamentDetail />
+      </ProtectedRoute>
+    ),
+    path: '/tournament/:tournamentId',
   },
   {
     element: (

@@ -5,6 +5,7 @@ pub mod types;
 pub use mutations::TournamentsMutation;
 pub use queries::TournamentsQuery;
 pub use types::{
-    ActiveTournamentWithLeaderboard, LeaderboardEntry, PlayerEloHistory, Tournament,
-    TournamentDetail, TournamentStat, TournamentStatType, TournamentSummary,
+    ActiveTournamentWithLeaderboard, CompletedTournamentSummary, CompletedTournamentsPage,
+    LeaderboardEntry, PlayerEloHistory, PlayerTournamentPlacing, Tournament, TournamentDetail,
+    TournamentStat, TournamentStatType, TournamentSummary,
 };

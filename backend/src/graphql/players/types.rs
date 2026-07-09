@@ -1,5 +1,6 @@
 use crate::graphql::context::GraphQLContext;
-use crate::models::{PlayerMatchScore, PlayerRaceScore, Tournament};
+use crate::graphql::tournaments::types::PlayerTournamentPlacing;
+use crate::models::{self, PlayerMatchScore, PlayerRaceScore, Tournament};
 use async_graphql::*;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -110,5 +111,21 @@ impl Player {
                 tournament_elo_change: m.tournament_elo_change,
             })
             .collect())
+    }
+
+    async fn past_tournament_placings(
+        &self,
+        ctx: &Context<'_>,
+    ) -> Result<Vec<PlayerTournamentPlacing>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+
+        let placings = models::PlayerTournamentScore::get_past_tournament_placings(
+            &gql_ctx.pool,
+            self.id,
+            self.group_id,
+        )
+        .await?;
+
+        Ok(placings.into_iter().map(PlayerTournamentPlacing::from).collect())
     }
 }
