@@ -230,3 +230,100 @@ async fn test_disabled_player_still_visible_by_id() {
         Some(player.name.as_str())
     );
 }
+
+#[tokio::test]
+async fn test_past_tournament_placings_ranks_among_all_players() {
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 4)
+        .await
+        .expect("Failed to create test players");
+
+    let tournament = fixtures::create_test_tournament(
+        &ctx.pool,
+        group.id,
+        chrono::NaiveDate::from_ymd_opt(2024, 1, 1),
+        chrono::NaiveDate::from_ymd_opt(2024, 1, 7),
+    )
+    .await
+    .expect("Failed to create test tournament");
+
+    let elos = [1400, 1300, 1200, 1100];
+    for (player, elo) in players.iter().zip(elos) {
+        sqlx::query(
+            "INSERT INTO player_tournament_scores
+             (tournament_id, player_id, group_id, elo_rating)
+             VALUES ($1, $2, $3, $4)",
+        )
+        .bind(tournament.id)
+        .bind(player.id)
+        .bind(group.id)
+        .bind(elo)
+        .execute(&ctx.pool)
+        .await
+        .expect("Failed to insert tournament score");
+    }
+
+    sqlx::query("UPDATE tournaments SET winner = $1 WHERE id = $2")
+        .bind(players[0].id)
+        .bind(tournament.id)
+        .execute(&ctx.pool)
+        .await
+        .expect("Failed to mark tournament completed");
+
+    let query = r#"
+        query PlayerById($playerId: ID!) {
+            playerById(playerId: $playerId) {
+                id
+                pastTournamentPlacings {
+                    tournamentId
+                    placing
+                    totalPlayers
+                }
+            }
+        }
+    "#;
+
+    let request = Request::new(query)
+        .variables(Variables::from_value(value!({
+            "playerId": players[1].id.to_string()
+        })))
+        .data(ctx.config.clone());
+
+    let gql_ctx = GraphQLContext::new(ctx.pool.clone(), Some(group.id), NotificationManager::new());
+    let response = ctx.schema.execute(request.data(gql_ctx)).await;
+
+    assert!(
+        response.errors.is_empty(),
+        "Expected no errors: {:?}",
+        response.errors
+    );
+
+    let data = response.data.into_json().expect("Failed to parse response");
+    let player_data = data.get("playerById").expect("playerById field not found");
+    let placings = player_data
+        .get("pastTournamentPlacings")
+        .expect("pastTournamentPlacings field not found")
+        .as_array()
+        .expect("pastTournamentPlacings should be an array");
+
+    assert_eq!(placings.len(), 1, "Expected one past placing");
+    assert_eq!(
+        placings[0].get("placing").and_then(|v| v.as_i64()),
+        Some(2),
+        "Second-highest ELO should place 2nd"
+    );
+    assert_eq!(
+        placings[0].get("totalPlayers").and_then(|v| v.as_i64()),
+        Some(4),
+        "Total players should include all tournament participants"
+    );
+    assert_eq!(
+        placings[0].get("tournamentId").and_then(|v| v.as_str()),
+        Some(tournament.id.to_string().as_str())
+    );
+}
