@@ -1,0 +1,26 @@
+{
+  "$schema": "https://www.cursor.com/schemas/environment.schema.json",
+  "name": "mario-kart-leaderboard",
+  "user": "ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "install": "cd frontend && pnpm install && cd ../backend && cargo fetch",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "cd backend && cargo run --bin mario-kart-leaderboard-backend",
+      "description": "Rust Axum GraphQL API — http://localhost:8080 (playground at /, GraphQL at /graphql)"
+    },
+    {
+      "name": "frontend",
+      "command": "cd frontend && pnpm dev",
+      "description": "React + Vite dev server — http://localhost:5173"
+    }
+  ],
+  "ports": [
+    { "name": "backend", "port": 8080 },
+    { "name": "frontend", "port": 5173 }
+  ]
+}
