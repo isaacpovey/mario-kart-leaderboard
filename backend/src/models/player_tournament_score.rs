@@ -139,26 +139,31 @@ impl PlayerTournamentScore {
         player_id: Uuid,
         group_id: Uuid,
     ) -> Result<Vec<PlayerTournamentPlacingRow>, sqlx::Error> {
+        // Rank every participant in completed tournaments first, then filter to the
+        // requested player. Filtering before the window functions would make every
+        // placing 1/1. "placing" is also a reserved word in PostgreSQL, so it must
+        // be quoted as an identifier.
         sqlx::query_as::<_, PlayerTournamentPlacingRow>(
-            "WITH ranked AS (
+            r#"WITH ranked AS (
                 SELECT
                     pts.tournament_id,
+                    pts.player_id,
                     t.start_date,
                     t.end_date,
                     ROW_NUMBER() OVER (
                         PARTITION BY pts.tournament_id
                         ORDER BY pts.elo_rating DESC
-                    )::int AS placing,
+                    )::int AS "placing",
                     COUNT(*) OVER (PARTITION BY pts.tournament_id)::int AS total_players
                 FROM player_tournament_scores pts
                 JOIN tournaments t ON t.id = pts.tournament_id
-                WHERE pts.player_id = $1
-                  AND t.group_id = $2
+                WHERE t.group_id = $2
                   AND t.winner IS NOT NULL
             )
-            SELECT tournament_id, start_date, end_date, placing, total_players
+            SELECT tournament_id, start_date, end_date, "placing", total_players
             FROM ranked
-            ORDER BY start_date DESC NULLS LAST, end_date DESC NULLS LAST",
+            WHERE player_id = $1
+            ORDER BY start_date DESC NULLS LAST, end_date DESC NULLS LAST"#,
         )
         .bind(player_id)
         .bind(group_id)
