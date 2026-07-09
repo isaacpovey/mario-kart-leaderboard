@@ -192,6 +192,23 @@ impl LeaderboardEntry {
     async fn avatar_filename(&self) -> Option<&str> {
         self.avatar_filename.as_deref()
     }
+
+    async fn past_tournament_placings(
+        &self,
+        ctx: &Context<'_>,
+    ) -> Result<Vec<PlayerTournamentPlacing>> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+        let group_id = gql_ctx.authenticated_group_id()?;
+
+        let placings = models::PlayerTournamentScore::get_past_tournament_placings(
+            &gql_ctx.pool,
+            self.player_id,
+            group_id,
+        )
+        .await?;
+
+        Ok(placings.into_iter().map(PlayerTournamentPlacing::from).collect())
+    }
 }
 
 #[derive(Clone)]
@@ -242,6 +259,60 @@ pub struct TournamentSummary {
     pub start_date: Option<String>,
     pub end_date: Option<String>,
     pub winner_id: Option<ID>,
+}
+
+#[derive(Clone, SimpleObject)]
+pub struct CompletedTournamentSummary {
+    #[graphql(name = "id")]
+    pub id_str: ID,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub winner_id: Option<ID>,
+    pub winner_name: Option<String>,
+    pub winner_avatar_filename: Option<String>,
+    pub participant_count: i32,
+}
+
+impl From<models::CompletedTournamentRow> for CompletedTournamentSummary {
+    fn from(row: models::CompletedTournamentRow) -> Self {
+        Self {
+            id_str: ID(row.id.to_string()),
+            start_date: row.start_date.map(|d| d.to_string()),
+            end_date: row.end_date.map(|d| d.to_string()),
+            winner_id: row.winner.map(|id| ID(id.to_string())),
+            winner_name: row.winner_name,
+            winner_avatar_filename: row.winner_avatar_filename,
+            participant_count: row.participant_count as i32,
+        }
+    }
+}
+
+#[derive(Clone, SimpleObject)]
+pub struct CompletedTournamentsPage {
+    pub items: Vec<CompletedTournamentSummary>,
+    pub total_count: i32,
+    pub has_more: bool,
+}
+
+#[derive(Clone, SimpleObject)]
+pub struct PlayerTournamentPlacing {
+    pub tournament_id: ID,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub placing: i32,
+    pub total_players: i32,
+}
+
+impl From<models::PlayerTournamentPlacingRow> for PlayerTournamentPlacing {
+    fn from(row: models::PlayerTournamentPlacingRow) -> Self {
+        Self {
+            tournament_id: ID(row.tournament_id.to_string()),
+            start_date: row.start_date.map(|d| d.to_string()),
+            end_date: row.end_date.map(|d| d.to_string()),
+            placing: row.placing,
+            total_players: row.total_players,
+        }
+    }
 }
 
 impl From<models::Tournament> for TournamentSummary {

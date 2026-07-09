@@ -1,5 +1,5 @@
 use crate::db::DbPool;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::{FromRow, Postgres, Transaction};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -133,4 +133,45 @@ impl PlayerTournamentScore {
         .fetch_all(pool)
         .await
     }
+
+    pub async fn get_past_tournament_placings(
+        pool: &DbPool,
+        player_id: Uuid,
+        group_id: Uuid,
+    ) -> Result<Vec<PlayerTournamentPlacingRow>, sqlx::Error> {
+        sqlx::query_as::<_, PlayerTournamentPlacingRow>(
+            "WITH ranked AS (
+                SELECT
+                    pts.tournament_id,
+                    t.start_date,
+                    t.end_date,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY pts.tournament_id
+                        ORDER BY pts.elo_rating DESC
+                    )::int AS placing,
+                    COUNT(*) OVER (PARTITION BY pts.tournament_id)::int AS total_players
+                FROM player_tournament_scores pts
+                JOIN tournaments t ON t.id = pts.tournament_id
+                WHERE pts.player_id = $1
+                  AND t.group_id = $2
+                  AND t.winner IS NOT NULL
+            )
+            SELECT tournament_id, start_date, end_date, placing, total_players
+            FROM ranked
+            ORDER BY start_date DESC NULLS LAST, end_date DESC NULLS LAST",
+        )
+        .bind(player_id)
+        .bind(group_id)
+        .fetch_all(pool)
+        .await
+    }
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct PlayerTournamentPlacingRow {
+    pub tournament_id: Uuid,
+    pub start_date: Option<NaiveDate>,
+    pub end_date: Option<NaiveDate>,
+    pub placing: i32,
+    pub total_players: i32,
 }

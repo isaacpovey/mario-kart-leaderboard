@@ -8,6 +8,7 @@ import { BottomNav } from '../components/domain/BottomNav'
 import type { BottomNavItem } from '../components/domain/BottomNav'
 import { PlayerHeader } from '../components/domain/PlayerHeader'
 import { PlayerMatchHistory } from '../components/domain/PlayerMatchHistory'
+import { PlayerTournamentPlacings } from '../components/domain/PlayerTournamentPlacings'
 import { PlayerTrackStats } from '../components/domain/PlayerTrackStats'
 import { playerByIdQueryAtom } from '../store/queries'
 
@@ -43,6 +44,14 @@ const PlayerStats = () => {
     tournamentEloChange: match.tournamentEloChange,
   }))
 
+  const pastPlacings = (player.pastTournamentPlacings ?? []).map((placing) => ({
+    endDate: placing.endDate,
+    placing: placing.placing,
+    startDate: placing.startDate,
+    totalPlayers: placing.totalPlayers,
+    tournamentId: placing.tournamentId,
+  }))
+
   const navItems: BottomNavItem[] = [
     { dividerAfter: true, icon: LuHouse, id: 'home', label: 'Home', onClick: () => navigate('/') },
     ...(trackStats.length > 0 ? ([{ icon: LuMap, id: 'tracks', label: 'Tracks', targetId: 'tracks-section' }] satisfies BottomNavItem[]) : []),
@@ -58,6 +67,18 @@ const PlayerStats = () => {
           </Heading>
 
           <PlayerHeader name={player.name} avatarFilename={player.avatarFilename} tournamentElo={player.currentTournamentElo} allTimeElo={player.eloRating} />
+
+          {pastPlacings.length > 0 && (
+            <>
+              <Box h="1px" bg="gray.200" />
+              <VStack gap={{ base: 3, md: 4 }} align="stretch">
+                <Heading size={{ base: 'md', md: 'lg' }} color="gray.900">
+                  Tournament Placings
+                </Heading>
+                <PlayerTournamentPlacings placings={pastPlacings} />
+              </VStack>
+            </>
+          )}
 
           {trackStats.length > 0 && (
             <>

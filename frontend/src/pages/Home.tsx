@@ -1,8 +1,9 @@
-import { Box, Button, Container, HStack, Heading, Spinner, Stack, Text, VStack } from '@chakra-ui/react'
+import { Box, Button, Container, HStack, Heading, Link as ChakraLink, Spinner, Stack, Text, VStack } from '@chakra-ui/react'
 import type { ResultOf } from 'gql.tada'
 import { useAtomValue } from 'jotai'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { LuFlag, LuPlay, LuTrophy, LuUsers } from 'react-icons/lu'
+import { LuFlag, LuHistory, LuPlay, LuTrophy, LuUsers } from 'react-icons/lu'
+import { Link, useNavigate } from 'react-router'
 import { useClient, useQuery } from 'urql'
 import { CompleteTournamentModal } from '../components/CompleteTournamentModal'
 import { CreateMatchModal } from '../components/CreateMatchModal'
@@ -83,17 +84,22 @@ type ActiveTournament = NonNullable<ResultOf<typeof activeTournamentQuery>['acti
 type BuildNavItemsArgs = {
   hasActiveTournament: boolean
   onStartRace: () => void
+  onViewHistory: () => void
 }
 
-const buildNavItems = ({ hasActiveTournament, onStartRace }: BuildNavItemsArgs): BottomNavItem[] => {
+const buildNavItems = ({ hasActiveTournament, onStartRace, onViewHistory }: BuildNavItemsArgs): BottomNavItem[] => {
   if (!hasActiveTournament) {
-    return [{ icon: LuUsers, id: 'lobby', label: 'Lobby', targetId: 'lobby-section' }]
+    return [
+      { icon: LuUsers, id: 'lobby', label: 'Lobby', targetId: 'lobby-section' },
+      { icon: LuHistory, id: 'history', label: 'History', onClick: onViewHistory },
+    ]
   }
   return [
     { icon: LuUsers, id: 'lobby', label: 'Lobby', targetId: 'lobby-section' },
     { icon: LuTrophy, id: 'leaderboard', label: 'Leaderboard', targetId: 'leaderboard-section' },
     { dividerAfter: true, icon: LuFlag, id: 'races', label: 'Races', targetId: 'races-section' },
     { icon: LuPlay, id: 'start-race', label: 'Start Race', onClick: onStartRace },
+    { icon: LuHistory, id: 'history', label: 'History', onClick: onViewHistory },
   ]
 }
 
@@ -158,6 +164,7 @@ const LoadingState = () => (
 
 const Home = () => {
   const { logout } = useAuth()
+  const navigate = useNavigate()
   const urqlClient = useClient()
   const activeTournamentResult = useAtomValue(activeTournamentQueryAtom)
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
@@ -195,6 +202,7 @@ const Home = () => {
   const navItems = buildNavItems({
     hasActiveTournament: currentTournament !== null,
     onStartRace: () => setIsMatchModalOpen(true),
+    onViewHistory: () => navigate('/tournaments'),
   })
 
   // Subscribe to race result updates for live leaderboard and match list
@@ -240,7 +248,12 @@ const Home = () => {
 
           {currentTournament && <ActiveTournamentContent tournament={currentTournament} />}
           {!currentTournament && completedTournamentData && (
-            <TournamentSummary tournament={completedTournamentData} showStartButton onStartTournament={() => setIsTournamentModalOpen(true)} />
+            <>
+              <TournamentSummary tournament={completedTournamentData} showStartButton onStartTournament={() => setIsTournamentModalOpen(true)} />
+              <ChakraLink asChild color="brand.600" fontWeight="medium" fontSize={{ base: 'sm', md: 'md' }} alignSelf="center">
+                <Link to="/tournaments">View all past tournaments →</Link>
+              </ChakraLink>
+            </>
           )}
           {!currentTournament && !completedTournamentData && <EmptyState onStartTournament={() => setIsTournamentModalOpen(true)} />}
 

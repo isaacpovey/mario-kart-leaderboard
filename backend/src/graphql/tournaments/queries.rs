@@ -1,7 +1,8 @@
 use crate::graphql::context::GraphQLContext;
 use crate::graphql::tournaments::types::{
-    build_player_elo_history, ActiveTournamentWithLeaderboard, LeaderboardEntry, Tournament,
-    TournamentDetail, TournamentStat, TournamentSummary,
+    build_player_elo_history, ActiveTournamentWithLeaderboard, CompletedTournamentSummary,
+    CompletedTournamentsPage, LeaderboardEntry, Tournament, TournamentDetail, TournamentStat,
+    TournamentSummary,
 };
 use crate::models;
 use async_graphql::*;
@@ -22,6 +23,38 @@ impl TournamentsQuery {
             .into_iter()
             .map(TournamentSummary::from)
             .collect())
+    }
+
+    async fn completed_tournaments(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Number of tournaments to return", default = 10)] limit: i32,
+        #[graphql(desc = "Number of tournaments to skip", default = 0)] offset: i32,
+    ) -> Result<CompletedTournamentsPage> {
+        let gql_ctx = ctx.data::<GraphQLContext>()?;
+        let group_id = gql_ctx.authenticated_group_id()?;
+
+        let limit = limit.clamp(1, 50) as i64;
+        let offset = offset.max(0) as i64;
+
+        let total_count =
+            models::Tournament::count_completed_by_group_id(&gql_ctx.pool, group_id).await?;
+
+        let rows = models::Tournament::find_completed_by_group_id_paginated(
+            &gql_ctx.pool,
+            group_id,
+            limit,
+            offset,
+        )
+        .await?;
+
+        let has_more = (offset + rows.len() as i64) < total_count;
+
+        Ok(CompletedTournamentsPage {
+            items: rows.into_iter().map(CompletedTournamentSummary::from).collect(),
+            total_count: total_count as i32,
+            has_more,
+        })
     }
 
     async fn active_tournament(

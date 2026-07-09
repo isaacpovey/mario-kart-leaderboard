@@ -13,6 +13,13 @@ export const activeTournamentQuery = graphql(`
         allTimeEloRating
         allTimeElo
         avatarFilename
+        pastTournamentPlacings {
+          tournamentId
+          startDate
+          endDate
+          placing
+          totalPlayers
+        }
       }
       matches {
         id
