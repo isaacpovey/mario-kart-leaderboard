@@ -140,8 +140,12 @@ impl PlayerTournamentScore {
         group_id: Uuid,
     ) -> Result<Vec<PlayerTournamentPlacingRow>, sqlx::Error> {
         sqlx::query_as::<_, PlayerTournamentPlacingRow>(
+            // Rank across all tournament participants first, then filter to the
+            // requested player. Alias `place_num` instead of `placing` because
+            // PLACING is reserved in PostgreSQL (OVERLAY ... PLACING ...).
             "WITH ranked AS (
                 SELECT
+                    pts.player_id,
                     pts.tournament_id,
                     t.start_date,
                     t.end_date,
@@ -149,16 +153,16 @@ impl PlayerTournamentScore {
                     ROW_NUMBER() OVER (
                         PARTITION BY pts.tournament_id
                         ORDER BY pts.elo_rating DESC
-                    )::int AS placing,
+                    )::int AS place_num,
                     COUNT(*) OVER (PARTITION BY pts.tournament_id)::int AS total_players
                 FROM player_tournament_scores pts
                 JOIN tournaments t ON t.id = pts.tournament_id
-                WHERE pts.player_id = $1
-                  AND t.group_id = $2
+                WHERE t.group_id = $2
                   AND t.winner IS NOT NULL
             )
-            SELECT tournament_id, start_date, end_date, elo_rating, placing, total_players
+            SELECT tournament_id, start_date, end_date, elo_rating, place_num, total_players
             FROM ranked
+            WHERE player_id = $1
             ORDER BY start_date DESC NULLS LAST, end_date DESC NULLS LAST",
         )
         .bind(player_id)
@@ -174,6 +178,7 @@ pub struct PlayerTournamentPlacingRow {
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
     pub elo_rating: i32,
+    #[sqlx(rename = "place_num")]
     pub placing: i32,
     pub total_players: i32,
 }

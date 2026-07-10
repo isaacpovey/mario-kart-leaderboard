@@ -78,8 +78,7 @@ export const PlayerTournamentPlacings = ({ placings }: PlayerTournamentPlacingsP
                     alignItems="center"
                     gap={1}
                   >
-                    {isWinner && <LuCrown size={18} fill="currentColor" />}
-                    #{placing.placing}
+                    {isWinner && <LuCrown size={18} fill="currentColor" />}#{placing.placing}
                   </Badge>
                   <VStack align="start" gap={0} minW={0}>
                     <Text fontWeight="bold" fontSize={{ base: 'md', md: 'lg' }} color="gray.900" truncate>
