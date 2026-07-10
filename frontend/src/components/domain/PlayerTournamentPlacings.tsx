@@ -1,4 +1,4 @@
-import { Badge, HStack, Text, Wrap, WrapItem } from '@chakra-ui/react'
+import { Badge, Box, HStack, Text, VStack } from '@chakra-ui/react'
 import { LuCrown } from 'react-icons/lu'
 import { Link } from 'react-router'
 
@@ -8,11 +8,11 @@ type Placing = {
   endDate?: string | null
   placing: number
   totalPlayers: number
+  eloRating: number
 }
 
 type PlayerTournamentPlacingsProps = {
-  placings: Placing[]
-  compact?: boolean
+  placings: ReadonlyArray<Placing>
 }
 
 const formatTournamentLabel = (startDate?: string | null, endDate?: string | null): string => {
@@ -40,66 +40,70 @@ const getPlacingColor = (placing: number): string => {
   return 'gray'
 }
 
-const PlacingBadge = ({ placing, compact }: { placing: Placing; compact?: boolean }) => {
-  const label = formatTournamentLabel(placing.startDate, placing.endDate)
-  const isWinner = placing.placing === 1
-
-  return (
-    <Link to={`/tournament/${placing.tournamentId}`} style={{ textDecoration: 'none' }}>
-      <Badge
-        colorScheme={getPlacingColor(placing.placing)}
-        variant={isWinner ? 'solid' : 'subtle'}
-        fontSize="xs"
-        px={2}
-        py={1}
-        borderRadius="md"
-        display="flex"
-        alignItems="center"
-        gap={1}
-        cursor="pointer"
-        _hover={{ opacity: 0.85 }}
-      >
-        {isWinner && <LuCrown size={12} fill="currentColor" />}
-        {compact ? (
-          <Text as="span">
-            {label}: #{placing.placing}
-          </Text>
-        ) : (
-          <Text as="span">
-            {label} · #{placing.placing}/{placing.totalPlayers}
-          </Text>
-        )}
-      </Badge>
-    </Link>
-  )
-}
-
-export const PlayerTournamentPlacings = ({ placings, compact = false }: PlayerTournamentPlacingsProps) => {
+export const PlayerTournamentPlacings = ({ placings }: PlayerTournamentPlacingsProps) => {
   if (placings.length === 0) {
-    return (
-      <Text fontSize="xs" color="gray.500">
-        No previous tournaments
-      </Text>
-    )
-  }
-
-  if (compact) {
-    return (
-      <Wrap gap={1}>
-        {placings.map((placing) => (
-          <WrapItem key={placing.tournamentId}>
-            <PlacingBadge placing={placing} compact />
-          </WrapItem>
-        ))}
-      </Wrap>
-    )
+    return <Text color="fg.subtle">No previous tournaments</Text>
   }
 
   return (
-    <HStack gap={2} flexWrap="wrap">
-      {placings.map((placing) => (
-        <PlacingBadge key={placing.tournamentId} placing={placing} />
-      ))}
-    </HStack>
+    <VStack gap={{ base: 3, md: 4 }} align="stretch">
+      {placings.map((placing) => {
+        const label = formatTournamentLabel(placing.startDate, placing.endDate)
+        const isWinner = placing.placing === 1
+
+        return (
+          <Link key={placing.tournamentId} to={`/tournament/${placing.tournamentId}`} style={{ textDecoration: 'none', width: '100%' }}>
+            <Box
+              p={{ base: 4, md: 5 }}
+              bg="bg.panel"
+              borderRadius="card"
+              borderWidth="1px"
+              borderColor="gray.200"
+              boxShadow="card"
+              cursor="pointer"
+              _hover={{ borderColor: 'brand.400', boxShadow: 'card-hover', transform: 'translateY(-2px)' }}
+              transition="all 0.2s"
+            >
+              <HStack justify="space-between" gap={{ base: 3, md: 4 }}>
+                <HStack gap={{ base: 3, md: 4 }} flex={1} minW={0}>
+                  <Badge
+                    colorScheme={getPlacingColor(placing.placing)}
+                    variant={isWinner ? 'solid' : 'subtle'}
+                    fontSize={{ base: 'lg', md: 'xl' }}
+                    px={3}
+                    py={1}
+                    borderRadius="md"
+                    fontWeight="bold"
+                    display="flex"
+                    alignItems="center"
+                    gap={1}
+                  >
+                    {isWinner && <LuCrown size={18} fill="currentColor" />}
+                    #{placing.placing}
+                  </Badge>
+                  <VStack align="start" gap={0} minW={0}>
+                    <Text fontWeight="bold" fontSize={{ base: 'md', md: 'lg' }} color="gray.900" truncate>
+                      {label}
+                    </Text>
+                    <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">
+                      #{placing.placing} of {placing.totalPlayers}
+                    </Text>
+                  </VStack>
+                </HStack>
+
+                <VStack align="end" gap={0}>
+                  <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">
+                    Tournament ELO
+                  </Text>
+                  <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="bold" color="gray.900">
+                    {placing.eloRating}
+                  </Text>
+                </VStack>
+              </HStack>
+            </Box>
+          </Link>
+        )
+      })}
+    </VStack>
   )
 }

@@ -2,15 +2,6 @@ import { Badge, Box, HStack, Text, VStack } from '@chakra-ui/react'
 import { LuCrown } from 'react-icons/lu'
 import { Link } from 'react-router'
 import { Avatar } from '../common/Avatar'
-import { PlayerTournamentPlacings } from './PlayerTournamentPlacings'
-
-type Placing = {
-  tournamentId: string
-  startDate?: string | null
-  endDate?: string | null
-  placing: number
-  totalPlayers: number
-}
 
 type LeaderboardEntry = {
   playerId: string
@@ -18,7 +9,6 @@ type LeaderboardEntry = {
   allTimeEloRating: number
   allTimeElo: number
   avatarFilename?: string | null
-  pastTournamentPlacings?: Placing[]
 }
 
 type LeaderboardListProps = {
@@ -87,11 +77,6 @@ const LeaderboardEntryCard = ({ entry, index }: LeaderboardEntryCardProps) => (
             <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">
               All Time: {entry.allTimeElo}
             </Text>
-            {entry.pastTournamentPlacings && entry.pastTournamentPlacings.length > 0 && (
-              <Box mt={1}>
-                <PlayerTournamentPlacings placings={entry.pastTournamentPlacings} compact />
-              </Box>
-            )}
           </VStack>
         </HStack>
 

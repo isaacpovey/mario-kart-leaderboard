@@ -145,6 +145,7 @@ impl PlayerTournamentScore {
                     pts.tournament_id,
                     t.start_date,
                     t.end_date,
+                    pts.elo_rating,
                     ROW_NUMBER() OVER (
                         PARTITION BY pts.tournament_id
                         ORDER BY pts.elo_rating DESC
@@ -156,7 +157,7 @@ impl PlayerTournamentScore {
                   AND t.group_id = $2
                   AND t.winner IS NOT NULL
             )
-            SELECT tournament_id, start_date, end_date, placing, total_players
+            SELECT tournament_id, start_date, end_date, elo_rating, placing, total_players
             FROM ranked
             ORDER BY start_date DESC NULLS LAST, end_date DESC NULLS LAST",
         )
@@ -172,6 +173,7 @@ pub struct PlayerTournamentPlacingRow {
     pub tournament_id: Uuid,
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
+    pub elo_rating: i32,
     pub placing: i32,
     pub total_players: i32,
 }

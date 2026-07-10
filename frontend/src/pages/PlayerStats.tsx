@@ -45,6 +45,7 @@ const PlayerStats = () => {
   }))
 
   const pastPlacings = (player.pastTournamentPlacings ?? []).map((placing) => ({
+    eloRating: placing.eloRating,
     endDate: placing.endDate,
     placing: placing.placing,
     startDate: placing.startDate,
