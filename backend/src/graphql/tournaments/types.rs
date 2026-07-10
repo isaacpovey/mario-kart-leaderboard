@@ -299,6 +299,7 @@ pub struct PlayerTournamentPlacing {
     pub tournament_id: ID,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
+    pub elo_rating: i32,
     pub placing: i32,
     pub total_players: i32,
 }
@@ -309,6 +310,7 @@ impl From<models::PlayerTournamentPlacingRow> for PlayerTournamentPlacing {
             tournament_id: ID(row.tournament_id.to_string()),
             start_date: row.start_date.map(|d| d.to_string()),
             end_date: row.end_date.map(|d| d.to_string()),
+            elo_rating: row.elo_rating,
             placing: row.placing,
             total_players: row.total_players,
         }

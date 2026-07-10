@@ -14,6 +14,7 @@ export const playerByIdQuery = graphql(`
         endDate
         placing
         totalPlayers
+        eloRating
       }
       trackStats {
         trackName
