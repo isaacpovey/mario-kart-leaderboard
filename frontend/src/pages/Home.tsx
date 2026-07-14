@@ -41,8 +41,7 @@ type UseQueryRetryParams = {
 const useQueryRetry = ({ urqlClient, hasError, hasData }: Omit<UseQueryRetryParams, 'error'>): RetryState => {
   const [retryCount, setRetryCount] = useState(0)
 
-  // Key the retry effect off hasError (boolean), not error object identity —
-  // fresh CombinedError instances on each failed refetch used to cancel the backoff forever.
+  // Key retries off hasError boolean — new CombinedError identities were canceling backoff forever.
   useEffect(() => {
     if (!hasError || retryCount >= MAX_RETRIES) {
       return
