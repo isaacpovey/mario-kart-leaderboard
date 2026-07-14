@@ -7,31 +7,45 @@ export const ProtectedRoute = (dependencies: { children: React.ReactNode }) => {
   const { children } = dependencies
   const { isAuthenticated, login } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const groupId = searchParams.get('groupId')
+  const password = searchParams.get('password')
+  // Only block on the auto-login URL flow; otherwise decide immediately so an
+  // Unauthenticated visit to `/` never sits on an indefinite spinner.
+  const [isCheckingAuth, setIsCheckingAuth] = useState(() => Boolean(groupId && password))
 
   useEffect(() => {
+    if (!groupId || !password) {
+      setIsCheckingAuth(false)
+      return
+    }
+
+    let cancelled = false
+
     const checkAuth = async () => {
-      const groupId = searchParams.get('groupId')
-      const password = searchParams.get('password')
+      const result = await login({ groupId, password })
 
-      if (groupId && password) {
-        const result = await login({ groupId, password })
+      if (cancelled) {
+        return
+      }
 
-        if (result.success) {
-          setSearchParams((prev) => {
-            const newParams = new URLSearchParams(prev)
-            newParams.delete('groupId')
-            newParams.delete('password')
-            return newParams
-          })
-        }
+      if (result.success) {
+        setSearchParams((prev) => {
+          const newParams = new URLSearchParams(prev)
+          newParams.delete('groupId')
+          newParams.delete('password')
+          return newParams
+        })
       }
 
       setIsCheckingAuth(false)
     }
 
-    checkAuth()
-  }, [searchParams, login, setSearchParams])
+    void checkAuth()
+
+    return () => {
+      cancelled = true
+    }
+  }, [groupId, password, login, setSearchParams])
 
   if (isCheckingAuth) {
     return (

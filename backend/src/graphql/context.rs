@@ -9,6 +9,7 @@ use crate::graphql::teams::PlayersByTeamLoader;
 use crate::graphql::tracks::TrackLoader;
 use crate::services::notification_manager::NotificationManager;
 use async_graphql::dataloader::{DataLoader, HashMapCache};
+use async_graphql::ErrorExtensions;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -108,7 +109,10 @@ impl GraphQLContext {
     }
 
     pub fn authenticated_group_id(&self) -> Result<Uuid, async_graphql::Error> {
-        self.group_id
-            .ok_or_else(|| async_graphql::Error::new("Authentication required"))
+        self.group_id.ok_or_else(|| {
+            async_graphql::Error::new("Authentication required").extend_with(|_, e| {
+                e.set("code", "UNAUTHORIZED");
+            })
+        })
     }
 }

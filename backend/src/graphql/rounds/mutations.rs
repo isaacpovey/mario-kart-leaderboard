@@ -60,7 +60,9 @@ impl RoundsMutation {
             .ok_or_else(|| Error::new("Match not found"))?;
 
         if match_record.group_id != group_id {
-            return Err(Error::new("Unauthorized"));
+            return Err(Error::new("Unauthorized").extend_with(|_, e| {
+                e.set("code", "UNAUTHORIZED");
+            }));
         }
 
         if match_record.completed {
