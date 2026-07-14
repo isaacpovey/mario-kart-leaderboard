@@ -9,8 +9,8 @@ export const ProtectedRoute = (dependencies: { children: React.ReactNode }) => {
   const [searchParams, setSearchParams] = useSearchParams()
   const groupId = searchParams.get('groupId')
   const password = searchParams.get('password')
-  // Only block on the auto-login URL flow; otherwise decide immediately so an
-  // Unauthenticated visit to `/` never sits on an indefinite spinner.
+  // Only show a spinner for the ?groupId=&password= auto-login URL flow.
+  // Otherwise decide immediately so an unauthenticated `/` never hangs on a spinner.
   const [isCheckingAuth, setIsCheckingAuth] = useState(() => Boolean(groupId && password))
 
   useEffect(() => {
