@@ -1,3 +1,4 @@
+use async_graphql::ErrorExtensions;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -48,7 +49,19 @@ pub trait IntoGraphQLError {
 
 impl IntoGraphQLError for AppError {
     fn into_graphql_error(self) -> async_graphql::Error {
-        async_graphql::Error::new(self.to_string())
+        let code = match &self {
+            AppError::Unauthorized(_) | AppError::AuthenticationFailed(_) | AppError::InvalidCredentials | AppError::JwtError(_) => {
+                Some("UNAUTHORIZED")
+            }
+            _ => None,
+        };
+        let message = self.to_string();
+        match code {
+            Some(code) => async_graphql::Error::new(message).extend_with(|_, e| {
+                e.set("code", code);
+            }),
+            None => async_graphql::Error::new(message),
+        }
     }
 }
 

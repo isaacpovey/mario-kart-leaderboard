@@ -1,7 +1,7 @@
 import { Box, Button, Container, HStack, Heading, Link as ChakraLink, Spinner, Stack, Text, VStack } from '@chakra-ui/react'
 import type { ResultOf } from 'gql.tada'
 import { useAtomValue } from 'jotai'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { LuFlag, LuHistory, LuPlay, LuTrophy, LuUsers } from 'react-icons/lu'
 import { Link, useNavigate } from 'react-router'
 import { useClient, useQuery } from 'urql'
@@ -35,40 +35,36 @@ type RetryState = {
 type UseQueryRetryParams = {
   urqlClient: ReturnType<typeof useClient>
   hasError: boolean
-  error: Error | undefined
   hasData: boolean
 }
 
-const useQueryRetry = ({ urqlClient, hasError, error, hasData }: UseQueryRetryParams): RetryState => {
+const useQueryRetry = ({ urqlClient, hasError, hasData }: Omit<UseQueryRetryParams, 'error'>): RetryState => {
   const [retryCount, setRetryCount] = useState(0)
-  const lastErrorRef = useRef<Error | null>(null)
 
-  const isNewError = hasError && error !== lastErrorRef.current
-
+  // Key retries off hasError boolean — new CombinedError identities were canceling backoff forever.
   useEffect(() => {
-    if (isNewError && retryCount < MAX_RETRIES) {
-      lastErrorRef.current = error ?? null
-      const delay = 1000 * 2 ** retryCount
-      const timer = setTimeout(() => {
-        urqlClient
-          .query(activeTournamentQuery, {}, { requestPolicy: 'network-only' })
-          .toPromise()
-          .finally(() => setRetryCount((prev) => prev + 1))
-      }, delay)
-      return () => clearTimeout(timer)
+    if (!hasError || retryCount >= MAX_RETRIES) {
+      return
     }
-  }, [isNewError, retryCount, error, urqlClient])
+
+    const delay = 1000 * 2 ** retryCount
+    const timer = setTimeout(() => {
+      urqlClient
+        .query(activeTournamentQuery, {}, { requestPolicy: 'network-only' })
+        .toPromise()
+        .finally(() => setRetryCount((prev) => prev + 1))
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [hasError, retryCount, urqlClient])
 
   useEffect(() => {
     if (hasData && !hasError) {
       setRetryCount(0)
-      lastErrorRef.current = null
     }
   }, [hasData, hasError])
 
   const handleManualRetry = useCallback(() => {
     setRetryCount(0)
-    lastErrorRef.current = null
     urqlClient.query(activeTournamentQuery, {}, { requestPolicy: 'network-only' }).toPromise()
   }, [urqlClient])
 
@@ -175,7 +171,6 @@ const Home = () => {
   const hasError = activeTournamentResult?.error !== undefined
 
   const { isRetrying, hasFailedCompletely, handleManualRetry } = useQueryRetry({
-    error: activeTournamentResult?.error,
     hasData: activeTournamentResult?.data !== undefined,
     hasError,
     urqlClient,
