@@ -386,7 +386,7 @@ async fn fetch_completion_status(
 
 async fn fetch_teams(pool: &crate::db::DbPool, match_id: Uuid) -> Result<Vec<Team>> {
     let mut teams = models::Team::find_by_match_id(pool, match_id).await?;
-    teams.sort_by(|a, b| b.score.cmp(&a.score));
+    teams.sort_by_key(|team| std::cmp::Reverse(team.score));
     Ok(teams.into_iter().map(Team::from).collect())
 }
 
