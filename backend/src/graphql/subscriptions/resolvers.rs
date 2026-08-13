@@ -385,16 +385,8 @@ async fn fetch_completion_status(
 }
 
 async fn fetch_teams(pool: &crate::db::DbPool, match_id: Uuid) -> Result<Vec<Team>> {
-    let teams = sqlx::query_as::<_, models::Team>(
-        "SELECT id, match_id, name, score
-         FROM teams
-         WHERE match_id = $1
-         ORDER BY score DESC NULLS LAST",
-    )
-    .bind(match_id)
-    .fetch_all(pool)
-    .await?;
-
+    let mut teams = models::Team::find_by_match_id(pool, match_id).await?;
+    teams.sort_by(|a, b| b.score.cmp(&a.score));
     Ok(teams.into_iter().map(Team::from).collect())
 }
 

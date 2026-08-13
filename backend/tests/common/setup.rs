@@ -52,6 +52,7 @@ pub async fn setup_test_db() -> TestContext {
     // Create test config
     let config = Config {
         database_url,
+        listen_database_url: None,
         database_max_connections: 5,
         jwt_secret: "test_secret_key_for_testing_only_at_least_32_chars".to_string(),
         server_host: "127.0.0.1".to_string(),
