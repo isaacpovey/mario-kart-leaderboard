@@ -4,6 +4,10 @@ use std::env;
 #[derive(Clone, Debug)]
 pub struct Config {
     pub database_url: String,
+    /// Dedicated URL for PostgreSQL LISTEN. Falls back to [`Self::database_url`]
+    /// when unset. Use this when the query pool goes through a transaction-mode
+    /// pooler (e.g. Supavisor on port 6543) that silently drops LISTEN/NOTIFY.
+    pub listen_database_url: Option<String>,
     pub database_max_connections: u32,
     pub jwt_secret: String,
     pub server_host: String,
@@ -52,6 +56,10 @@ impl Config {
             database_url: env::var("DATABASE_URL").unwrap_or_else(|_| {
                 "postgresql://postgres:password@localhost/mario_kart".to_string()
             }),
+            listen_database_url: env::var("LISTEN_DATABASE_URL")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
             database_max_connections,
             jwt_secret,
             server_host: env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
@@ -68,5 +76,51 @@ impl Config {
 
     pub fn server_addr(&self) -> String {
         format!("{}:{}", self.server_host, self.server_port)
+    }
+
+    /// Connection string used by [`crate::services::notification_manager::NotificationManager::start_listener`].
+    ///
+    /// Prefer `LISTEN_DATABASE_URL` (session-mode / direct Postgres) when the
+    /// main `DATABASE_URL` is a transaction-mode pooler that cannot deliver
+    /// LISTEN notifications.
+    pub fn listen_database_url(&self) -> &str {
+        self.listen_database_url
+            .as_deref()
+            .unwrap_or(&self.database_url)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    fn sample_config(listen: Option<&str>) -> Config {
+        Config {
+            database_url: "postgresql://pooler:6543/mario_kart".to_string(),
+            listen_database_url: listen.map(str::to_string),
+            database_max_connections: 10,
+            jwt_secret: "test_secret_key_for_testing_only_at_least_32_chars".to_string(),
+            server_host: "127.0.0.1".to_string(),
+            server_port: 8080,
+            enable_playground: false,
+            cors_origins: vec![],
+            otlp_endpoint: None,
+            service_name: "test".to_string(),
+        }
+    }
+
+    #[test]
+    fn listen_url_falls_back_to_database_url() {
+        let config = sample_config(None);
+        assert_eq!(config.listen_database_url(), config.database_url);
+    }
+
+    #[test]
+    fn listen_url_uses_dedicated_override() {
+        let config = sample_config(Some("postgresql://direct:5432/mario_kart"));
+        assert_eq!(
+            config.listen_database_url(),
+            "postgresql://direct:5432/mario_kart"
+        );
     }
 }

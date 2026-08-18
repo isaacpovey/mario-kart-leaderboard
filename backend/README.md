@@ -35,6 +35,9 @@ Create a `.env` file in the `backend/` directory:
 
 ```env
 DATABASE_URL=postgresql://postgres:password@localhost:5432/mario_kart
+# Optional: dedicated session-mode URL for PostgreSQL LISTEN/NOTIFY.
+# Required in production if DATABASE_URL is a transaction-mode pooler (LISTEN is silently dropped).
+# LISTEN_DATABASE_URL=postgresql://postgres:password@localhost:5432/mario_kart
 JWT_SECRET=your-secret-key-change-in-production
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8080

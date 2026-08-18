@@ -1692,3 +1692,159 @@ async fn test_slot_assignments_updated_filters_by_group_match_and_round() {
     );
     assert_eq!(event.get("sourceClientId").and_then(|v| v.as_str()), Some("wanted"));
 }
+
+#[tokio::test]
+async fn test_race_results_updated_delivers_teams_when_match_completes() {
+    use futures::StreamExt;
+    use std::time::Duration;
+
+    let ctx = setup::setup_test_db().await;
+
+    let group = fixtures::create_test_group(&ctx.pool, "Test Group", "password")
+        .await
+        .expect("Failed to create test group");
+    let tournaments = fixtures::create_test_tournaments(&ctx.pool, group.id, 1)
+        .await
+        .expect("Failed to create test tournaments");
+    let tournament = &tournaments[0];
+    let players = fixtures::create_test_players(&ctx.pool, group.id, 2)
+        .await
+        .expect("Failed to create test players");
+    let match_record = fixtures::create_test_match(&ctx.pool, group.id, tournament.id, 2)
+        .await
+        .expect("Failed to create test match");
+    let teams = fixtures::create_test_teams(&ctx.pool, group.id, match_record.id, 1)
+        .await
+        .expect("Failed to create test teams");
+    fixtures::create_test_rounds(&ctx.pool, match_record.id, 2)
+        .await
+        .expect("Failed to create test rounds");
+
+    for round_num in 1..=2 {
+        fixtures::add_players_to_round(
+            &ctx.pool,
+            group.id,
+            match_record.id,
+            round_num,
+            teams[0].id,
+            &players.iter().map(|p| p.id).collect::<Vec<_>>(),
+        )
+        .await
+        .expect("Failed to add players to round");
+    }
+
+    let notification_manager = NotificationManager::new();
+    notification_manager
+        .clone()
+        .start_listener(ctx.config.listen_database_url())
+        .await
+        .expect("start listener");
+
+    let request = Request::new(
+        r#"subscription RaceResults($tournamentId: ID!) {
+            raceResultsUpdated(tournamentId: $tournamentId) {
+                matchId
+                roundNumber
+                matchCompleted
+                teams { id name teamNum score }
+            }
+        }"#,
+    )
+    .variables(Variables::from_value(value!({
+        "tournamentId": tournament.id.to_string(),
+    })))
+    .data(ctx.config.clone())
+    .data(GraphQLContext::new(
+        ctx.pool.clone(),
+        Some(group.id),
+        notification_manager.clone(),
+    ));
+    let mut stream = ctx.schema.execute_stream(request);
+
+    let mutation = r#"
+        mutation RecordResults($matchId: ID!, $roundNumber: Int!, $results: [PlayerResultInput!]!) {
+            recordRoundResults(matchId: $matchId, roundNumber: $roundNumber, results: $results) {
+                id
+                completed
+            }
+        }
+    "#;
+
+    let pool = ctx.pool.clone();
+    let schema = ctx.schema.clone();
+    let config = ctx.config.clone();
+    let nm = notification_manager.clone();
+    let group_id = group.id;
+    let match_id = match_record.id;
+    let player_0 = players[0].id;
+    let player_1 = players[1].id;
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        for (round_number, first, second) in [(1, player_0, player_1), (2, player_1, player_0)] {
+            let request = Request::new(mutation)
+                .variables(Variables::from_value(value!({
+                    "matchId": match_id.to_string(),
+                    "roundNumber": round_number,
+                    "results": [
+                        {"playerId": first.to_string(), "position": 1},
+                        {"playerId": second.to_string(), "position": 2},
+                    ]
+                })))
+                .data(config.clone());
+            let gql_ctx = GraphQLContext::new(pool.clone(), Some(group_id), nm.clone());
+            let response = schema.execute(request.data(gql_ctx)).await;
+            assert!(
+                response.errors.is_empty(),
+                "recordRoundResults errors: {:?}",
+                response.errors
+            );
+        }
+    });
+
+    let mut saw_incomplete = false;
+    let mut saw_complete = false;
+
+    for _ in 0..2 {
+        let response = tokio::time::timeout(Duration::from_secs(10), stream.next())
+            .await
+            .expect("subscription timed out waiting for raceResultsUpdated")
+            .expect("subscription stream ended early");
+
+        assert!(
+            response.errors.is_empty(),
+            "raceResultsUpdated should not error on match completion: {:?}",
+            response.errors
+        );
+
+        let data = response.data.into_json().expect("parse response");
+        let update = data
+            .get("raceResultsUpdated")
+            .expect("raceResultsUpdated field");
+        let completed = update
+            .get("matchCompleted")
+            .and_then(|v| v.as_bool())
+            .expect("matchCompleted");
+
+        if completed {
+            let teams_payload = update
+                .get("teams")
+                .and_then(|v| v.as_array())
+                .expect("teams array");
+            assert!(
+                !teams_payload.is_empty(),
+                "completed match update should include teams"
+            );
+            assert!(
+                teams_payload[0].get("name").and_then(|v| v.as_str()).is_some(),
+                "team name should be present"
+            );
+            saw_complete = true;
+        } else {
+            saw_incomplete = true;
+        }
+    }
+
+    assert!(saw_incomplete, "expected an in-progress round update");
+    assert!(saw_complete, "expected a match-completed update with teams");
+}

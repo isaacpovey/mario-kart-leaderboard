@@ -37,7 +37,7 @@ async fn main() -> Result<(), AppError> {
     // Start PostgreSQL LISTEN in background
     notification_manager
         .clone()
-        .start_listener(&config.database_url)
+        .start_listener(config.listen_database_url())
         .await?;
 
     tracing::info!("Notification manager initialized and listening to PostgreSQL");
